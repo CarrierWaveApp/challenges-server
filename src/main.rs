@@ -1,5 +1,6 @@
 // src/main.rs
 mod config;
+mod error;
 
 use config::Config;
 
