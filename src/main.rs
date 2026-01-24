@@ -1,6 +1,6 @@
-// src/main.rs
 mod config;
 mod error;
+mod models;
 
 use config::Config;
 
