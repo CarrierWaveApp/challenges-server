@@ -78,3 +78,38 @@ challenges-server/
     ├── api.md
     └── features/
 ```
+
+## Implementation Status
+
+### Completed
+- Database schema with migrations
+- Configuration from environment variables
+- Error types with JSON responses
+- Models for challenges, participants, progress
+- Device token generation and validation
+- Auth middleware (optional, required, admin)
+- Database layer for all entities
+- HTTP handlers for all public endpoints
+- HTTP handlers for admin CRUD
+- Router with middleware stack
+- Health check endpoint
+
+### Endpoints Implemented
+- `GET /v1/challenges` - List challenges
+- `GET /v1/challenges/{id}` - Get challenge details
+- `POST /v1/challenges/{id}/join` - Join challenge
+- `POST /v1/challenges/{id}/progress` - Report progress (auth required)
+- `GET /v1/challenges/{id}/progress` - Get own progress (auth required)
+- `GET /v1/challenges/{id}/leaderboard` - Get leaderboard
+- `DELETE /v1/challenges/{id}/leave` - Leave challenge (auth required)
+- `GET /v1/health` - Health check
+- `POST /v1/admin/challenges` - Create challenge (admin)
+- `PUT /v1/admin/challenges/{id}` - Update challenge (admin)
+- `DELETE /v1/admin/challenges/{id}` - Delete challenge (admin)
+
+### Not Yet Implemented
+- Badge upload/retrieval
+- Invite token generation
+- Challenge snapshots
+- Rate limiting middleware
+- Token revocation endpoint
