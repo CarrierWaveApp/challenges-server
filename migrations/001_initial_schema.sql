@@ -67,6 +67,7 @@ CREATE TABLE badges (
     content_type    TEXT NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE INDEX idx_badges_challenge ON badges(challenge_id);
 
 -- Earned badges
 CREATE TABLE earned_badges (
@@ -76,6 +77,7 @@ CREATE TABLE earned_badges (
     earned_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE(badge_id, callsign)
 );
+CREATE INDEX idx_earned_badges_callsign ON earned_badges(callsign);
 
 -- Challenge snapshots (frozen leaderboards)
 CREATE TABLE challenge_snapshots (
@@ -86,6 +88,7 @@ CREATE TABLE challenge_snapshots (
     statistics      JSONB,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE INDEX idx_challenge_snapshots_challenge ON challenge_snapshots(challenge_id);
 
 -- Invite tokens
 CREATE TABLE invite_tokens (
