@@ -82,3 +82,18 @@ Friend system: users, friend requests, and friend invite links.
   - Columns: id, token, user_id, created_at, expires_at, used_at, used_by_user_id
   - Constraints: token format check (inv_ prefix + 20+ alphanumeric)
   - Indexes: token (unique), user_id, expires_at
+
+### `migrations/004_seed_friends.sql`
+Seed data for testing friend system features.
+
+**Test Users:**
+- `W1TEST` (id: 550e8400-e29b-41d4-a716-446655440001) - Primary test user
+- `W6JSV` (id: 550e8400-e29b-41d4-a716-446655440002) - Friend of W1TEST
+- `N3SEED` (id: 550e8400-e29b-41d4-a716-446655440003) - Has pending request to W1TEST
+- `AA4DEV` (id: 550e8400-e29b-41d4-a716-446655440004) - Stranger (no relationships)
+
+**Relationships:**
+- Friendship: W1TEST ↔ W6JSV
+- Pending request: N3SEED → W1TEST
+- Active invite: W1TEST's `inv_w1testactiveinvite12345`
+- Used invite: `inv_usedinvitetoken1234567` (used by W6JSV)

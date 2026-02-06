@@ -2,13 +2,17 @@ mod auth;
 mod config;
 mod db;
 mod error;
+mod extractors;
 mod handlers;
 mod models;
 
 use std::net::SocketAddr;
 
 use axum::{
-    middleware, Extension,
+    http::StatusCode,
+    middleware,
+    response::IntoResponse,
+    Extension, Json,
     routing::{delete, get, post, put},
     Router,
 };
@@ -124,15 +128,31 @@ fn create_router(pool: sqlx::PgPool, config: Config) -> Router {
             auth::require_admin,
         ));
 
+    // Merge all v1 routes with a JSON 404 fallback for unmatched API paths
+    let v1_routes = public_routes
+        .merge(auth_routes)
+        .merge(admin_routes)
+        .fallback(api_not_found);
+
     // Static file serving for SPA (fallback to index.html for client-side routing)
     let serve_dir = ServeDir::new("web/dist").fallback(ServeFile::new("web/dist/index.html"));
 
     Router::new()
-        .nest("/v1", public_routes)
-        .nest("/v1", auth_routes)
-        .nest("/v1", admin_routes)
+        .nest("/v1", v1_routes)
         .fallback_service(serve_dir)
         .layer(TraceLayer::new_for_http())
         .layer(cors)
         .with_state(pool)
+}
+
+async fn api_not_found() -> impl IntoResponse {
+    (
+        StatusCode::NOT_FOUND,
+        Json(serde_json::json!({
+            "error": {
+                "code": "NOT_FOUND",
+                "message": "Endpoint not found"
+            }
+        })),
+    )
 }

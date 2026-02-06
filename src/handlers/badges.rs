@@ -1,9 +1,10 @@
 use axum::{
     body::Body,
-    extract::{Path, State},
+    extract::State,
     http::{header, Response, StatusCode},
-    Json,
 };
+
+use crate::extractors::{Json, Path};
 use axum_extra::extract::Multipart;
 use serde::Serialize;
 use sqlx::PgPool;

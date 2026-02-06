@@ -1,8 +1,8 @@
 [package]
-name = "challenges-server"
-version = "0.1.0"
+name = "activities-server"
+version = "0.2.0"
 edition = "2021"
-description = "Self-hostable challenges server for FullDuplex ham radio logging"
+description = "Self-hostable activities server for Carrier Wave ham radio logging"
 license = "MIT"
 
 [dependencies]

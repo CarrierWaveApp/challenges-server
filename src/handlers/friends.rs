@@ -1,8 +1,9 @@
 use axum::{
     extract::{Extension, State},
     http::StatusCode,
-    Json,
 };
+
+use crate::extractors::Json;
 use sqlx::PgPool;
 
 use crate::auth::AuthContext;

@@ -55,9 +55,9 @@ jobs:
 
       - name: Package release
         run: |
-          ARCHIVE="challenges-server-${{ steps.version.outputs.version }}-x86_64-linux.tar.gz"
+          ARCHIVE="activities-server-${{ steps.version.outputs.version }}-x86_64-linux.tar.gz"
           mkdir -p release/web
-          cp target/x86_64-unknown-linux-musl/release/challenges-server release/
+          cp target/x86_64-unknown-linux-musl/release/activities-server release/
           cp -r web/dist release/web/
           cp -r migrations release/
           tar -czf "$ARCHIVE" -C release .

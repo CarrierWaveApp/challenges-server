@@ -1,8 +1,9 @@
 use axum::{
-    extract::{Extension, Path, State},
+    extract::{Extension, State},
     http::StatusCode,
-    Json,
 };
+
+use crate::extractors::{Json, Path};
 use sqlx::PgPool;
 use uuid::Uuid;
 

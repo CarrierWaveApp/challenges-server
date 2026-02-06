@@ -1,8 +1,9 @@
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Query, State},
     http::{header, HeaderMap, StatusCode},
-    Json,
 };
+
+use crate::extractors::{Json, Path};
 use serde::Serialize;
 use sqlx::PgPool;
 use uuid::Uuid;
