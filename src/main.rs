@@ -137,11 +137,16 @@ fn create_router(pool: sqlx::PgPool, config: Config) -> Router {
         .merge(admin_routes)
         .fallback(api_not_found);
 
+    // Friend invite page (server-rendered HTML for links opened in browsers)
+    let invite_route = Router::new()
+        .route("/invite/:token", get(handlers::invite_page));
+
     // Static file serving for SPA (fallback to index.html for client-side routing)
     let serve_dir = ServeDir::new("web/dist").fallback(ServeFile::new("web/dist/index.html"));
 
     Router::new()
         .nest("/v1", v1_routes)
+        .merge(invite_route)
         .fallback_service(serve_dir)
         .layer(TraceLayer::new_for_http())
         .layer(cors)
