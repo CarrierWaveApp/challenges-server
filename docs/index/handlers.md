@@ -80,6 +80,12 @@ Invite token management.
 - `async fn list_invites()` - GET /v1/admin/challenges/:id/invites - List invites (admin)
 - `async fn revoke_invite()` - DELETE /v1/admin/invites/:token - Revoke invite token (admin)
 
+### `src/handlers/invite_page.rs`
+Server-rendered HTML page for friend invite links opened in browsers.
+
+**Exports:**
+- `async fn invite_page()` - GET /invite/:token - Render HTML page with inviter callsign and deep link to Carrier Wave
+
 ### `src/handlers/friends.rs`
 Friend invite links and friend requests.
 
