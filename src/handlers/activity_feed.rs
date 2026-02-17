@@ -7,29 +7,36 @@ use crate::extractors::Json;
 use sqlx::PgPool;
 
 use crate::auth::AuthContext;
+use crate::db;
 use crate::error::AppError;
+use crate::models::activity::{ActivityResponse, FeedItemResponse, ReportActivityRequest};
 
 use super::DataResponse;
 
 /// POST /v1/activities
-/// Report a notable activity (stub: accepts and returns the activity)
+/// Report a notable activity.
 pub async fn report_activity(
-    State(_pool): State<PgPool>,
+    State(pool): State<PgPool>,
     Extension(auth): Extension<AuthContext>,
-    Json(body): Json<serde_json::Value>,
-) -> Result<(StatusCode, Json<DataResponse<serde_json::Value>>), AppError> {
-    // Stub: echo back with an id and the caller's callsign
-    let mut response = body.clone();
-    if let Some(obj) = response.as_object_mut() {
-        obj.insert("id".to_string(), serde_json::json!(uuid::Uuid::new_v4()));
-        obj.insert("callsign".to_string(), serde_json::json!(auth.callsign));
-    }
+    Json(body): Json<ReportActivityRequest>,
+) -> Result<(StatusCode, Json<DataResponse<ActivityResponse>>), AppError> {
+    let user = db::get_or_create_user(&pool, &auth.callsign).await?;
 
+    let activity = db::insert_activity(
+        &pool,
+        user.id,
+        &auth.callsign,
+        &body.activity_type,
+        body.timestamp,
+        &body.details,
+    )
+    .await?;
+
+    let response: ActivityResponse = activity.into();
     Ok((StatusCode::CREATED, Json(DataResponse { data: response })))
 }
 
 #[derive(serde::Deserialize)]
-#[allow(dead_code)]
 pub struct FeedQuery {
     pub limit: Option<i64>,
     pub filter: Option<String>,
@@ -39,7 +46,7 @@ pub struct FeedQuery {
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FeedResponse {
-    pub items: Vec<serde_json::Value>,
+    pub items: Vec<FeedItemResponse>,
     pub pagination: FeedPagination,
 }
 
@@ -51,18 +58,43 @@ pub struct FeedPagination {
 }
 
 /// GET /v1/feed
-/// Get activity feed (stub: returns empty feed)
+/// Get activity feed from friends, with cursor-based pagination.
 pub async fn get_feed(
-    State(_pool): State<PgPool>,
-    Extension(_auth): Extension<AuthContext>,
-    Query(_params): Query<FeedQuery>,
+    State(pool): State<PgPool>,
+    Extension(auth): Extension<AuthContext>,
+    Query(params): Query<FeedQuery>,
 ) -> Result<Json<DataResponse<FeedResponse>>, AppError> {
+    let user = db::get_or_create_user(&pool, &auth.callsign).await?;
+
+    let limit = params.limit.unwrap_or(50).min(100).max(1);
+
+    // Parse cursor (ISO 8601 timestamp)
+    let before = params.before.as_deref().and_then(|s| {
+        chrono::DateTime::parse_from_rfc3339(s)
+            .ok()
+            .map(|dt| dt.with_timezone(&chrono::Utc))
+    });
+
+    // Fetch one extra to determine hasMore
+    let rows = db::get_feed_for_user(&pool, user.id, limit + 1, before).await?;
+
+    let has_more = rows.len() as i64 > limit;
+    let truncated: Vec<_> = rows.into_iter().take(limit as usize).collect();
+
+    let next_cursor = if has_more {
+        truncated.last().map(|row| row.created_at.to_rfc3339())
+    } else {
+        None
+    };
+
+    let items: Vec<FeedItemResponse> = truncated.into_iter().map(Into::into).collect();
+
     Ok(Json(DataResponse {
         data: FeedResponse {
-            items: vec![],
+            items,
             pagination: FeedPagination {
-                has_more: false,
-                next_cursor: None,
+                has_more,
+                next_cursor,
             },
         },
     }))

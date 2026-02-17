@@ -1,3 +1,4 @@
+pub mod activities;
 pub mod badges;
 pub mod challenges;
 pub mod friend_invites;
@@ -7,6 +8,7 @@ pub mod participants;
 pub mod progress;
 pub mod users;
 
+pub use activities::*;
 pub use badges::*;
 pub use challenges::*;
 pub use friend_invites::*;
