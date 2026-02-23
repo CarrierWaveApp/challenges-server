@@ -97,3 +97,19 @@ Seed data for testing friend system features.
 - Pending request: N3SEED → W1TEST
 - Active invite: W1TEST's `inv_w1testactiveinvite12345`
 - Used invite: `inv_usedinvitetoken1234567` (used by W6JSV)
+
+### `migrations/006_programs.sql`
+Activity program registry table and seed data.
+
+**Tables:**
+- `programs` - Activity program definitions
+  - Columns: slug (PK), name, short_name, icon, icon_url, website, server_base_url, reference_label, reference_format, reference_example, multi_ref_allowed, activation_threshold, supports_rove, capabilities (TEXT[]), adif_my_sig, adif_my_sig_info, adif_sig_field, adif_sig_info_field, data_entry_label, data_entry_placeholder, data_entry_format, sort_order, is_active, created_at, updated_at
+
+**Seed Programs:**
+- `casual` (sort 0) - No capabilities
+- `pota` (sort 1) - Parks on the Air, full feature set
+- `sota` (sort 2) - Summits on the Air, reference + ADIF
+- `wwff` (sort 3) - World Wide Flora & Fauna, reference + ADIF
+- `iota` (sort 4) - Islands on the Air, reference only
+- `lota` (sort 5) - Lighthouses on the Air, reference only
+- `aoa` (sort 6) - Agents on Air, reference + hunter + dataEntry + dataVerification

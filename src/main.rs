@@ -81,6 +81,8 @@ fn create_router(pool: sqlx::PgPool, config: Config) -> Router {
             get(handlers::get_leaderboard),
         )
         .route("/badges/:id/image", get(handlers::get_badge_image))
+        .route("/programs", get(handlers::list_programs))
+        .route("/programs/:slug", get(handlers::get_program))
         .route("/health", get(handlers::health_check))
         .route("/users/search", get(handlers::search_users))
         .route("/register", post(handlers::register))

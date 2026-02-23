@@ -102,6 +102,8 @@ RUST_LOG=info                                                 # Optional
 - `GET /v1/challenges/{id}/progress` - Get own progress (auth required)
 - `GET /v1/challenges/{id}/leaderboard` - Get leaderboard
 - `DELETE /v1/challenges/{id}/leave` - Leave challenge (auth required)
+- `GET /v1/programs` - List active programs
+- `GET /v1/programs/{slug}` - Get program by slug
 - `GET /v1/health` - Health check
 - `POST /v1/admin/challenges` - Create challenge (admin)
 - `PUT /v1/admin/challenges/{id}` - Update challenge (admin)

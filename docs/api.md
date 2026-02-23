@@ -389,6 +389,60 @@ GET /v1/badges/{id}/image
 
 Returns badge image with appropriate `Content-Type` header.
 
+### List Programs
+
+```
+GET /v1/programs
+```
+
+Returns all active activity programs with a version for cache invalidation.
+
+**Response:**
+
+```json
+{
+  "data": {
+    "programs": [
+      {
+        "slug": "pota",
+        "name": "Parks on the Air",
+        "shortName": "POTA",
+        "icon": "tree",
+        "website": "https://pota.app",
+        "referenceLabel": "Park Reference",
+        "referenceFormat": "^[A-Z]+-[0-9]{4,5}$",
+        "referenceExample": "K-0001",
+        "multiRefAllowed": true,
+        "activationThreshold": 10,
+        "supportsRove": true,
+        "capabilities": ["referenceField", "adifUpload", "browseSpots", "selfSpot", "hunter", "locationLookup", "progressTracking"],
+        "adifFields": {
+          "mySig": "POTA",
+          "mySigInfo": "MY_POTA_REF",
+          "sigField": "SIG",
+          "sigInfoField": "SIG_INFO"
+        }
+      }
+    ],
+    "version": 1737900000
+  }
+}
+```
+
+### Get Program
+
+```
+GET /v1/programs/{slug}
+```
+
+Returns a single program by slug.
+
+**Errors:**
+
+| Code | HTTP | Description |
+|------|------|-------------|
+| `PROGRAM_NOT_FOUND` | 404 | Program slug doesn't exist |
+
 ### Health Check
 
 ```
@@ -502,6 +556,7 @@ Manually ends a challenge and creates a snapshot.
 | Code | HTTP | Description |
 |------|------|-------------|
 | `CHALLENGE_NOT_FOUND` | 404 | Challenge doesn't exist |
+| `PROGRAM_NOT_FOUND` | 404 | Program slug doesn't exist |
 | `ALREADY_JOINED` | 409 | Already participating |
 | `NOT_PARTICIPATING` | 403 | Must join first |
 | `INVITE_REQUIRED` | 403 | Invite-only challenge |

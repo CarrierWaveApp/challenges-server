@@ -5,6 +5,7 @@ pub mod friend_invites;
 pub mod friend_requests;
 pub mod invites;
 pub mod participants;
+pub mod programs;
 pub mod progress;
 pub mod users;
 
@@ -15,5 +16,6 @@ pub use friend_invites::*;
 pub use friend_requests::*;
 pub use invites::*;
 pub use participants::*;
+pub use programs::*;
 pub use progress::*;
 pub use users::*;

@@ -12,7 +12,7 @@ Application entry point and router setup.
 - `fn create_router()` - Build Axum router with all routes and middleware
 
 **Route Groups:**
-- Public routes (optional auth): `/v1/challenges`, `/v1/challenges/:id`, `/v1/challenges/:id/join`, `/v1/challenges/:id/leaderboard`, `/v1/badges/:id/image`, `/v1/health`
+- Public routes (optional auth): `/v1/challenges`, `/v1/challenges/:id`, `/v1/challenges/:id/join`, `/v1/challenges/:id/leaderboard`, `/v1/badges/:id/image`, `/v1/programs`, `/v1/programs/:slug`, `/v1/health`
 - Authenticated routes (require auth): `/v1/challenges/:id/progress`, `/v1/challenges/:id/leave`, `/v1/friends/invite-link`, `/v1/friends/requests`
 - Admin routes (require admin token): `/v1/admin/challenges`, `/v1/admin/challenges/:id`, `/v1/admin/challenges/:id/badges`, `/v1/admin/badges/:id`, `/v1/admin/challenges/:id/invites`, `/v1/admin/invites/:token`
 - Static files: Fallback to `web/dist/` with SPA routing support
@@ -41,6 +41,7 @@ Application error types with HTTP responses.
 - `impl IntoResponse for AppError` - Convert errors to JSON HTTP responses
 
 **Error Variants:**
+- `ProgramNotFound` - 404, slug in details
 - `ChallengeNotFound` - 404, challenge_id in details
 - `BadgeNotFound` - 404, badge_id in details
 - `InviteNotFound` - 404, token in details

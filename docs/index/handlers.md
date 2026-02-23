@@ -80,6 +80,13 @@ Invite token management.
 - `async fn list_invites()` - GET /v1/admin/challenges/:id/invites - List invites (admin)
 - `async fn revoke_invite()` - DELETE /v1/admin/invites/:token - Revoke invite token (admin)
 
+### `src/handlers/programs.rs`
+Activity program registry endpoints (public, no auth).
+
+**Exports:**
+- `async fn list_programs()` - GET /v1/programs - List all active programs with version
+- `async fn get_program()` - GET /v1/programs/:slug - Get single program by slug
+
 ### `src/handlers/invite_page.rs`
 Server-rendered HTML page for friend invite links opened in browsers.
 

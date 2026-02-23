@@ -82,6 +82,17 @@ Friend request data structures.
 - `struct Friendship` - Database row for friendships table (FromRow)
 - `impl From<FriendRequestWithCallsigns> for FriendRequestResponse` - Conversion for API response
 
+### `src/models/program.rs`
+Activity program registry data structures.
+
+**Exports:**
+- `struct ProgramRow` - Database row for programs table (FromRow)
+- `struct ProgramResponse` - API response for single program (Serialize, camelCase)
+- `struct AdifFieldMapping` - ADIF field mapping nested object (Serialize)
+- `struct DataEntryConfig` - Data entry config nested object (Serialize)
+- `struct ProgramListResponse` - API response for program list with version (Serialize)
+- `impl From<ProgramRow> for ProgramResponse` - Conversion with ADIF/data-entry flattening
+
 ### `src/models/friend_invite.rs`
 Friend invite link data structures.
 

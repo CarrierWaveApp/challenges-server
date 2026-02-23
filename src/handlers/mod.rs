@@ -7,6 +7,7 @@ pub mod invites;
 pub mod join;
 pub mod leaderboard;
 pub mod participants;
+pub mod programs;
 pub mod progress;
 pub mod users;
 
@@ -21,5 +22,6 @@ pub use invites::*;
 pub use join::*;
 pub use leaderboard::*;
 pub use participants::*;
+pub use programs::*;
 pub use progress::*;
 pub use users::*;

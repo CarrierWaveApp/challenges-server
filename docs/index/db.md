@@ -71,6 +71,14 @@ User management.
 - `async fn get_user_by_id()` - Get user by ID, returns `Option<User>`
 - `async fn get_or_create_user()` - Get or create user by callsign, returns `User`
 
+### `src/db/programs.rs`
+Program registry queries.
+
+**Exports:**
+- `async fn list_programs()` - List active programs ordered by sort_order, returns `Vec<ProgramRow>`
+- `async fn get_program()` - Get active program by slug, returns `Option<ProgramRow>`
+- `async fn get_programs_version()` - Get max(updated_at) as epoch seconds, returns `i64`
+
 ### `src/db/friend_requests.rs`
 Friend request management.
 
