@@ -113,6 +113,7 @@ fn create_router(pool: sqlx::PgPool, config: Config) -> Router {
         .route("/friends/requests/:id/decline", post(handlers::decline_friend_request))
         .route("/friends/:id", delete(handlers::remove_friend))
         .route("/activities", post(handlers::report_activity))
+        .route("/activities/:id", delete(handlers::delete_activity))
         .route("/feed", get(handlers::get_feed))
         .route("/clubs", get(handlers::get_clubs))
         .route("/clubs/:id", get(handlers::get_club_details))

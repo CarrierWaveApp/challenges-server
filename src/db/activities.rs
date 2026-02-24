@@ -32,6 +32,31 @@ pub async fn insert_activity(
     Ok(activity)
 }
 
+/// Delete an activity by ID, verifying ownership.
+/// Returns Ok(()) on success, or ActivityNotFound if not found or not owned.
+pub async fn delete_activity(
+    pool: &PgPool,
+    activity_id: Uuid,
+    user_id: Uuid,
+) -> Result<(), AppError> {
+    let result = sqlx::query(
+        r#"
+        DELETE FROM activities
+        WHERE id = $1 AND user_id = $2
+        "#,
+    )
+    .bind(activity_id)
+    .bind(user_id)
+    .execute(pool)
+    .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(AppError::ActivityNotFound { activity_id });
+    }
+
+    Ok(())
+}
+
 /// Get the activity feed for a user: activities from their friends,
 /// cursor-paginated by created_at DESC.
 pub async fn get_feed_for_user(

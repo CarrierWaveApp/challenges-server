@@ -79,6 +79,14 @@ Program registry queries.
 - `async fn get_program()` - Get active program by slug, returns `Option<ProgramRow>`
 - `async fn get_programs_version()` - Get max(updated_at) as epoch seconds, returns `i64`
 
+### `src/db/activities.rs`
+Activity CRUD queries.
+
+**Exports:**
+- `async fn insert_activity()` - Insert new activity, returns `Activity`
+- `async fn delete_activity()` - Delete activity by ID with ownership check, returns `()`
+- `async fn get_feed_for_user()` - Get activity feed from friends with cursor pagination, returns `Vec<FeedItemRow>`
+
 ### `src/db/friend_requests.rs`
 Friend request management.
 

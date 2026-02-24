@@ -27,6 +27,9 @@ pub enum AppError {
     #[error("Friend invite has already been used")]
     FriendInviteUsed { token: String },
 
+    #[error("Activity not found")]
+    ActivityNotFound { activity_id: Uuid },
+
     #[error("Program not found")]
     ProgramNotFound { slug: String },
 
@@ -105,6 +108,11 @@ impl IntoResponse for AppError {
                 StatusCode::NOT_FOUND,
                 "CHALLENGE_NOT_FOUND",
                 Some(serde_json::json!({ "challengeId": challenge_id })),
+            ),
+            Self::ActivityNotFound { activity_id } => (
+                StatusCode::NOT_FOUND,
+                "ACTIVITY_NOT_FOUND",
+                Some(serde_json::json!({ "activityId": activity_id })),
             ),
             Self::BadgeNotFound { badge_id } => (
                 StatusCode::NOT_FOUND,

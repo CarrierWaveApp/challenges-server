@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Extension, Query, State},
+    extract::{Extension, Path, Query, State},
     http::StatusCode,
 };
 
@@ -34,6 +34,18 @@ pub async fn report_activity(
 
     let response: ActivityResponse = activity.into();
     Ok((StatusCode::CREATED, Json(DataResponse { data: response })))
+}
+
+/// DELETE /v1/activities/:id
+/// Delete an activity (must be owned by the authenticated user).
+pub async fn delete_activity(
+    State(pool): State<PgPool>,
+    Extension(auth): Extension<AuthContext>,
+    Path(activity_id): Path<uuid::Uuid>,
+) -> Result<StatusCode, AppError> {
+    let user = db::get_or_create_user(&pool, &auth.callsign).await?;
+    db::delete_activity(&pool, activity_id, user.id).await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 #[derive(serde::Deserialize)]

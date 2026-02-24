@@ -87,6 +87,8 @@ Activity program registry endpoints (public, no auth).
 - `async fn list_programs()` - GET /v1/programs - List all active programs with version
 - `async fn get_program()` - GET /v1/programs/:slug - Get single program by slug
 
+- `async fn delete_activity()` - DELETE /v1/activities/:id - Delete own activity (auth required)
+
 ### `src/handlers/invite_page.rs`
 Server-rendered HTML page for friend invite links opened in browsers.
 

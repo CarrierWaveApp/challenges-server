@@ -443,6 +443,23 @@ Returns a single program by slug.
 |------|------|-------------|
 | `PROGRAM_NOT_FOUND` | 404 | Program slug doesn't exist |
 
+### Delete Activity
+
+```
+DELETE /v1/activities/{id}
+Authorization: Bearer fd_xxx
+```
+
+Deletes an activity. The authenticated user must own the activity.
+
+**Response:** 204 No Content
+
+**Errors:**
+
+| Code | HTTP | Description |
+|------|------|-------------|
+| `ACTIVITY_NOT_FOUND` | 404 | Activity doesn't exist or not owned |
+
 ### Health Check
 
 ```
@@ -555,6 +572,7 @@ Manually ends a challenge and creates a snapshot.
 
 | Code | HTTP | Description |
 |------|------|-------------|
+| `ACTIVITY_NOT_FOUND` | 404 | Activity doesn't exist or not owned |
 | `CHALLENGE_NOT_FOUND` | 404 | Challenge doesn't exist |
 | `PROGRAM_NOT_FOUND` | 404 | Program slug doesn't exist |
 | `ALREADY_JOINED` | 409 | Already participating |
