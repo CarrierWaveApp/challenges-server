@@ -566,6 +566,75 @@ POST /v1/admin/challenges/{id}/end
 
 Manually ends a challenge and creates a snapshot.
 
+### List All Programs (Admin)
+
+```
+GET /v1/admin/programs
+```
+
+Returns all programs including inactive ones.
+
+### Get Program (Admin)
+
+```
+GET /v1/admin/programs/{slug}
+```
+
+Returns a program by slug, including inactive programs.
+
+### Create Program
+
+```
+POST /v1/admin/programs
+```
+
+**Request:**
+
+```json
+{
+  "slug": "my-program",
+  "name": "My Program",
+  "shortName": "MP",
+  "icon": "radio",
+  "website": "https://example.com",
+  "referenceLabel": "Reference",
+  "referenceFormat": "^[A-Z]+-[0-9]{4}$",
+  "referenceExample": "K-0001",
+  "multiRefAllowed": false,
+  "activationThreshold": null,
+  "supportsRove": false,
+  "capabilities": ["referenceField"],
+  "adifMySig": null,
+  "adifMySigInfo": null,
+  "adifSigField": null,
+  "adifSigInfoField": null,
+  "dataEntryLabel": null,
+  "dataEntryPlaceholder": null,
+  "dataEntryFormat": null,
+  "sortOrder": 10
+}
+```
+
+**Response:** 201 Created with the created program.
+
+### Update Program
+
+```
+PUT /v1/admin/programs/{slug}
+```
+
+Partial update — only provided fields are changed. For nullable fields, send `null` to clear or omit to leave unchanged.
+
+**Request:** Any subset of fields from the create request, plus `isActive`.
+
+### Delete Program
+
+```
+DELETE /v1/admin/programs/{slug}
+```
+
+Permanently deletes a program. Use `PUT` with `{"isActive": false}` for soft-deactivation.
+
 ---
 
 ## Error Codes

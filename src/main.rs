@@ -139,6 +139,16 @@ fn create_router(pool: sqlx::PgPool, config: Config) -> Router {
             post(handlers::generate_invite).get(handlers::list_invites),
         )
         .route("/admin/invites/:token", delete(handlers::revoke_invite))
+        .route(
+            "/admin/programs",
+            post(handlers::create_program).get(handlers::admin_list_programs),
+        )
+        .route(
+            "/admin/programs/:slug",
+            put(handlers::update_program)
+                .get(handlers::admin_get_program)
+                .delete(handlers::delete_program),
+        )
         .layer(middleware::from_fn_with_state(
             config.admin_token,
             auth::require_admin,
