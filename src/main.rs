@@ -1,3 +1,4 @@
+mod aggregators;
 mod auth;
 mod config;
 mod db;
@@ -12,9 +13,8 @@ use axum::{
     http::StatusCode,
     middleware,
     response::IntoResponse,
-    Extension, Json,
     routing::{delete, get, post, put},
-    Router,
+    Extension, Json, Router,
 };
 use sqlx::postgres::PgPoolOptions;
 use tower_http::cors::{Any, CorsLayer};
@@ -54,6 +54,12 @@ async fn main() {
 
     tracing::info!("Database connected and migrations complete");
 
+    // Spawn spot aggregators and TTL cleanup
+    if config.spots_enabled {
+        aggregators::spawn_aggregators(pool.clone(), &config);
+        tracing::info!("Spots system enabled");
+    }
+
     // Build router
     let app = create_router(pool.clone(), config.clone());
 
@@ -83,6 +89,7 @@ fn create_router(pool: sqlx::PgPool, config: Config) -> Router {
         .route("/badges/:id/image", get(handlers::get_badge_image))
         .route("/programs", get(handlers::list_programs))
         .route("/programs/:slug", get(handlers::get_program))
+        .route("/spots", get(handlers::list_spots))
         .route("/health", get(handlers::health_check))
         .route("/users/search", get(handlers::search_users))
         .route("/register", post(handlers::register))
@@ -106,14 +113,28 @@ fn create_router(pool: sqlx::PgPool, config: Config) -> Router {
         )
         .route("/friends/invite-link", get(handlers::get_invite_link))
         .route("/friends/requests", post(handlers::create_friend_request))
-        .route("/friends/suggestions", post(handlers::get_friend_suggestions))
+        .route(
+            "/friends/suggestions",
+            post(handlers::get_friend_suggestions),
+        )
         .route("/friends", get(handlers::list_friends))
-        .route("/friends/requests/pending", get(handlers::list_pending_requests))
-        .route("/friends/requests/:id/accept", post(handlers::accept_friend_request))
-        .route("/friends/requests/:id/decline", post(handlers::decline_friend_request))
+        .route(
+            "/friends/requests/pending",
+            get(handlers::list_pending_requests),
+        )
+        .route(
+            "/friends/requests/:id/accept",
+            post(handlers::accept_friend_request),
+        )
+        .route(
+            "/friends/requests/:id/decline",
+            post(handlers::decline_friend_request),
+        )
         .route("/friends/:id", delete(handlers::remove_friend))
         .route("/activities", post(handlers::report_activity))
         .route("/activities/:id", delete(handlers::delete_activity))
+        .route("/spots", post(handlers::create_self_spot))
+        .route("/spots/:id", delete(handlers::delete_own_spot))
         .route("/feed", get(handlers::get_feed))
         .route("/clubs", get(handlers::get_clubs))
         .route("/clubs/:id", get(handlers::get_club_details))
@@ -149,6 +170,7 @@ fn create_router(pool: sqlx::PgPool, config: Config) -> Router {
                 .get(handlers::admin_get_program)
                 .delete(handlers::delete_program),
         )
+        .route("/admin/spots/:id", delete(handlers::admin_delete_spot))
         .layer(middleware::from_fn_with_state(
             config.admin_token,
             auth::require_admin,
@@ -161,8 +183,7 @@ fn create_router(pool: sqlx::PgPool, config: Config) -> Router {
         .fallback(api_not_found);
 
     // Friend invite page (server-rendered HTML for links opened in browsers)
-    let invite_route = Router::new()
-        .route("/invite/:token", get(handlers::invite_page));
+    let invite_route = Router::new().route("/invite/:token", get(handlers::invite_page));
 
     // Static file serving for SPA (fallback to index.html for client-side routing)
     let serve_dir = ServeDir::new("web/dist").fallback(ServeFile::new("web/dist/index.html"));

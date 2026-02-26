@@ -71,10 +71,7 @@ pub async fn upload_badge(
 
                 if !ALLOWED_CONTENT_TYPES.contains(&ct.as_str()) {
                     return Err(AppError::Validation {
-                        message: format!(
-                            "Invalid content type '{}'. Allowed: PNG, JPEG, SVG",
-                            ct
-                        ),
+                        message: format!("Invalid content type '{}'. Allowed: PNG, JPEG, SVG", ct),
                     });
                 }
 

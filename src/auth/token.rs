@@ -46,6 +46,8 @@ mod tests {
         assert!(is_valid_token_format("fd_abcdefghijklmnopqrstuvwxyz123456"));
         assert!(!is_valid_token_format("abc"));
         assert!(!is_valid_token_format("fd_short"));
-        assert!(!is_valid_token_format("xx_abcdefghijklmnopqrstuvwxyz123456"));
+        assert!(!is_valid_token_format(
+            "xx_abcdefghijklmnopqrstuvwxyz123456"
+        ));
     }
 }

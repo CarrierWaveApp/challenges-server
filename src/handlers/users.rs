@@ -31,10 +31,10 @@ pub async fn search_users(
     Ok(Json(DataResponse { data: results }))
 }
 
-use axum::http::StatusCode;
-use axum::Extension;
 use crate::auth::AuthContext;
 use crate::models::{RegisterRequest, RegisterResponse};
+use axum::http::StatusCode;
+use axum::Extension;
 
 /// POST /v1/register
 /// Register a user so they appear in friend search and get an auth token.

@@ -10,10 +10,7 @@ use crate::db;
 /// GET /invite/:token
 /// Renders an HTML page for friend invite links opened in a browser.
 /// Shows the inviter's callsign and a deep link to open in Carrier Wave.
-pub async fn invite_page(
-    State(pool): State<PgPool>,
-    Path(token): Path<String>,
-) -> Response {
+pub async fn invite_page(State(pool): State<PgPool>, Path(token): Path<String>) -> Response {
     // Look up the invite and the inviter's callsign
     let page = match build_invite_page(&pool, &token).await {
         Ok(html) => html,

@@ -1,6 +1,6 @@
 [package]
 name = "activities-server"
-version = "0.3.2"
+version = "0.4.0"
 edition = "2021"
 description = "Self-hostable activities server for Carrier Wave ham radio logging"
 license = "MIT"
@@ -32,6 +32,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Configuration
 dotenvy = "0.15"
+
+# HTTP client (for spot aggregators)
+reqwest = { version = "0.12", features = ["json"] }
 
 # Utilities
 rand = "0.8"

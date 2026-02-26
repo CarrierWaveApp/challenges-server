@@ -2,9 +2,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::error::AppError;
-use crate::models::{
-    Challenge, ChallengeListItem, CreateChallengeRequest, ListChallengesQuery,
-};
+use crate::models::{Challenge, ChallengeListItem, CreateChallengeRequest, ListChallengesQuery};
 
 pub async fn list_challenges(
     pool: &PgPool,

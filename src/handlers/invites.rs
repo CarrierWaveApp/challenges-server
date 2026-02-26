@@ -1,7 +1,4 @@
-use axum::{
-    extract::State,
-    http::StatusCode,
-};
+use axum::{extract::State, http::StatusCode};
 
 use crate::extractors::{Json, Path};
 use serde::Serialize;

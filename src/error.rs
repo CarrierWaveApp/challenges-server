@@ -33,6 +33,18 @@ pub enum AppError {
     #[error("Program not found")]
     ProgramNotFound { slug: String },
 
+    #[error("Spot not found")]
+    SpotNotFound { spot_id: uuid::Uuid },
+
+    #[error("Active self-spot already exists for this program")]
+    SelfSpotExists,
+
+    #[error("Program does not support this capability")]
+    CapabilityNotSupported {
+        capability: String,
+        program_slug: String,
+    },
+
     #[error("Friend request not found")]
     FriendRequestNotFound { request_id: Uuid },
 
@@ -124,6 +136,23 @@ impl IntoResponse for AppError {
                 "PROGRAM_NOT_FOUND",
                 Some(serde_json::json!({ "slug": slug })),
             ),
+            Self::SpotNotFound { spot_id } => (
+                StatusCode::NOT_FOUND,
+                "SPOT_NOT_FOUND",
+                Some(serde_json::json!({ "spotId": spot_id })),
+            ),
+            Self::SelfSpotExists => (StatusCode::CONFLICT, "SELF_SPOT_EXISTS", None),
+            Self::CapabilityNotSupported {
+                capability,
+                program_slug,
+            } => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "CAPABILITY_NOT_SUPPORTED",
+                Some(serde_json::json!({
+                    "capability": capability,
+                    "programSlug": program_slug,
+                })),
+            ),
             Self::InviteNotFound { token } => (
                 StatusCode::NOT_FOUND,
                 "INVITE_NOT_FOUND",
@@ -156,11 +185,9 @@ impl IntoResponse for AppError {
             ),
             Self::AlreadyFriends => (StatusCode::CONFLICT, "ALREADY_FRIENDS", None),
             Self::FriendRequestExists => (StatusCode::CONFLICT, "FRIEND_REQUEST_EXISTS", None),
-            Self::CannotFriendSelf => (
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "CANNOT_FRIEND_SELF",
-                None,
-            ),
+            Self::CannotFriendSelf => {
+                (StatusCode::UNPROCESSABLE_ENTITY, "CANNOT_FRIEND_SELF", None)
+            }
             Self::AlreadyJoined => (StatusCode::CONFLICT, "ALREADY_JOINED", None),
             Self::NotParticipating => (StatusCode::FORBIDDEN, "NOT_PARTICIPATING", None),
             Self::InviteRequired => (StatusCode::FORBIDDEN, "INVITE_REQUIRED", None),

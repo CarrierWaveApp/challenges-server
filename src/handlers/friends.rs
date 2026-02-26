@@ -137,7 +137,6 @@ pub async fn get_friend_suggestions(
     Ok(Json(DataResponse { data: suggestions }))
 }
 
-
 /// GET /v1/friends
 /// List all accepted friends for the authenticated user
 pub async fn list_friends(
@@ -192,7 +191,13 @@ pub async fn accept_friend_request(
     State(pool): State<PgPool>,
     Path(request_id): Path<uuid::Uuid>,
     Extension(auth): Extension<AuthContext>,
-) -> Result<(StatusCode, Json<DataResponse<crate::models::FriendRequestResponse>>), AppError> {
+) -> Result<
+    (
+        StatusCode,
+        Json<DataResponse<crate::models::FriendRequestResponse>>,
+    ),
+    AppError,
+> {
     let user = db::get_or_create_user(&pool, &auth.callsign).await?;
 
     // Verify the request exists and is addressed to this user

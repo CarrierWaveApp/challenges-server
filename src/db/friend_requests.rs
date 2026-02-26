@@ -72,7 +72,11 @@ pub async fn get_pending_request_between(
     Ok(request)
 }
 
-pub async fn are_friends(pool: &PgPool, user_id_1: Uuid, user_id_2: Uuid) -> Result<bool, AppError> {
+pub async fn are_friends(
+    pool: &PgPool,
+    user_id_1: Uuid,
+    user_id_2: Uuid,
+) -> Result<bool, AppError> {
     let friendship = sqlx::query_as::<_, Friendship>(
         r#"
         SELECT id, user_id, friend_id, created_at
@@ -194,7 +198,6 @@ pub async fn find_suggested_friends(
 
     Ok(users)
 }
-
 
 /// A friend entry with callsign, for the friends list response.
 #[derive(Debug, Clone, sqlx::FromRow)]

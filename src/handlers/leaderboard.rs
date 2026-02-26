@@ -22,12 +22,11 @@ pub async fn get_leaderboard(
 
     let (leaderboard, total) = if let Some(ref around) = query.around {
         let entries = db::get_leaderboard_around(&pool, challenge_id, around, 5).await?;
-        let total: (i64,) = sqlx::query_as(
-            r#"SELECT COUNT(*) FROM progress WHERE challenge_id = $1"#,
-        )
-        .bind(challenge_id)
-        .fetch_one(&pool)
-        .await?;
+        let total: (i64,) =
+            sqlx::query_as(r#"SELECT COUNT(*) FROM progress WHERE challenge_id = $1"#)
+                .bind(challenge_id)
+                .fetch_one(&pool)
+                .await?;
         (entries, total.0)
     } else {
         db::get_leaderboard(&pool, challenge_id, &query).await?

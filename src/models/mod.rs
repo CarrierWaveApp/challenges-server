@@ -7,6 +7,7 @@ pub mod invite;
 pub mod participant;
 pub mod program;
 pub mod progress;
+pub mod spot;
 pub mod user;
 
 pub use activity::*;
@@ -18,4 +19,5 @@ pub use invite::*;
 pub use participant::*;
 pub use program::*;
 pub use progress::*;
+pub use spot::*;
 pub use user::*;

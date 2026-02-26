@@ -9,15 +9,19 @@ pub struct Config {
     pub base_url: Option<String>,
     pub invite_base_url: String,
     pub invite_expiry_days: i64,
+    pub spots_enabled: bool,
+    pub pota_aggregator_enabled: bool,
+    pub rbn_aggregator_enabled: bool,
+    pub sota_aggregator_enabled: bool,
 }
 
 impl Config {
     pub fn from_env() -> Result<Self, ConfigError> {
-        let database_url = env::var("DATABASE_URL")
-            .map_err(|_| ConfigError::Missing("DATABASE_URL"))?;
+        let database_url =
+            env::var("DATABASE_URL").map_err(|_| ConfigError::Missing("DATABASE_URL"))?;
 
-        let admin_token = env::var("ADMIN_TOKEN")
-            .map_err(|_| ConfigError::Missing("ADMIN_TOKEN"))?;
+        let admin_token =
+            env::var("ADMIN_TOKEN").map_err(|_| ConfigError::Missing("ADMIN_TOKEN"))?;
 
         let port = env::var("PORT")
             .unwrap_or_else(|_| "8080".to_string())
@@ -34,6 +38,26 @@ impl Config {
             .parse()
             .map_err(|_| ConfigError::Invalid("INVITE_EXPIRY_DAYS must be a number"))?;
 
+        let spots_enabled = env::var("SPOTS_ENABLED")
+            .unwrap_or_else(|_| "true".to_string())
+            .parse()
+            .unwrap_or(true);
+
+        let pota_aggregator_enabled = env::var("POTA_AGGREGATOR_ENABLED")
+            .unwrap_or_else(|_| "false".to_string())
+            .parse()
+            .unwrap_or(false);
+
+        let rbn_aggregator_enabled = env::var("RBN_AGGREGATOR_ENABLED")
+            .unwrap_or_else(|_| "false".to_string())
+            .parse()
+            .unwrap_or(false);
+
+        let sota_aggregator_enabled = env::var("SOTA_AGGREGATOR_ENABLED")
+            .unwrap_or_else(|_| "false".to_string())
+            .parse()
+            .unwrap_or(false);
+
         Ok(Self {
             database_url,
             admin_token,
@@ -41,6 +65,10 @@ impl Config {
             base_url,
             invite_base_url,
             invite_expiry_days,
+            spots_enabled,
+            pota_aggregator_enabled,
+            rbn_aggregator_enabled,
+            sota_aggregator_enabled,
         })
     }
 }

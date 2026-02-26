@@ -9,6 +9,7 @@ pub mod leaderboard;
 pub mod participants;
 pub mod programs;
 pub mod progress;
+pub mod spots;
 pub mod users;
 
 pub use badges::*;
@@ -24,4 +25,5 @@ pub use leaderboard::*;
 pub use participants::*;
 pub use programs::*;
 pub use progress::*;
+pub use spots::*;
 pub use users::*;
