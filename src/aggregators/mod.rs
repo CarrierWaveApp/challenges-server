@@ -14,26 +14,32 @@ pub fn spawn_aggregators(pool: PgPool, config: &Config) {
         ttl_cleanup_loop(cleanup_pool).await;
     });
 
+    // Shared HTTP client for all aggregators
+    let client = reqwest::Client::new();
+
     if config.pota_aggregator_enabled {
         let pota_pool = pool.clone();
+        let pota_client = client.clone();
         tokio::spawn(async move {
-            pota::poll_loop(pota_pool).await;
+            pota::poll_loop(pota_pool, pota_client).await;
         });
         tracing::info!("POTA aggregator started");
     }
 
     if config.rbn_aggregator_enabled {
         let rbn_pool = pool.clone();
+        let rbn_client = client.clone();
         tokio::spawn(async move {
-            rbn::poll_loop(rbn_pool).await;
+            rbn::poll_loop(rbn_pool, rbn_client).await;
         });
         tracing::info!("RBN aggregator started");
     }
 
     if config.sota_aggregator_enabled {
         let sota_pool = pool.clone();
+        let sota_client = client.clone();
         tokio::spawn(async move {
-            sota::poll_loop(sota_pool).await;
+            sota::poll_loop(sota_pool, sota_client).await;
         });
         tracing::info!("SOTA aggregator started");
     }

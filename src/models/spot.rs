@@ -110,7 +110,7 @@ pub struct CreateSelfSpotRequest {
 #[derive(Debug)]
 pub struct AggregatedSpot {
     pub callsign: String,
-    pub program_slug: String,
+    pub program_slug: Option<String>,
     pub source: SpotSource,
     pub external_id: String,
     pub frequency_khz: f64,
