@@ -34,9 +34,8 @@ CREATE TABLE spots (
 CREATE UNIQUE INDEX idx_spots_external_id ON spots(source, external_id)
     WHERE external_id IS NOT NULL;
 
--- Fast lookup by program with active-only filter
-CREATE INDEX idx_spots_program_expires ON spots(program_slug, expires_at DESC)
-    WHERE expires_at > now();
+-- Fast lookup by program + expiry (queries filter expires_at at runtime)
+CREATE INDEX idx_spots_program_expires ON spots(program_slug, expires_at DESC);
 
 -- Fast lookup by callsign
 CREATE INDEX idx_spots_callsign_expires ON spots(callsign, expires_at DESC);

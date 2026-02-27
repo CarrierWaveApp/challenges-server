@@ -1,6 +1,6 @@
 [package]
 name = "activities-server"
-version = "0.4.1"
+version = "0.4.2"
 edition = "2021"
 description = "Self-hostable activities server for Carrier Wave ham radio logging"
 license = "MIT"
