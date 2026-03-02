@@ -1,6 +1,7 @@
 pub mod activity;
 pub mod badge;
 pub mod challenge;
+pub mod club;
 pub mod friend_invite;
 pub mod friend_request;
 pub mod invite;
@@ -13,6 +14,7 @@ pub mod user;
 pub use activity::*;
 pub use badge::*;
 pub use challenge::*;
+pub use club::*;
 pub use friend_invite::*;
 pub use friend_request::*;
 pub use invite::*;
