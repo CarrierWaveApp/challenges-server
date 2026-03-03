@@ -71,7 +71,11 @@ pub async fn create_club(
     Ok(club)
 }
 
-/// Update a club's mutable fields. Returns None if the club doesn't exist.
+/// Update a club's metadata.
+///
+/// Uses COALESCE so only provided fields are updated -- `None` means "keep existing value".
+/// This means optional fields (callsign, description) cannot be explicitly cleared to NULL
+/// through this function. If clearing is needed, add a dedicated endpoint.
 pub async fn update_club(
     pool: &PgPool,
     club_id: Uuid,
@@ -134,7 +138,7 @@ pub async fn add_members(
             "#,
         )
         .bind(club_id)
-        .bind(callsign)
+        .bind(callsign.to_uppercase())
         .bind(role)
         .fetch_one(pool)
         .await?;
@@ -158,7 +162,7 @@ pub async fn remove_member(
         "#,
     )
     .bind(club_id)
-    .bind(callsign)
+    .bind(callsign.to_uppercase())
     .execute(pool)
     .await?;
 
@@ -180,7 +184,7 @@ pub async fn update_member_role(
         "#,
     )
     .bind(club_id)
-    .bind(callsign)
+    .bind(callsign.to_uppercase())
     .bind(role)
     .execute(pool)
     .await?;
@@ -209,7 +213,7 @@ pub async fn get_clubs_for_callsign(
         ORDER BY c.name
         "#,
     )
-    .bind(callsign)
+    .bind(callsign.to_uppercase())
     .fetch_all(pool)
     .await?;
 
@@ -250,7 +254,7 @@ pub async fn get_club_members_enriched(
                CAST(NULL AS TEXT) AS last_grid,
                (p.id IS NOT NULL) AS is_carrier_wave_user
         FROM club_members cm
-        LEFT JOIN participants p ON UPPER(p.callsign) = UPPER(cm.callsign)
+        LEFT JOIN participants p ON UPPER(p.callsign) = cm.callsign
         WHERE cm.club_id = $1
         ORDER BY cm.role = 'admin' DESC, cm.callsign
         "#,
@@ -277,7 +281,7 @@ pub async fn get_club_activity(
             SELECT a.id, a.callsign, a.user_id, a.activity_type,
                    a.timestamp, a.details, a.created_at
             FROM activities a
-            JOIN club_members cm ON UPPER(cm.callsign) = UPPER(a.callsign)
+            JOIN club_members cm ON cm.callsign = UPPER(a.callsign)
             WHERE cm.club_id = $1
               AND a.created_at < $2
             ORDER BY a.created_at DESC
@@ -295,7 +299,7 @@ pub async fn get_club_activity(
             SELECT a.id, a.callsign, a.user_id, a.activity_type,
                    a.timestamp, a.details, a.created_at
             FROM activities a
-            JOIN club_members cm ON UPPER(cm.callsign) = UPPER(a.callsign)
+            JOIN club_members cm ON cm.callsign = UPPER(a.callsign)
             WHERE cm.club_id = $1
             ORDER BY a.created_at DESC
             LIMIT $2
@@ -316,16 +320,13 @@ pub async fn is_club_member(
     club_id: Uuid,
     callsign: &str,
 ) -> Result<bool, AppError> {
-    let row = sqlx::query_scalar::<_, i64>(
-        r#"
-        SELECT COUNT(*) FROM club_members
-        WHERE club_id = $1 AND callsign = $2
-        "#,
+    let exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM club_members WHERE club_id = $1 AND callsign = $2)",
     )
     .bind(club_id)
-    .bind(callsign)
+    .bind(callsign.to_uppercase())
     .fetch_one(pool)
     .await?;
 
-    Ok(row > 0)
+    Ok(exists)
 }
