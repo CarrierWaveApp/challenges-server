@@ -207,15 +207,33 @@ pub struct FreshnessInfo {
     pub newest_fetch: Option<DateTime<Utc>>,
     pub parks_pending: i64,
     pub total_parks: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub warning: Option<String>,
 }
 
 impl From<FreshnessRow> for FreshnessInfo {
     fn from(row: FreshnessRow) -> Self {
+        let warning = if row.parks_pending > 0 {
+            let pct = if row.total_parks > 0 {
+                100 - (row.parks_pending * 100 / row.total_parks)
+            } else {
+                0
+            };
+            Some(format!(
+                "Data collection in progress ({pct}% complete, {} of {} parks fetched). Stats may be incomplete.",
+                row.total_parks - row.parks_pending,
+                row.total_parks,
+            ))
+        } else {
+            None
+        };
+
         Self {
             oldest_fetch: row.oldest_fetch,
             newest_fetch: row.newest_fetch,
             parks_pending: row.parks_pending,
             total_parks: row.total_parks,
+            warning,
         }
     }
 }
