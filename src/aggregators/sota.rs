@@ -64,7 +64,11 @@ async fn fetch_and_upsert(
                 }
             },
             Err(e) => {
-                tracing::warn!("SOTA parse error id={}: {}", spot.id, e);
+                if spot.frequency.is_empty() {
+                    tracing::debug!("SOTA spot id={}: empty frequency, skipping", spot.id);
+                } else {
+                    tracing::warn!("SOTA parse error id={}: {}", spot.id, e);
+                }
             }
         }
     }
