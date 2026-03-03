@@ -9,6 +9,7 @@ pub mod participant;
 pub mod program;
 pub mod progress;
 pub mod spot;
+pub mod pota_stats;
 pub mod user;
 
 pub use activity::*;

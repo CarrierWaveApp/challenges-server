@@ -60,6 +60,11 @@ async fn main() {
         tracing::info!("Spots system enabled");
     }
 
+    // Spawn POTA stats aggregator (independent of spots)
+    if config.pota_stats_aggregator_enabled {
+        aggregators::spawn_pota_stats_aggregator(pool.clone(), &config);
+    }
+
     // Build router
     let app = create_router(pool.clone(), config.clone());
 
@@ -93,6 +98,20 @@ fn create_router(pool: sqlx::PgPool, config: Config) -> Router {
         .route("/health", get(handlers::health_check))
         .route("/users/search", get(handlers::search_users))
         .route("/register", post(handlers::register))
+        .route(
+            "/pota/stats/activator",
+            get(handlers::get_activator_stats),
+        )
+        .route("/pota/stats/hunter", get(handlers::get_hunter_stats))
+        .route("/pota/stats/state/:state", get(handlers::get_state_stats))
+        .route(
+            "/pota/stats/park/:reference",
+            get(handlers::get_park_stats),
+        )
+        .route(
+            "/pota/stats/rankings/activators",
+            get(handlers::get_activator_rankings),
+        )
         .layer(middleware::from_fn_with_state(
             pool.clone(),
             auth::optional_auth,

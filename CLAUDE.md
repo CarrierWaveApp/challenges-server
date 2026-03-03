@@ -29,9 +29,7 @@ A self-hostable Rust/Axum HTTP API server for ham radio challenge tracking. Enab
 
 ## Building and Running
 
-**NEVER build, run tests, or run the server yourself. Always prompt the user to do so.**
-
-When you need to verify changes compile or tests pass, ask the user to run the appropriate command and report back the results.
+You may build and run tests. To minimize token usage, always pipe build/test output through `tail` to capture only the final result lines, and use `2>&1` to merge stderr. Never run the server (`cargo run`) yourself.
 
 ### Commands
 
@@ -72,6 +70,7 @@ RUST_LOG=info                                                 # Optional
 | Authentication | [docs/index/auth.md](docs/index/auth.md) |
 | Core (main, config, error) | [docs/index/core.md](docs/index/core.md) |
 | Migrations | [docs/index/migrations.md](docs/index/migrations.md) |
+| POTA Stats | [docs/index/pota_stats.md](docs/index/pota_stats.md) |
 | Tests | [docs/index/tests.md](docs/index/tests.md) |
 
 **Search policy:**
@@ -105,6 +104,11 @@ RUST_LOG=info                                                 # Optional
 - `GET /v1/programs` - List active programs
 - `GET /v1/programs/{slug}` - Get program by slug
 - `DELETE /v1/activities/{id}` - Delete own activity (auth required)
+- `GET /v1/pota/stats/activator` - Activator stats with rank
+- `GET /v1/pota/stats/hunter` - Hunter stats with rank
+- `GET /v1/pota/stats/state/:state` - State aggregate stats
+- `GET /v1/pota/stats/park/:reference` - Park detail with stats
+- `GET /v1/pota/stats/rankings/activators` - Paginated activator leaderboard
 - `GET /v1/health` - Health check
 - `POST /v1/admin/challenges` - Create challenge (admin)
 - `PUT /v1/admin/challenges/{id}` - Update challenge (admin)

@@ -13,6 +13,10 @@ pub struct Config {
     pub pota_aggregator_enabled: bool,
     pub rbn_aggregator_enabled: bool,
     pub sota_aggregator_enabled: bool,
+    pub pota_stats_aggregator_enabled: bool,
+    pub pota_stats_concurrency: usize,
+    pub pota_stats_batch_size: i64,
+    pub pota_stats_cycle_hours: u64,
 }
 
 impl Config {
@@ -58,6 +62,26 @@ impl Config {
             .parse()
             .unwrap_or(false);
 
+        let pota_stats_aggregator_enabled = env::var("POTA_STATS_AGGREGATOR_ENABLED")
+            .unwrap_or_else(|_| "false".to_string())
+            .parse()
+            .unwrap_or(false);
+
+        let pota_stats_concurrency: usize = env::var("POTA_STATS_CONCURRENCY")
+            .unwrap_or_else(|_| "3".to_string())
+            .parse()
+            .unwrap_or(3);
+
+        let pota_stats_batch_size: i64 = env::var("POTA_STATS_BATCH_SIZE")
+            .unwrap_or_else(|_| "50".to_string())
+            .parse()
+            .unwrap_or(50);
+
+        let pota_stats_cycle_hours: u64 = env::var("POTA_STATS_CYCLE_HOURS")
+            .unwrap_or_else(|_| "24".to_string())
+            .parse()
+            .unwrap_or(24);
+
         Ok(Self {
             database_url,
             admin_token,
@@ -69,6 +93,10 @@ impl Config {
             pota_aggregator_enabled,
             rbn_aggregator_enabled,
             sota_aggregator_enabled,
+            pota_stats_aggregator_enabled,
+            pota_stats_concurrency,
+            pota_stats_batch_size,
+            pota_stats_cycle_hours,
         })
     }
 }

@@ -1,5 +1,6 @@
 pub mod activities;
 pub mod badges;
+pub mod pota_stats;
 pub mod challenges;
 pub mod clubs;
 pub mod friend_invites;

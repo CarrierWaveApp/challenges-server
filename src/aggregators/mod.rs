@@ -1,4 +1,5 @@
 pub mod pota;
+pub mod pota_stats;
 pub mod rbn;
 pub mod sota;
 
@@ -43,6 +44,21 @@ pub fn spawn_aggregators(pool: PgPool, config: &Config) {
         });
         tracing::info!("SOTA aggregator started");
     }
+
+}
+
+/// Spawn the POTA stats aggregator (independent of the spots system).
+pub fn spawn_pota_stats_aggregator(pool: PgPool, config: &Config) {
+    let client = reqwest::Client::new();
+    let stats_config = pota_stats::PotaStatsConfig {
+        concurrency: config.pota_stats_concurrency,
+        batch_size: config.pota_stats_batch_size,
+        cycle_hours: config.pota_stats_cycle_hours,
+    };
+    tokio::spawn(async move {
+        pota_stats::poll_loop(pool, client, stats_config).await;
+    });
+    tracing::info!("POTA stats aggregator started");
 }
 
 /// Delete expired spots every 2 minutes.

@@ -45,6 +45,9 @@ pub enum AppError {
         callsign: String,
     },
 
+    #[error("Park not found")]
+    ParkNotFound { reference: String },
+
     #[error("Active self-spot already exists for this program")]
     SelfSpotExists,
 
@@ -161,6 +164,11 @@ impl IntoResponse for AppError {
                 StatusCode::NOT_FOUND,
                 "CLUB_MEMBER_NOT_FOUND",
                 Some(serde_json::json!({ "clubId": club_id, "callsign": callsign })),
+            ),
+            Self::ParkNotFound { reference } => (
+                StatusCode::NOT_FOUND,
+                "PARK_NOT_FOUND",
+                Some(serde_json::json!({ "reference": reference })),
             ),
             Self::SelfSpotExists => (StatusCode::CONFLICT, "SELF_SPOT_EXISTS", None),
             Self::CapabilityNotSupported {
