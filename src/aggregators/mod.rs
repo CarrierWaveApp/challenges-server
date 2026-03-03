@@ -16,7 +16,14 @@ pub fn spawn_aggregators(pool: PgPool, config: &Config) {
     });
 
     // Shared HTTP client for all aggregators
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .user_agent(format!(
+            "{}/{}",
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_VERSION")
+        ))
+        .build()
+        .expect("failed to build HTTP client");
 
     if config.pota_aggregator_enabled {
         let pota_pool = pool.clone();
@@ -49,7 +56,14 @@ pub fn spawn_aggregators(pool: PgPool, config: &Config) {
 
 /// Spawn the POTA stats aggregator (independent of the spots system).
 pub fn spawn_pota_stats_aggregator(pool: PgPool, config: &Config) {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .user_agent(format!(
+            "{}/{}",
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_VERSION")
+        ))
+        .build()
+        .expect("failed to build HTTP client");
     let stats_config = pota_stats::PotaStatsConfig {
         concurrency: config.pota_stats_concurrency,
         batch_size: config.pota_stats_batch_size,
