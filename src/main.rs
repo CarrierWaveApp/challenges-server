@@ -172,14 +172,17 @@ fn create_router(pool: sqlx::PgPool, config: Config) -> Router {
                 .get(handlers::admin_get_program)
                 .delete(handlers::delete_program),
         )
-        .route("/admin/clubs", post(handlers::create_club))
+        .route(
+            "/admin/clubs",
+            post(handlers::create_club).get(handlers::list_clubs_admin),
+        )
         .route(
             "/admin/clubs/:id",
             put(handlers::update_club).delete(handlers::delete_club),
         )
         .route(
             "/admin/clubs/:id/members",
-            post(handlers::add_club_members),
+            post(handlers::add_club_members).get(handlers::list_club_members_admin),
         )
         .route(
             "/admin/clubs/:id/members/:callsign",

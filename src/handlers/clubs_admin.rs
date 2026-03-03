@@ -13,6 +13,55 @@ use crate::models::club::{
 
 use super::DataResponse;
 
+/// GET /v1/admin/clubs
+/// List all clubs with member counts.
+pub async fn list_clubs_admin(
+    State(pool): State<PgPool>,
+) -> Result<Json<DataResponse<Vec<ClubResponse>>>, AppError> {
+    let clubs = db::clubs::list_all_clubs(&pool).await?;
+
+    let data = clubs
+        .into_iter()
+        .map(|c| ClubResponse {
+            id: c.id,
+            name: c.name,
+            callsign: c.callsign,
+            description: c.description,
+            member_count: c.member_count,
+        })
+        .collect();
+
+    Ok(Json(DataResponse { data }))
+}
+
+/// GET /v1/admin/clubs/:id/members
+/// List members of a club.
+pub async fn list_club_members_admin(
+    State(pool): State<PgPool>,
+    Path(club_id): Path<Uuid>,
+) -> Result<Json<DataResponse<Vec<ClubMemberResponse>>>, AppError> {
+    // Verify club exists
+    db::clubs::get_club_detail(&pool, club_id)
+        .await?
+        .ok_or(AppError::ClubNotFound { club_id })?;
+
+    let members = db::clubs::get_club_members_enriched(&pool, club_id).await?;
+
+    let data = members
+        .into_iter()
+        .map(|m| ClubMemberResponse {
+            callsign: m.callsign,
+            role: m.role,
+            joined_at: m.joined_at,
+            last_seen_at: m.last_seen_at,
+            last_grid: m.last_grid,
+            is_carrier_wave_user: m.is_carrier_wave_user,
+        })
+        .collect();
+
+    Ok(Json(DataResponse { data }))
+}
+
 /// POST /v1/admin/clubs
 /// Create a new club.
 pub async fn create_club(

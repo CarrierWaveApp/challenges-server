@@ -192,6 +192,24 @@ pub async fn update_member_role(
     Ok(result.rows_affected() > 0)
 }
 
+/// List all clubs with member counts (admin).
+pub async fn list_all_clubs(pool: &PgPool) -> Result<Vec<ClubWithCount>, AppError> {
+    let clubs = sqlx::query_as::<_, ClubWithCount>(
+        r#"
+        SELECT c.id, c.name, c.callsign, c.description,
+               c.created_at, c.updated_at,
+               (SELECT COUNT(*) FROM club_members cm2
+                WHERE cm2.club_id = c.id) AS member_count
+        FROM clubs c
+        ORDER BY c.name
+        "#,
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(clubs)
+}
+
 // ---------------------------------------------------------------------------
 // Authenticated queries
 // ---------------------------------------------------------------------------
