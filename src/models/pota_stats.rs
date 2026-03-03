@@ -213,12 +213,10 @@ pub struct FreshnessInfo {
 
 impl From<FreshnessRow> for FreshnessInfo {
     fn from(row: FreshnessRow) -> Self {
-        let warning = if row.parks_pending > 0 {
-            let pct = if row.total_parks > 0 {
-                100 - (row.parks_pending * 100 / row.total_parks)
-            } else {
-                0
-            };
+        let warning = if row.total_parks == 0 {
+            Some("Park catalog has not been synced yet. Stats are unavailable.".to_string())
+        } else if row.parks_pending > 0 {
+            let pct = 100 - (row.parks_pending * 100 / row.total_parks);
             Some(format!(
                 "Data collection in progress ({pct}% complete, {} of {} parks fetched). Stats may be incomplete.",
                 row.total_parks - row.parks_pending,
@@ -344,4 +342,19 @@ pub struct ActivatorRankingsResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state: Option<String>,
     pub freshness: FreshnessInfo,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PotaSyncStatusResponse {
+    pub total_parks: i64,
+    pub parks_fetched: i64,
+    pub parks_pending: i64,
+    pub completion_percentage: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub oldest_fetch: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub newest_fetch: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub warning: Option<String>,
 }

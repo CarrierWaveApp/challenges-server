@@ -109,6 +109,7 @@ RUST_LOG=info                                                 # Optional
 - `GET /v1/pota/stats/state/:state` - State aggregate stats
 - `GET /v1/pota/stats/park/:reference` - Park detail with stats
 - `GET /v1/pota/stats/rankings/activators` - Paginated activator leaderboard
+- `GET /v1/pota/stats/status` - Sync progress and completion status
 - `GET /v1/health` - Health check
 - `POST /v1/admin/challenges` - Create challenge (admin)
 - `PUT /v1/admin/challenges/{id}` - Update challenge (admin)

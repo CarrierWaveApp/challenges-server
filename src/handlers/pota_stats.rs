@@ -6,8 +6,8 @@ use crate::error::AppError;
 use crate::extractors::{Json, Path};
 use crate::models::pota_stats::{
     ActivatorRankingEntry, ActivatorRankingsResponse, ActivatorStatsQuery, ActivatorStatsResponse,
-    FreshnessInfo, HunterStatsQuery, HunterStatsResponse, ParkStatsResponse, QsosByMode,
-    RankedCallsignResponse, RankingsQuery, StateStatsResponse,
+    FreshnessInfo, HunterStatsQuery, HunterStatsResponse, ParkStatsResponse, PotaSyncStatusResponse,
+    QsosByMode, RankedCallsignResponse, RankingsQuery, StateStatsResponse,
 };
 
 use super::DataResponse;
@@ -285,6 +285,33 @@ pub async fn get_activator_rankings(
             total_ranked,
             state: params.state,
             freshness,
+        },
+    }))
+}
+
+/// GET /v1/pota/stats/status
+pub async fn get_sync_status(
+    State(pool): State<PgPool>,
+) -> Result<Json<DataResponse<PotaSyncStatusResponse>>, AppError> {
+    let freshness: FreshnessInfo =
+        db::get_activator_freshness(&pool, None).await?.into();
+
+    let parks_fetched = freshness.total_parks - freshness.parks_pending;
+    let completion_percentage = if freshness.total_parks > 0 {
+        parks_fetched * 100 / freshness.total_parks
+    } else {
+        0
+    };
+
+    Ok(Json(DataResponse {
+        data: PotaSyncStatusResponse {
+            total_parks: freshness.total_parks,
+            parks_fetched,
+            parks_pending: freshness.parks_pending,
+            completion_percentage,
+            oldest_fetch: freshness.oldest_fetch,
+            newest_fetch: freshness.newest_fetch,
+            warning: freshness.warning,
         },
     }))
 }

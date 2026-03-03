@@ -50,6 +50,7 @@ Data structures for POTA stats feature.
 - `struct ParkStatsResponse` - Park detail with top activators/hunters
 - `struct ActivatorRankingEntry` - Single entry in rankings list
 - `struct ActivatorRankingsResponse` - Paginated activator leaderboard
+- `struct PotaSyncStatusResponse` - Sync progress with completion percentage
 
 ### `src/db/pota_stats.rs`
 Database queries for POTA stats.
@@ -104,3 +105,4 @@ HTTP handlers for POTA stats API endpoints.
 - `async fn get_state_stats()` - GET /v1/pota/stats/state/:state
 - `async fn get_park_stats()` - GET /v1/pota/stats/park/:reference
 - `async fn get_activator_rankings()` - GET /v1/pota/stats/rankings/activators
+- `async fn get_sync_status()` - GET /v1/pota/stats/status

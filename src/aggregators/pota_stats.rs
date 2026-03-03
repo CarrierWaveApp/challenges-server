@@ -176,12 +176,8 @@ async fn sync_park_catalog(
 
         let active = park.active == "1";
 
-        // Extract state from locationDesc (e.g., "US-CA" → "CA")
-        let state = park.location_desc.as_deref().and_then(|desc| {
-            let mut parts = desc.splitn(2, '-');
-            parts.next(); // skip country
-            parts.next().map(|s| s.to_string())
-        });
+        // Use locationDesc directly as the state key (e.g., "US-CA")
+        let state = park.location_desc.clone();
 
         pota_stats::upsert_park(
             pool,
