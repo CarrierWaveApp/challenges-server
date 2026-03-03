@@ -27,6 +27,8 @@ pub async fn list_clubs_admin(
             name: c.name,
             callsign: c.callsign,
             description: c.description,
+            notes_url: c.notes_url,
+            notes_title: c.notes_title,
             member_count: c.member_count,
         })
         .collect();
@@ -84,6 +86,8 @@ pub async fn create_club(
                 name: club.name,
                 callsign: club.callsign,
                 description: club.description,
+                notes_url: club.notes_url,
+                notes_title: club.notes_title,
                 member_count: 0,
             },
         }),
@@ -97,12 +101,24 @@ pub async fn update_club(
     Path(club_id): Path<Uuid>,
     Json(body): Json<UpdateClubRequest>,
 ) -> Result<Json<DataResponse<ClubResponse>>, AppError> {
+    // Convert double-Option fields for DB layer
+    let notes_url = body
+        .notes_url
+        .as_ref()
+        .map(|o| o.as_deref());
+    let notes_title = body
+        .notes_title
+        .as_ref()
+        .map(|o| o.as_deref());
+
     let club = db::clubs::update_club(
         &pool,
         club_id,
         body.name.as_deref(),
         body.callsign.as_deref(),
         body.description.as_deref(),
+        notes_url,
+        notes_title,
     )
     .await?
     .ok_or(AppError::ClubNotFound { club_id })?;
@@ -116,6 +132,8 @@ pub async fn update_club(
             name: club.name,
             callsign: club.callsign,
             description: club.description,
+            notes_url: club.notes_url,
+            notes_title: club.notes_title,
             member_count: members.len() as i64,
         },
     }))

@@ -14,6 +14,8 @@ pub struct Club {
     pub name: String,
     pub callsign: Option<String>,
     pub description: Option<String>,
+    pub notes_url: Option<String>,
+    pub notes_title: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -40,6 +42,10 @@ pub struct ClubResponse {
     pub name: String,
     pub callsign: Option<String>,
     pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notes_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notes_title: Option<String>,
     pub member_count: i64,
 }
 
@@ -51,6 +57,10 @@ pub struct ClubDetailResponse {
     pub name: String,
     pub callsign: Option<String>,
     pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notes_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notes_title: Option<String>,
     pub members: Vec<ClubMemberResponse>,
 }
 
@@ -119,6 +129,16 @@ pub struct UpdateClubRequest {
     pub name: Option<String>,
     pub callsign: Option<String>,
     pub description: Option<String>,
+    pub notes_url: Option<Option<String>>,
+    pub notes_title: Option<Option<String>>,
+}
+
+/// Request body for PUT /v1/clubs/:id/notes.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateClubNotesRequest {
+    pub notes_url: Option<String>,
+    pub notes_title: Option<String>,
 }
 
 /// Request body for POST /v1/clubs/:id/members.

@@ -112,6 +112,7 @@ fn create_router(pool: sqlx::PgPool, config: Config) -> Router {
             "/pota/stats/rankings/activators",
             get(handlers::get_activator_rankings),
         )
+        .route("/pota/stats/status", get(handlers::get_sync_status))
         .layer(middleware::from_fn_with_state(
             pool.clone(),
             auth::optional_auth,
@@ -159,6 +160,7 @@ fn create_router(pool: sqlx::PgPool, config: Config) -> Router {
         .route("/clubs/:id", get(handlers::get_club_details))
         .route("/clubs/:id/activity", get(handlers::get_club_activity))
         .route("/clubs/:id/status", get(handlers::get_club_status))
+        .route("/clubs/:id/notes", put(handlers::update_club_notes))
         .route("/account", delete(handlers::delete_account))
         .layer(Extension(config.clone()))
         .layer(middleware::from_fn_with_state(

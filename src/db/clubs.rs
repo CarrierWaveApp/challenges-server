@@ -16,6 +16,8 @@ pub struct ClubWithCount {
     pub name: String,
     pub callsign: Option<String>,
     pub description: Option<String>,
+    pub notes_url: Option<String>,
+    pub notes_title: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub member_count: i64,
@@ -59,7 +61,8 @@ pub async fn create_club(
         r#"
         INSERT INTO clubs (name, callsign, description)
         VALUES ($1, $2, $3)
-        RETURNING id, name, callsign, description, created_at, updated_at
+        RETURNING id, name, callsign, description, notes_url, notes_title,
+                  created_at, updated_at
         "#,
     )
     .bind(name)
@@ -74,30 +77,76 @@ pub async fn create_club(
 /// Update a club's metadata.
 ///
 /// Uses COALESCE so only provided fields are updated -- `None` means "keep existing value".
-/// This means optional fields (callsign, description) cannot be explicitly cleared to NULL
-/// through this function. If clearing is needed, add a dedicated endpoint.
+/// For notes_url and notes_title, the outer Option controls whether the field is being updated,
+/// and the inner Option controls whether to set a value or clear to NULL.
 pub async fn update_club(
     pool: &PgPool,
     club_id: Uuid,
     name: Option<&str>,
     callsign: Option<&str>,
     description: Option<&str>,
+    notes_url: Option<Option<&str>>,
+    notes_title: Option<Option<&str>>,
 ) -> Result<Option<Club>, AppError> {
+    // Flatten double-Option: None (outer) -> keep existing, Some(None) -> set NULL,
+    // Some(Some(v)) -> set value. We use a sentinel approach: pass the inner value
+    // (or NULL) and a boolean flag indicating whether to update.
+    let update_notes_url = notes_url.is_some();
+    let notes_url_val = notes_url.flatten();
+    let update_notes_title = notes_title.is_some();
+    let notes_title_val = notes_title.flatten();
+
     let club = sqlx::query_as::<_, Club>(
         r#"
         UPDATE clubs
         SET name        = COALESCE($2, name),
             callsign    = COALESCE($3, callsign),
             description = COALESCE($4, description),
+            notes_url   = CASE WHEN $5 THEN $6 ELSE notes_url END,
+            notes_title = CASE WHEN $7 THEN $8 ELSE notes_title END,
             updated_at  = now()
         WHERE id = $1
-        RETURNING id, name, callsign, description, created_at, updated_at
+        RETURNING id, name, callsign, description, notes_url, notes_title,
+                  created_at, updated_at
         "#,
     )
     .bind(club_id)
     .bind(name)
     .bind(callsign)
     .bind(description)
+    .bind(update_notes_url)
+    .bind(notes_url_val)
+    .bind(update_notes_title)
+    .bind(notes_title_val)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(club)
+}
+
+/// Directly set a club's notes URL and title.
+///
+/// Unlike `update_club`, this sets the values directly (NULL clears them).
+pub async fn update_club_notes(
+    pool: &PgPool,
+    club_id: Uuid,
+    notes_url: Option<&str>,
+    notes_title: Option<&str>,
+) -> Result<Option<Club>, AppError> {
+    let club = sqlx::query_as::<_, Club>(
+        r#"
+        UPDATE clubs
+        SET notes_url   = $2,
+            notes_title = $3,
+            updated_at  = now()
+        WHERE id = $1
+        RETURNING id, name, callsign, description, notes_url, notes_title,
+                  created_at, updated_at
+        "#,
+    )
+    .bind(club_id)
+    .bind(notes_url)
+    .bind(notes_title)
     .fetch_optional(pool)
     .await?;
 
@@ -197,6 +246,7 @@ pub async fn list_all_clubs(pool: &PgPool) -> Result<Vec<ClubWithCount>, AppErro
     let clubs = sqlx::query_as::<_, ClubWithCount>(
         r#"
         SELECT c.id, c.name, c.callsign, c.description,
+               c.notes_url, c.notes_title,
                c.created_at, c.updated_at,
                (SELECT COUNT(*) FROM club_members cm2
                 WHERE cm2.club_id = c.id) AS member_count
@@ -222,6 +272,7 @@ pub async fn get_clubs_for_callsign(
     let clubs = sqlx::query_as::<_, ClubWithCount>(
         r#"
         SELECT c.id, c.name, c.callsign, c.description,
+               c.notes_url, c.notes_title,
                c.created_at, c.updated_at,
                (SELECT COUNT(*) FROM club_members cm2
                 WHERE cm2.club_id = c.id) AS member_count
@@ -245,7 +296,8 @@ pub async fn get_club_detail(
 ) -> Result<Option<Club>, AppError> {
     let club = sqlx::query_as::<_, Club>(
         r#"
-        SELECT id, name, callsign, description, created_at, updated_at
+        SELECT id, name, callsign, description, notes_url, notes_title,
+               created_at, updated_at
         FROM clubs
         WHERE id = $1
         "#,

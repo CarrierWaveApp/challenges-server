@@ -10,7 +10,7 @@ use crate::db;
 use crate::error::AppError;
 use crate::models::club::{
     ClubDetailResponse, ClubMemberResponse, ClubResponse, MemberOnlineStatus,
-    MemberStatusResponse, SpotInfo,
+    MemberStatusResponse, SpotInfo, UpdateClubNotesRequest,
 };
 
 use super::DataResponse;
@@ -30,6 +30,8 @@ pub async fn get_clubs(
             name: c.name,
             callsign: c.callsign,
             description: c.description,
+            notes_url: c.notes_url,
+            notes_title: c.notes_title,
             member_count: c.member_count,
         })
         .collect();
@@ -73,6 +75,8 @@ pub async fn get_club_details(
             name: club.name,
             callsign: club.callsign,
             description: club.description,
+            notes_url: club.notes_url,
+            notes_title: club.notes_title,
             members: member_responses,
         },
     }))
@@ -217,6 +221,64 @@ pub async fn get_club_status(
     }
 
     Ok(Json(DataResponse { data: statuses }))
+}
+
+/// PUT /v1/clubs/:id/notes
+/// Update club notes (requires club admin role).
+pub async fn update_club_notes(
+    State(pool): State<PgPool>,
+    Extension(auth): Extension<AuthContext>,
+    Path(club_id): Path<Uuid>,
+    Json(body): Json<UpdateClubNotesRequest>,
+) -> Result<Json<DataResponse<ClubResponse>>, AppError> {
+    // Verify caller is a club member
+    if !db::clubs::is_club_member(&pool, club_id, &auth.callsign).await? {
+        return Err(AppError::Forbidden);
+    }
+
+    // Verify caller is a club admin
+    let members = db::clubs::get_club_members_enriched(&pool, club_id).await?;
+    let caller_upper = auth.callsign.to_uppercase();
+    let caller = members.iter().find(|m| m.callsign == caller_upper);
+
+    match caller {
+        Some(m) if m.role == "admin" => {}
+        _ => return Err(AppError::Forbidden),
+    }
+
+    // Validate URL starts with https:// if provided
+    if let Some(ref url) = body.notes_url {
+        if !url.starts_with("https://") {
+            return Err(AppError::Validation {
+                message: "notes_url must start with https://".to_string(),
+            });
+        }
+    }
+
+    // Update notes
+    let club = db::clubs::update_club_notes(
+        &pool,
+        club_id,
+        body.notes_url.as_deref(),
+        body.notes_title.as_deref(),
+    )
+    .await?
+    .ok_or(AppError::ClubNotFound { club_id })?;
+
+    // Get member count for response
+    let member_count = members.len() as i64;
+
+    Ok(Json(DataResponse {
+        data: ClubResponse {
+            id: club.id,
+            name: club.name,
+            callsign: club.callsign,
+            description: club.description,
+            notes_url: club.notes_url,
+            notes_title: club.notes_title,
+            member_count,
+        },
+    }))
 }
 
 /// Internal: partial spot row for status queries.
