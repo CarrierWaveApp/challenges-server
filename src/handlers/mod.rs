@@ -1,5 +1,7 @@
 pub mod badges;
 pub mod challenges;
+pub mod clubs;
+pub mod clubs_admin;
 pub mod friends;
 pub mod health;
 pub mod invite_page;
@@ -14,6 +16,8 @@ pub mod users;
 
 pub use badges::*;
 pub use challenges::*;
+pub use clubs::*;
+pub use clubs_admin::*;
 pub mod activity_feed;
 pub use activity_feed::*;
 pub use friends::*;

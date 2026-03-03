@@ -138,6 +138,8 @@ fn create_router(pool: sqlx::PgPool, config: Config) -> Router {
         .route("/feed", get(handlers::get_feed))
         .route("/clubs", get(handlers::get_clubs))
         .route("/clubs/:id", get(handlers::get_club_details))
+        .route("/clubs/:id/activity", get(handlers::get_club_activity))
+        .route("/clubs/:id/status", get(handlers::get_club_status))
         .route("/account", delete(handlers::delete_account))
         .layer(Extension(config.clone()))
         .layer(middleware::from_fn_with_state(
@@ -169,6 +171,19 @@ fn create_router(pool: sqlx::PgPool, config: Config) -> Router {
             put(handlers::update_program)
                 .get(handlers::admin_get_program)
                 .delete(handlers::delete_program),
+        )
+        .route("/admin/clubs", post(handlers::create_club))
+        .route(
+            "/admin/clubs/:id",
+            put(handlers::update_club).delete(handlers::delete_club),
+        )
+        .route(
+            "/admin/clubs/:id/members",
+            post(handlers::add_club_members),
+        )
+        .route(
+            "/admin/clubs/:id/members/:callsign",
+            delete(handlers::remove_club_member).put(handlers::update_club_member_role),
         )
         .route("/admin/spots/:id", delete(handlers::admin_delete_spot))
         .layer(middleware::from_fn_with_state(

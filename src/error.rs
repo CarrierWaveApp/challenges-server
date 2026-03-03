@@ -36,6 +36,15 @@ pub enum AppError {
     #[error("Spot not found")]
     SpotNotFound { spot_id: uuid::Uuid },
 
+    #[error("Club not found")]
+    ClubNotFound { club_id: Uuid },
+
+    #[error("Club member not found")]
+    ClubMemberNotFound {
+        club_id: Uuid,
+        callsign: String,
+    },
+
     #[error("Active self-spot already exists for this program")]
     SelfSpotExists,
 
@@ -140,6 +149,18 @@ impl IntoResponse for AppError {
                 StatusCode::NOT_FOUND,
                 "SPOT_NOT_FOUND",
                 Some(serde_json::json!({ "spotId": spot_id })),
+            ),
+            Self::ClubNotFound { club_id } => (
+                StatusCode::NOT_FOUND,
+                "CLUB_NOT_FOUND",
+                Some(serde_json::json!({ "clubId": club_id })),
+            ),
+            Self::ClubMemberNotFound {
+                club_id, callsign, ..
+            } => (
+                StatusCode::NOT_FOUND,
+                "CLUB_MEMBER_NOT_FOUND",
+                Some(serde_json::json!({ "clubId": club_id, "callsign": callsign })),
             ),
             Self::SelfSpotExists => (StatusCode::CONFLICT, "SELF_SPOT_EXISTS", None),
             Self::CapabilityNotSupported {

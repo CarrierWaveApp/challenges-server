@@ -112,23 +112,3 @@ pub async fn get_feed(
     }))
 }
 
-/// GET /v1/clubs
-/// Get clubs for user (stub: returns empty list)
-pub async fn get_clubs(
-    State(_pool): State<PgPool>,
-    Extension(_auth): Extension<AuthContext>,
-) -> Result<Json<DataResponse<Vec<serde_json::Value>>>, AppError> {
-    Ok(Json(DataResponse { data: vec![] }))
-}
-
-/// GET /v1/clubs/:id
-/// Get club details (stub: returns not found)
-pub async fn get_club_details(
-    State(_pool): State<PgPool>,
-    Extension(_auth): Extension<AuthContext>,
-    axum::extract::Path(_club_id): axum::extract::Path<uuid::Uuid>,
-) -> Result<Json<DataResponse<serde_json::Value>>, AppError> {
-    Err(AppError::Validation {
-        message: "Clubs not yet implemented".to_string(),
-    })
-}
