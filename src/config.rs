@@ -25,6 +25,8 @@ pub struct Config {
     pub historic_trails_batch_size: i64,
     pub historic_trails_cycle_hours: u64,
     pub historic_trails_stale_days: i64,
+    pub rbn_proxy_enabled: bool,
+    pub rbn_proxy_callsign: String,
 }
 
 impl Config {
@@ -130,6 +132,14 @@ impl Config {
             .parse()
             .unwrap_or(180);
 
+        let rbn_proxy_enabled = env::var("RBN_PROXY_ENABLED")
+            .unwrap_or_else(|_| "false".to_string())
+            .parse()
+            .unwrap_or(false);
+
+        let rbn_proxy_callsign =
+            env::var("RBN_PROXY_CALLSIGN").unwrap_or_else(|_| "W6JSV".to_string());
+
         Ok(Self {
             database_url,
             admin_token,
@@ -153,6 +163,8 @@ impl Config {
             historic_trails_batch_size,
             historic_trails_cycle_hours,
             historic_trails_stale_days,
+            rbn_proxy_enabled,
+            rbn_proxy_callsign,
         })
     }
 }

@@ -95,6 +95,14 @@ Server-rendered HTML page for friend invite links opened in browsers.
 **Exports:**
 - `async fn invite_page()` - GET /invite/:token - Render HTML page with inviter callsign and deep link to Carrier Wave
 
+### `src/handlers/rbn.rs`
+RBN (Reverse Beacon Network) proxy endpoints. Serves spots from in-memory store fed by telnet ingester.
+
+**Exports:**
+- `async fn rbn_spots()` - GET /v1/rbn/spots - Query spots with filters (call, spotter, mode, band, freq range, since, limit)
+- `async fn rbn_stats()` - GET /v1/rbn/stats - Aggregate statistics (total, per-minute rate, band/mode breakdown)
+- `async fn rbn_skimmers()` - GET /v1/rbn/skimmers - Active skimmers with spot counts and bands
+
 ### `src/handlers/friends.rs`
 Friend invite links and friend requests.
 
