@@ -58,19 +58,28 @@ async fn run_connection(
     let login_deadline =
         tokio::time::Instant::now() + std::time::Duration::from_secs(LOGIN_TIMEOUT_SECS);
 
-    let mut login_buf = Vec::with_capacity(256);
+    let mut login_buf = [0u8; 256];
+    let mut login_received = Vec::new();
     loop {
-        let byte_result = tokio::time::timeout_at(
+        let n = tokio::time::timeout_at(
             login_deadline,
-            tokio::io::AsyncReadExt::read_buf(&mut buf_reader, &mut login_buf),
+            tokio::io::AsyncReadExt::read(&mut buf_reader, &mut login_buf),
         )
         .await??;
 
-        if byte_result == 0 {
-            return Err("Connection closed before login prompt".into());
+        if n == 0 {
+            let received = String::from_utf8_lossy(&login_received);
+            return Err(format!(
+                "Connection closed before login prompt (received {} bytes: {:?})",
+                login_received.len(),
+                &received[..received.len().min(100)]
+            ).into());
         }
 
-        let received = String::from_utf8_lossy(&login_buf);
+        login_received.extend_from_slice(&login_buf[..n]);
+        let received = String::from_utf8_lossy(&login_received);
+        tracing::debug!("RBN ingester: login read {} bytes, total {}: {:?}", n, login_received.len(), &received[..received.len().min(80)]);
+
         if received.contains("call") || received.contains("login") || received.contains("callsign")
         {
             writer
