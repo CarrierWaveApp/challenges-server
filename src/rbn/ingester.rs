@@ -51,26 +51,37 @@ async fn run_connection(
     .await??;
 
     let (reader, mut writer) = stream.into_split();
-    let mut lines = BufReader::new(reader).lines();
+    let mut buf_reader = BufReader::new(reader);
 
-    // Wait for login prompt and send callsign
+    // Wait for login prompt — RBN sends "Please enter your call: " with no
+    // trailing newline, so we must read raw bytes instead of lines.
     let login_deadline =
         tokio::time::Instant::now() + std::time::Duration::from_secs(LOGIN_TIMEOUT_SECS);
 
+    let mut login_buf = Vec::with_capacity(256);
     loop {
-        let line = tokio::time::timeout_at(login_deadline, lines.next_line()).await??;
-        match line {
-            Some(l) if l.contains("callsign") || l.contains("login") || l.contains("call:") => {
-                writer
-                    .write_all(format!("{}\n", callsign).as_bytes())
-                    .await?;
-                tracing::info!("RBN ingester: logged in as {}", callsign);
-                break;
-            }
-            Some(_) => continue,
-            None => return Err("Connection closed before login prompt".into()),
+        let byte_result = tokio::time::timeout_at(
+            login_deadline,
+            tokio::io::AsyncReadExt::read_buf(&mut buf_reader, &mut login_buf),
+        )
+        .await??;
+
+        if byte_result == 0 {
+            return Err("Connection closed before login prompt".into());
+        }
+
+        let received = String::from_utf8_lossy(&login_buf);
+        if received.contains("call") || received.contains("login") || received.contains("callsign")
+        {
+            writer
+                .write_all(format!("{}\n", callsign).as_bytes())
+                .await?;
+            tracing::info!("RBN ingester: logged in as {}", callsign);
+            break;
         }
     }
+
+    let mut lines = buf_reader.lines();
 
     store.set_connected(true);
     // Reset backoff on successful connection — caller handles backoff state,
