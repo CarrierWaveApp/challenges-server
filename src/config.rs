@@ -21,6 +21,10 @@ pub struct Config {
     pub park_boundaries_batch_size: i64,
     pub park_boundaries_cycle_hours: u64,
     pub park_boundaries_stale_days: i64,
+    pub polish_park_boundaries_enabled: bool,
+    pub polish_park_boundaries_batch_size: i64,
+    pub polish_park_boundaries_cycle_hours: u64,
+    pub polish_park_boundaries_stale_days: i64,
 }
 
 impl Config {
@@ -106,6 +110,29 @@ impl Config {
             .parse()
             .unwrap_or(90);
 
+        let polish_park_boundaries_enabled = env::var("POLISH_PARK_BOUNDARIES_ENABLED")
+            .unwrap_or_else(|_| "false".to_string())
+            .parse()
+            .unwrap_or(false);
+
+        let polish_park_boundaries_batch_size: i64 =
+            env::var("POLISH_PARK_BOUNDARIES_BATCH_SIZE")
+                .unwrap_or_else(|_| "20".to_string())
+                .parse()
+                .unwrap_or(20);
+
+        let polish_park_boundaries_cycle_hours: u64 =
+            env::var("POLISH_PARK_BOUNDARIES_CYCLE_HOURS")
+                .unwrap_or_else(|_| "24".to_string())
+                .parse()
+                .unwrap_or(24);
+
+        let polish_park_boundaries_stale_days: i64 =
+            env::var("POLISH_PARK_BOUNDARIES_STALE_DAYS")
+                .unwrap_or_else(|_| "90".to_string())
+                .parse()
+                .unwrap_or(90);
+
         Ok(Self {
             database_url,
             admin_token,
@@ -125,6 +152,10 @@ impl Config {
             park_boundaries_batch_size,
             park_boundaries_cycle_hours,
             park_boundaries_stale_days,
+            polish_park_boundaries_enabled,
+            polish_park_boundaries_batch_size,
+            polish_park_boundaries_cycle_hours,
+            polish_park_boundaries_stale_days,
         })
     }
 }

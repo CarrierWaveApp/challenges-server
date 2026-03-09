@@ -177,6 +177,28 @@ pub async fn get_unfetched_parks(
     .await
 }
 
+/// Get Polish (SP-) parks that need fetching (no boundary row yet).
+pub async fn get_unfetched_polish_parks(
+    pool: &PgPool,
+    limit: i64,
+) -> Result<Vec<UnfetchedPark>, sqlx::Error> {
+    sqlx::query_as::<_, UnfetchedPark>(
+        r#"
+        SELECT p.reference, p.name, p.location_desc, p.latitude, p.longitude
+        FROM pota_parks p
+        LEFT JOIN park_boundaries b ON p.reference = b.pota_reference
+        WHERE b.pota_reference IS NULL
+          AND p.reference LIKE 'SP-%'
+          AND p.active = true
+        ORDER BY p.reference
+        LIMIT $1
+        "#,
+    )
+    .bind(limit)
+    .fetch_all(pool)
+    .await
+}
+
 /// Get stale boundaries (older than given days) for re-fetching.
 pub async fn get_stale_boundaries(
     pool: &PgPool,

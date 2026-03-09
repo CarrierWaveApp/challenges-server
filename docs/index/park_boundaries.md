@@ -29,6 +29,11 @@ Data structures for park boundaries feature.
 - `struct BoundariesResponse` - GeoJSON FeatureCollection with meta
 - `struct BoundariesMeta` - matched count and unmatched_refs list
 
+**WFS API types (GDOŚ Poland):**
+- `struct WfsFeatureCollection` - Response from GDOŚ WFS GetFeature
+- `struct WfsFeature` - Single feature with properties and geometry
+- `struct WfsProperties` - GDOŚ field mapping (nazwa, area_ha, inspire_id)
+
 **ArcGIS API types (upstream JSON):**
 - `struct ArcGisResponse` - Response from PAD-US FeatureServer query
 - `struct ArcGisFeature` - Single feature with attributes and geometry
@@ -47,6 +52,7 @@ Database queries for park boundaries.
 - `async fn upsert_boundary()` - Insert/update boundary with PostGIS geometry conversion
 - `async fn count_boundaries()` - Count total cached boundaries
 - `async fn get_unfetched_parks()` - Get US parks without cached boundaries
+- `async fn get_unfetched_polish_parks()` - Get SP- parks without cached boundaries
 - `async fn get_stale_boundaries()` - Get boundaries older than N days for refresh
 
 **Helper types:**
@@ -68,6 +74,29 @@ Background aggregator that fetches park boundaries from PAD-US ArcGIS API.
 - `fn normalize_park_name()` - Strip common suffixes for search
 - `fn is_federal_park()` - Determine federal vs state service URL
 - `fn state_code_to_name()` - Convert US-XX to full state name
+
+### `src/aggregators/polish_park_boundaries.rs`
+Background aggregator that fetches Polish park boundaries from GDOŚ WFS.
+
+**Exports:**
+- `struct PolishParkBoundariesConfig` - batch_size, cycle_hours, stale_days
+- `async fn poll_loop()` - Main loop: fetch unfetched SP- parks, refresh stale, sleep
+
+**Internal functions:**
+- `async fn fetch_boundary()` - Fetch boundary for single Polish park
+- `async fn query_wfs_by_name()` - Query GDOŚ WFS by name using CQL filter
+- `async fn query_wfs_by_point()` - Query GDOŚ WFS by BBOX intersection
+- `async fn save_wfs_feature()` - Save WFS feature to database
+- `fn normalize_polish_park_name()` - Strip Polish park name suffixes for search
+- `fn urlencoded()` - URL-encode for WFS query parameters
+
+**WFS Layers queried:**
+- `ParkiNarodowe` (National Parks)
+- `ParkiKrajobrazowe` (Landscape Parks)
+- `Rezerwaty` (Nature Reserves)
+- `ObszaryChronionegoKrajobrazu` (Protected Landscape Areas)
+- `ObszarySpecjalnejOchrony` (Special Protection Areas)
+- `SpecjalneObszaryOchrony` (Special Areas of Conservation)
 
 ### `src/handlers/park_boundaries.rs`
 HTTP handlers for park boundaries API endpoints.

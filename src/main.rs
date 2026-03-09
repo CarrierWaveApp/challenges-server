@@ -70,6 +70,11 @@ async fn main() {
         aggregators::spawn_park_boundaries_aggregator(pool.clone(), &config);
     }
 
+    // Spawn Polish park boundaries aggregator (requires POTA stats for park catalog)
+    if config.polish_park_boundaries_enabled {
+        aggregators::spawn_polish_park_boundaries_aggregator(pool.clone(), &config);
+    }
+
     // Build router
     let app = create_router(pool.clone(), config.clone());
 
