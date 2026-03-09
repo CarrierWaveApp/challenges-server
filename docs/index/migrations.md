@@ -125,3 +125,9 @@ Adds consecutive error counter to pota_fetch_status.
 
 **Columns added:**
 - `consecutive_errors` (INTEGER NOT NULL DEFAULT 0) - Tracks consecutive fetch failures; parks with 3+ errors are skipped until the next catalog re-sync resets counters
+
+### `migrations/015_trail_fetch_consecutive_errors.sql`
+Adds consecutive error counter to historic_trail_catalog.
+
+**Columns added:**
+- `consecutive_errors` (INTEGER NOT NULL DEFAULT 0) - Tracks consecutive fetch failures; trails with 3+ errors are skipped until counters reset at the start of each cycle

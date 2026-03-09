@@ -51,6 +51,18 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: HistoricTr
         let batch_start = std::time::Instant::now();
         let total_cached = historic_trails::count_trails(&pool).await.unwrap_or(0);
 
+        // Reset consecutive error counters so previously-failing trails
+        // get retried each cycle (they may have been fixed upstream)
+        match historic_trails::reset_trail_consecutive_errors(&pool).await {
+            Ok(n) if n > 0 => {
+                tracing::info!("Historic trails: reset error counters for {} trails", n);
+            }
+            Err(e) => {
+                tracing::error!("Historic trails: reset_trail_consecutive_errors failed: {}", e);
+            }
+            _ => {}
+        }
+
         // Phase 1: Fetch geometries for trails that don't have one yet
         match historic_trails::get_unfetched_trails(&pool, config.batch_size).await {
             Ok(trails) => {
@@ -174,6 +186,13 @@ async fn fetch_batch(
                     reference,
                     name
                 );
+                if let Err(e) = historic_trails::increment_trail_errors(pool, &reference).await {
+                    tracing::error!(
+                        "Historic trails: failed to increment errors for {}: {}",
+                        reference,
+                        e
+                    );
+                }
                 no_match += 1;
             }
             Ok((reference, name, FetchResult::Error(e))) => {
@@ -183,6 +202,13 @@ async fn fetch_batch(
                     name,
                     e
                 );
+                if let Err(e2) = historic_trails::increment_trail_errors(pool, &reference).await {
+                    tracing::error!(
+                        "Historic trails: failed to increment errors for {}: {}",
+                        reference,
+                        e2
+                    );
+                }
                 errors += 1;
             }
             Err(e) => {

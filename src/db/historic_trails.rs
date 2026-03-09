@@ -171,6 +171,7 @@ pub async fn get_unfetched_trails(
         FROM historic_trail_catalog c
         LEFT JOIN historic_trails t ON c.trail_reference = t.trail_reference
         WHERE t.trail_reference IS NULL
+          AND c.consecutive_errors < 3
         ORDER BY c.trail_reference
         LIMIT $1
         "#,
@@ -219,6 +220,35 @@ pub async fn get_trail_status(pool: &PgPool) -> Result<TrailStatusRow, sqlx::Err
     )
     .fetch_one(pool)
     .await
+}
+
+/// Increment consecutive error counter for a trail that failed to fetch.
+pub async fn increment_trail_errors(
+    pool: &PgPool,
+    trail_reference: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        UPDATE historic_trail_catalog
+        SET consecutive_errors = consecutive_errors + 1
+        WHERE trail_reference = $1
+        "#,
+    )
+    .bind(trail_reference)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// Reset consecutive error counters for all trails (called at the start of
+/// each cycle so previously-failing trails get another chance periodically).
+pub async fn reset_trail_consecutive_errors(pool: &PgPool) -> Result<u64, sqlx::Error> {
+    let result = sqlx::query(
+        "UPDATE historic_trail_catalog SET consecutive_errors = 0 WHERE consecutive_errors > 0",
+    )
+    .execute(pool)
+    .await?;
+    Ok(result.rows_affected())
 }
 
 #[derive(Debug, sqlx::FromRow)]

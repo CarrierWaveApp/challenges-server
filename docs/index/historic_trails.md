@@ -51,6 +51,8 @@ Database queries for historic trails.
 - `async fn get_unfetched_trails()` - Get catalog trails without cached geometry
 - `async fn get_stale_trails()` - Get trails older than N days for refresh
 - `async fn get_trail_status()` - Get sync status statistics
+- `async fn increment_trail_errors()` - Increment consecutive error counter for a failed trail
+- `async fn reset_trail_consecutive_errors()` - Reset all error counters at cycle start
 
 **Helper types:**
 - `struct TrailStatusRow` - Status statistics from DB
