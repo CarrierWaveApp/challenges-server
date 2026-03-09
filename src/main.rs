@@ -120,6 +120,10 @@ fn create_router(pool: sqlx::PgPool, config: Config) -> Router {
         .route("/pota/stats/status", get(handlers::get_sync_status))
         .route("/parks/boundaries", get(handlers::get_boundaries))
         .route(
+            "/parks/boundaries/status",
+            get(handlers::get_boundary_status),
+        )
+        .route(
             "/parks/boundaries/:reference",
             get(handlers::get_boundary),
         )

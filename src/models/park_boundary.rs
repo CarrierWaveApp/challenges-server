@@ -66,6 +66,22 @@ pub struct BoundariesMeta {
     pub unmatched_refs: Vec<String>,
 }
 
+// --- Status response ---
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BoundaryStatusResponse {
+    pub total_us_parks: i64,
+    pub total_cached: i64,
+    pub unfetched: i64,
+    pub completion_percentage: i64,
+    pub exact_matches: i64,
+    pub spatial_matches: i64,
+    pub manual_matches: i64,
+    pub oldest_fetch: Option<String>,
+    pub newest_fetch: Option<String>,
+}
+
 // --- ArcGIS API types ---
 
 #[derive(Debug, Deserialize)]

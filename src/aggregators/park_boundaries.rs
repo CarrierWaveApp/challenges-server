@@ -23,33 +23,84 @@ impl Default for ParkBoundariesConfig {
     }
 }
 
+/// Result of attempting to fetch a boundary for one park.
+enum FetchResult {
+    Cached(String), // match_quality
+    NoMatch,
+    Error(String),
+}
+
 /// Main poll loop — fetches boundaries for unmatched parks, then re-checks stale ones.
 pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: ParkBoundariesConfig) {
     // Wait for POTA stats aggregator to populate pota_parks first
+    tracing::info!("Park boundaries: waiting 120s for POTA stats to populate park catalog");
     tokio::time::sleep(std::time::Duration::from_secs(120)).await;
 
     loop {
+        let total_cached = park_boundaries::count_boundaries(&pool).await.unwrap_or(0);
+
         // Phase 1: Fetch boundaries for parks that don't have one yet
         match park_boundaries::get_unfetched_parks(&pool, config.batch_size).await {
             Ok(parks) => {
                 if parks.is_empty() {
-                    tracing::debug!("Park boundaries: no unfetched parks");
+                    tracing::info!(
+                        "Park boundaries: all parks fetched ({} cached)",
+                        total_cached
+                    );
                 } else {
                     tracing::info!(
-                        "Park boundaries: fetching {} unfetched parks",
-                        parks.len()
+                        "Park boundaries: fetching {} unfetched parks ({} already cached)",
+                        parks.len(),
+                        total_cached
                     );
+                    let mut cached = 0u32;
+                    let mut no_match = 0u32;
+                    let mut errors = 0u32;
+
                     for park in &parks {
-                        if let Err(e) = fetch_boundary(&pool, &client, park).await {
-                            tracing::warn!(
-                                "Park boundaries: {} fetch failed: {}",
-                                park.reference,
-                                e
-                            );
+                        match fetch_boundary(&pool, &client, park).await {
+                            FetchResult::Cached(quality) => {
+                                tracing::info!(
+                                    "Park boundaries: {} '{}' -> cached ({})",
+                                    park.reference,
+                                    park.name,
+                                    quality
+                                );
+                                cached += 1;
+                            }
+                            FetchResult::NoMatch => {
+                                tracing::info!(
+                                    "Park boundaries: {} '{}' -> no match (state={:?})",
+                                    park.reference,
+                                    park.name,
+                                    park.location_desc
+                                );
+                                no_match += 1;
+                            }
+                            FetchResult::Error(e) => {
+                                tracing::warn!(
+                                    "Park boundaries: {} '{}' -> error: {}",
+                                    park.reference,
+                                    park.name,
+                                    e
+                                );
+                                errors += 1;
+                            }
                         }
                         // Rate limit: 1 request per second to be polite to ArcGIS
                         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                     }
+
+                    let new_total = park_boundaries::count_boundaries(&pool)
+                        .await
+                        .unwrap_or(0);
+                    tracing::info!(
+                        "Park boundaries: batch done — {} cached, {} no match, {} errors ({} total cached)",
+                        cached,
+                        no_match,
+                        errors,
+                        new_total
+                    );
                 }
             }
             Err(e) => {
@@ -63,7 +114,10 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: ParkBounda
         {
             Ok(stale) => {
                 if !stale.is_empty() {
-                    tracing::info!("Park boundaries: refreshing {} stale boundaries", stale.len());
+                    tracing::info!(
+                        "Park boundaries: refreshing {} stale boundaries",
+                        stale.len()
+                    );
                     for park in &stale {
                         let unfetched = UnfetchedPark {
                             reference: park.reference.clone(),
@@ -72,12 +126,27 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: ParkBounda
                             latitude: park.latitude,
                             longitude: park.longitude,
                         };
-                        if let Err(e) = fetch_boundary(&pool, &client, &unfetched).await {
-                            tracing::warn!(
-                                "Park boundaries: {} refresh failed: {}",
-                                park.reference,
-                                e
-                            );
+                        match fetch_boundary(&pool, &client, &unfetched).await {
+                            FetchResult::Cached(quality) => {
+                                tracing::info!(
+                                    "Park boundaries: {} refreshed ({})",
+                                    park.reference,
+                                    quality
+                                );
+                            }
+                            FetchResult::NoMatch => {
+                                tracing::info!(
+                                    "Park boundaries: {} refresh -> no match",
+                                    park.reference
+                                );
+                            }
+                            FetchResult::Error(e) => {
+                                tracing::warn!(
+                                    "Park boundaries: {} refresh failed: {}",
+                                    park.reference,
+                                    e
+                                );
+                            }
                         }
                         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                     }
@@ -88,9 +157,10 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: ParkBounda
             }
         }
 
-        let total = park_boundaries::count_boundaries(&pool).await.unwrap_or(0);
-        tracing::info!("Park boundaries: {} total cached", total);
-
+        tracing::info!(
+            "Park boundaries: sleeping {}h until next cycle",
+            config.cycle_hours
+        );
         tokio::time::sleep(std::time::Duration::from_secs(config.cycle_hours * 3600)).await;
     }
 }
@@ -100,11 +170,20 @@ async fn fetch_boundary(
     pool: &PgPool,
     client: &reqwest::Client,
     park: &UnfetchedPark,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let state_name = park
-        .location_desc
-        .as_deref()
-        .and_then(state_code_to_name);
+) -> FetchResult {
+    match fetch_boundary_inner(pool, client, park).await {
+        Ok(Some(quality)) => FetchResult::Cached(quality),
+        Ok(None) => FetchResult::NoMatch,
+        Err(e) => FetchResult::Error(e.to_string()),
+    }
+}
+
+async fn fetch_boundary_inner(
+    pool: &PgPool,
+    client: &reqwest::Client,
+    park: &UnfetchedPark,
+) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
+    let state_name = park.location_desc.as_deref().and_then(state_code_to_name);
 
     // Determine which service to query based on name patterns
     let is_federal = is_federal_park(&park.name);
@@ -117,8 +196,20 @@ async fn fetch_boundary(
     // Strategy 1: Name + state matching
     let search_name = normalize_park_name(&park.name);
     if let Some(state) = &state_name {
-        if let Some(feature) = query_by_name(client, service_url, &search_name, state).await? {
-            return save_feature(pool, park, &feature, "exact").await;
+        match query_by_name(client, service_url, &search_name, state).await {
+            Ok(Some(feature)) => {
+                save_feature(pool, park, &feature, "exact").await?;
+                return Ok(Some("exact".to_string()));
+            }
+            Ok(None) => {}
+            Err(e) => {
+                tracing::warn!(
+                    "Park boundaries: {} name query ({}) failed: {}",
+                    park.reference,
+                    if is_federal { "federal" } else { "state" },
+                    e
+                );
+            }
         }
 
         // Try the other service if first didn't match
@@ -127,23 +218,66 @@ async fn fetch_boundary(
         } else {
             PADUS_FEDERAL_URL
         };
-        if let Some(feature) = query_by_name(client, alt_url, &search_name, state).await? {
-            return save_feature(pool, park, &feature, "exact").await;
+        match query_by_name(client, alt_url, &search_name, state).await {
+            Ok(Some(feature)) => {
+                save_feature(pool, park, &feature, "exact").await?;
+                return Ok(Some("exact".to_string()));
+            }
+            Ok(None) => {}
+            Err(e) => {
+                tracing::warn!(
+                    "Park boundaries: {} alt name query failed: {}",
+                    park.reference,
+                    e
+                );
+            }
         }
+    } else {
+        tracing::info!(
+            "Park boundaries: {} has no state mapping for '{:?}', skipping name query",
+            park.reference,
+            park.location_desc
+        );
     }
 
     // Strategy 2: Spatial query (point-in-polygon)
     if let (Some(lat), Some(lon)) = (park.latitude, park.longitude) {
-        if let Some(feature) = query_by_point(client, PADUS_FEDERAL_URL, lon, lat).await? {
-            return save_feature(pool, park, &feature, "spatial").await;
+        match query_by_point(client, PADUS_FEDERAL_URL, lon, lat).await {
+            Ok(Some(feature)) => {
+                save_feature(pool, park, &feature, "spatial").await?;
+                return Ok(Some("spatial".to_string()));
+            }
+            Ok(None) => {}
+            Err(e) => {
+                tracing::warn!(
+                    "Park boundaries: {} federal spatial query failed: {}",
+                    park.reference,
+                    e
+                );
+            }
         }
-        if let Some(feature) = query_by_point(client, PADUS_STATE_URL, lon, lat).await? {
-            return save_feature(pool, park, &feature, "spatial").await;
+        match query_by_point(client, PADUS_STATE_URL, lon, lat).await {
+            Ok(Some(feature)) => {
+                save_feature(pool, park, &feature, "spatial").await?;
+                return Ok(Some("spatial".to_string()));
+            }
+            Ok(None) => {}
+            Err(e) => {
+                tracing::warn!(
+                    "Park boundaries: {} state spatial query failed: {}",
+                    park.reference,
+                    e
+                );
+            }
         }
+    } else {
+        tracing::info!(
+            "Park boundaries: {} has no lat/lon, skipping spatial query",
+            park.reference
+        );
     }
 
-    tracing::debug!("Park boundaries: no match for {}", park.reference);
-    Ok(())
+    Ok(None)
 }
 
 /// Query PAD-US by name and state.
@@ -165,13 +299,25 @@ async fn query_by_name(
         urlencoded(&where_clause)
     );
 
-    let resp: ArcGisResponse = client
+    let resp_text = client
         .get(&url)
         .send()
         .await?
         .error_for_status()?
-        .json()
+        .text()
         .await?;
+
+    let resp: ArcGisResponse = match serde_json::from_str(&resp_text) {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!(
+                "Park boundaries: ArcGIS response parse error: {} (first 200 chars: {})",
+                e,
+                &resp_text[..resp_text.len().min(200)]
+            );
+            return Ok(None);
+        }
+    };
 
     let features = resp.features.unwrap_or_default();
     // Prefer Designation feature class over Fee
@@ -202,13 +348,25 @@ async fn query_by_point(
         service_url, lon, lat
     );
 
-    let resp: ArcGisResponse = client
+    let resp_text = client
         .get(&url)
         .send()
         .await?
         .error_for_status()?
-        .json()
+        .text()
         .await?;
+
+    let resp: ArcGisResponse = match serde_json::from_str(&resp_text) {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!(
+                "Park boundaries: ArcGIS spatial response parse error: {} (first 200 chars: {})",
+                e,
+                &resp_text[..resp_text.len().min(200)]
+            );
+            return Ok(None);
+        }
+    };
 
     let features = resp.features.unwrap_or_default();
     let best = features.into_iter().min_by_key(|f| {
@@ -235,7 +393,13 @@ async fn save_feature(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let geojson = match &feature.geometry {
         Some(g) => serde_json::to_string(g)?,
-        None => return Ok(()),
+        None => {
+            tracing::warn!(
+                "Park boundaries: {} matched but feature has no geometry",
+                park.reference
+            );
+            return Ok(());
+        }
     };
 
     let attrs = feature.attributes.as_ref();
@@ -256,19 +420,14 @@ async fn save_feature(
     )
     .await?;
 
-    tracing::debug!(
-        "Park boundaries: cached {} ({})",
-        park.reference,
-        match_quality
-    );
     Ok(())
 }
 
-/// Simple URL encoding for the where clause.
+/// URL-encode a string for use in ArcGIS REST API query parameters.
+/// Note: `%` in SQL LIKE wildcards must NOT be encoded — ArcGIS expects
+/// the `where` parameter to contain raw SQL with `%` wildcards.
 fn urlencoded(s: &str) -> String {
-    // Percent must be encoded first to avoid double-encoding
-    s.replace('%', "%25")
-        .replace(' ', "%20")
+    s.replace(' ', "%20")
         .replace('\'', "%27")
         .replace('=', "%3D")
         .replace('&', "%26")

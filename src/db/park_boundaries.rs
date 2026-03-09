@@ -200,6 +200,35 @@ pub async fn get_stale_boundaries(
     .await
 }
 
+/// Get boundary sync status statistics.
+pub async fn get_boundary_status(pool: &PgPool) -> Result<BoundaryStatusRow, sqlx::Error> {
+    sqlx::query_as::<_, BoundaryStatusRow>(
+        r#"
+        SELECT
+            (SELECT COUNT(*) FROM park_boundaries) as total_cached,
+            (SELECT COUNT(*) FROM pota_parks WHERE reference LIKE 'US-%' AND active = true) as total_us_parks,
+            (SELECT COUNT(*) FROM park_boundaries WHERE match_quality = 'exact') as exact_matches,
+            (SELECT COUNT(*) FROM park_boundaries WHERE match_quality = 'spatial') as spatial_matches,
+            (SELECT COUNT(*) FROM park_boundaries WHERE match_quality = 'manual') as manual_matches,
+            (SELECT MIN(fetched_at) FROM park_boundaries) as oldest_fetch,
+            (SELECT MAX(fetched_at) FROM park_boundaries) as newest_fetch
+        "#,
+    )
+    .fetch_one(pool)
+    .await
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct BoundaryStatusRow {
+    pub total_cached: i64,
+    pub total_us_parks: i64,
+    pub exact_matches: i64,
+    pub spatial_matches: i64,
+    pub manual_matches: i64,
+    pub oldest_fetch: Option<chrono::DateTime<chrono::Utc>>,
+    pub newest_fetch: Option<chrono::DateTime<chrono::Utc>>,
+}
+
 #[derive(Debug, sqlx::FromRow)]
 pub struct UnfetchedPark {
     pub reference: String,

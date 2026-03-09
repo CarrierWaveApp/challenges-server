@@ -6,8 +6,10 @@ use crate::error::AppError;
 use crate::extractors::{Json, Path};
 use crate::models::park_boundary::{
     BoundariesMeta, BoundariesQuery, BoundariesResponse, BoundaryFeature, BoundaryProperties,
-    ParkBoundaryRow,
+    BoundaryStatusResponse, ParkBoundaryRow,
 };
+
+use super::DataResponse;
 
 /// GET /v1/parks/boundaries?refs=...&bbox=...&limit=...&simplify=...
 pub async fn get_boundaries(
@@ -134,4 +136,32 @@ fn row_to_feature(row: ParkBoundaryRow) -> Option<BoundaryFeature> {
             source: row.source,
         },
     })
+}
+
+/// GET /v1/parks/boundaries/status
+pub async fn get_boundary_status(
+    State(pool): State<PgPool>,
+) -> Result<Json<DataResponse<BoundaryStatusResponse>>, AppError> {
+    let status = db::get_boundary_status(&pool).await?;
+
+    let unfetched = status.total_us_parks - status.total_cached;
+    let completion_percentage = if status.total_us_parks > 0 {
+        status.total_cached * 100 / status.total_us_parks
+    } else {
+        0
+    };
+
+    Ok(Json(DataResponse {
+        data: BoundaryStatusResponse {
+            total_us_parks: status.total_us_parks,
+            total_cached: status.total_cached,
+            unfetched,
+            completion_percentage,
+            exact_matches: status.exact_matches,
+            spatial_matches: status.spatial_matches,
+            manual_matches: status.manual_matches,
+            oldest_fetch: status.oldest_fetch.map(|t| t.to_rfc3339()),
+            newest_fetch: status.newest_fetch.map(|t| t.to_rfc3339()),
+        },
+    }))
 }
