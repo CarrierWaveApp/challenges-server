@@ -56,6 +56,8 @@ ADMIN_TOKEN=your-secret-token                                 # Required
 PORT=8080                                                     # Optional, default 8080
 BASE_URL=https://challenges.example.com                       # Optional
 RUST_LOG=info                                                 # Optional
+RBN_PROXY_ENABLED=false                                       # Optional, default false
+RBN_PROXY_CALLSIGN=W6JSV                                      # Optional, default W6JSV
 ```
 
 ## Finding Code
@@ -72,6 +74,8 @@ RUST_LOG=info                                                 # Optional
 | Migrations | [docs/index/migrations.md](docs/index/migrations.md) |
 | POTA Stats | [docs/index/pota_stats.md](docs/index/pota_stats.md) |
 | Park Boundaries | [docs/index/park_boundaries.md](docs/index/park_boundaries.md) |
+| Historic Trails | [docs/index/historic_trails.md](docs/index/historic_trails.md) |
+| RBN Proxy | [docs/index/rbn.md](docs/index/rbn.md) |
 | Tests | [docs/index/tests.md](docs/index/tests.md) |
 
 **Search policy:**
@@ -113,10 +117,17 @@ RUST_LOG=info                                                 # Optional
 - `GET /v1/pota/stats/status` - Sync progress and completion status
 - `GET /v1/parks/boundaries` - Park boundary polygons (by refs or bbox)
 - `GET /v1/parks/boundaries/{reference}` - Single park boundary (full resolution)
-- `GET /v1/health` - Health check
+- `GET /v1/trails` - Historic trail lines (by refs or bbox)
+- `GET /v1/trails/{reference}` - Single trail (full resolution)
+- `GET /v1/trails/status` - Trail sync progress and completion status
+- `GET /v1/rbn/spots` - RBN spots with filters (call, band, mode, freq range, spotter, since)
+- `GET /v1/rbn/stats` - RBN aggregate statistics (band/mode breakdown, rate)
+- `GET /v1/rbn/skimmers` - Active RBN skimmers with spot counts
+- `GET /v1/health` - Health check (includes RBN status when enabled)
 - `POST /v1/admin/challenges` - Create challenge (admin)
 - `PUT /v1/admin/challenges/{id}` - Update challenge (admin)
 - `DELETE /v1/admin/challenges/{id}` - Delete challenge (admin)
+- `GET /v1/admin/trails/status` - Historic trails sync status (admin)
 
 ### Not Yet Implemented
 - Badge upload/retrieval

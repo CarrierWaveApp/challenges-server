@@ -45,6 +45,8 @@ The server is stateless - all state lives in PostgreSQL. Multiple server instanc
 | `scoring/calculator` | Score calculation for different scoring methods |
 | `middleware/rate_limit` | Per-IP rate limiting with Redis-like in-memory store |
 | `middleware/admin_auth` | Validate admin token for protected endpoints |
+| `rbn/store` | In-memory RBN spot store (1-hour VecDeque with RwLock) |
+| `rbn/ingester` | RBN telnet stream connection, parsing, batch ingestion |
 
 ## Database Schema
 

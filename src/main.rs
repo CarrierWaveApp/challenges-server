@@ -6,6 +6,7 @@ mod error;
 mod extractors;
 mod handlers;
 mod models;
+mod rbn;
 
 use std::net::SocketAddr;
 
@@ -75,8 +76,20 @@ async fn main() {
         aggregators::spawn_polish_park_boundaries_aggregator(pool.clone(), &config);
     }
 
+    // Spawn historic trails aggregator
+    if config.historic_trails_enabled {
+        aggregators::spawn_historic_trails_aggregator(pool.clone(), &config);
+    }
+
+    // Spawn RBN telnet ingester
+    let rbn_store = rbn::SpotStore::new();
+    if config.rbn_proxy_enabled {
+        rbn::spawn_rbn_ingester(rbn_store.clone(), config.rbn_proxy_callsign.clone());
+        tracing::info!("RBN proxy enabled (login: {})", config.rbn_proxy_callsign);
+    }
+
     // Build router
-    let app = create_router(pool.clone(), config.clone());
+    let app = create_router(pool.clone(), config.clone(), rbn_store);
 
     // Start server
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
@@ -86,7 +99,7 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-fn create_router(pool: sqlx::PgPool, config: Config) -> Router {
+fn create_router(pool: sqlx::PgPool, config: Config, rbn_store: rbn::SpotStore) -> Router {
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
@@ -132,6 +145,13 @@ fn create_router(pool: sqlx::PgPool, config: Config) -> Router {
             "/parks/boundaries/:reference",
             get(handlers::get_boundary),
         )
+        .route("/trails", get(handlers::get_trails))
+        .route("/trails/status", get(handlers::get_trail_status))
+        .route("/trails/:reference", get(handlers::get_trail))
+        .route("/rbn/spots", get(handlers::rbn_spots))
+        .route("/rbn/stats", get(handlers::rbn_stats))
+        .route("/rbn/skimmers", get(handlers::rbn_skimmers))
+        .layer(Extension(rbn_store))
         .layer(middleware::from_fn_with_state(
             pool.clone(),
             auth::optional_auth,
@@ -229,6 +249,10 @@ fn create_router(pool: sqlx::PgPool, config: Config) -> Router {
             delete(handlers::remove_club_member).put(handlers::update_club_member_role),
         )
         .route("/admin/spots/:id", delete(handlers::admin_delete_spot))
+        .route(
+            "/admin/trails/status",
+            get(handlers::get_trail_status),
+        )
         .layer(middleware::from_fn_with_state(
             config.admin_token,
             auth::require_admin,

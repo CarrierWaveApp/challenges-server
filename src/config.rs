@@ -25,6 +25,12 @@ pub struct Config {
     pub polish_park_boundaries_batch_size: i64,
     pub polish_park_boundaries_cycle_hours: u64,
     pub polish_park_boundaries_stale_days: i64,
+    pub historic_trails_enabled: bool,
+    pub historic_trails_batch_size: i64,
+    pub historic_trails_cycle_hours: u64,
+    pub historic_trails_stale_days: i64,
+    pub rbn_proxy_enabled: bool,
+    pub rbn_proxy_callsign: String,
 }
 
 impl Config {
@@ -115,6 +121,11 @@ impl Config {
             .parse()
             .unwrap_or(false);
 
+        let historic_trails_enabled = env::var("HISTORIC_TRAILS_ENABLED")
+            .unwrap_or_else(|_| "false".to_string())
+            .parse()
+            .unwrap_or(false);
+
         let polish_park_boundaries_batch_size: i64 =
             env::var("POLISH_PARK_BOUNDARIES_BATCH_SIZE")
                 .unwrap_or_else(|_| "20".to_string())
@@ -132,6 +143,29 @@ impl Config {
                 .unwrap_or_else(|_| "90".to_string())
                 .parse()
                 .unwrap_or(90);
+
+        let historic_trails_batch_size: i64 = env::var("HISTORIC_TRAILS_BATCH_SIZE")
+            .unwrap_or_else(|_| "20".to_string())
+            .parse()
+            .unwrap_or(20);
+
+        let historic_trails_cycle_hours: u64 = env::var("HISTORIC_TRAILS_CYCLE_HOURS")
+            .unwrap_or_else(|_| "168".to_string())
+            .parse()
+            .unwrap_or(168);
+
+        let historic_trails_stale_days: i64 = env::var("HISTORIC_TRAILS_STALE_DAYS")
+            .unwrap_or_else(|_| "180".to_string())
+            .parse()
+            .unwrap_or(180);
+
+        let rbn_proxy_enabled = env::var("RBN_PROXY_ENABLED")
+            .unwrap_or_else(|_| "false".to_string())
+            .parse()
+            .unwrap_or(false);
+
+        let rbn_proxy_callsign =
+            env::var("RBN_PROXY_CALLSIGN").unwrap_or_else(|_| "W6JSV".to_string());
 
         Ok(Self {
             database_url,
@@ -156,6 +190,12 @@ impl Config {
             polish_park_boundaries_batch_size,
             polish_park_boundaries_cycle_hours,
             polish_park_boundaries_stale_days,
+            historic_trails_enabled,
+            historic_trails_batch_size,
+            historic_trails_cycle_hours,
+            historic_trails_stale_days,
+            rbn_proxy_enabled,
+            rbn_proxy_callsign,
         })
     }
 }
