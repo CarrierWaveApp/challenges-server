@@ -65,8 +65,8 @@ export default function ClubEditor() {
       if (isEditing) {
         await updateClub(id!, {
           name,
-          callsign: callsign || undefined,
-          description: description || undefined,
+          callsign: callsign || null,
+          description: description || null,
         });
       } else {
         await createClub({

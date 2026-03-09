@@ -253,7 +253,7 @@ export async function createClub(club: { name: string; callsign?: string; descri
 
 export async function updateClub(
   id: string,
-  club: { name?: string; callsign?: string; description?: string },
+  club: { name?: string; callsign?: string | null; description?: string | null },
 ): Promise<Club> {
   const response = await fetch(`${API_BASE}/admin/clubs/${id}`, {
     method: 'PUT',
