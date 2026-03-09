@@ -58,14 +58,15 @@ Database queries for POTA stats.
 **Aggregator support:**
 - `async fn upsert_park()` - Upsert park from CSV catalog
 - `async fn ensure_fetch_status()` - Ensure fetch_status row exists
-- `async fn get_stalest_parks()` - Get parks with oldest fetch timestamp
+- `async fn get_stalest_parks()` - Get parks with oldest fetch timestamp (skips 3+ consecutive errors)
 - `async fn count_us_parks()` - Count US parks
 - `async fn count_unfetched_parks()` - Count never-fetched parks
 - `async fn update_park_stats()` - Update park aggregate stats
 - `async fn upsert_activation()` - Upsert single activation record
 - `async fn upsert_hunter_qsos()` - Upsert hunter QSO record
 - `async fn update_fetch_status()` - Mark park as fetched
-- `async fn record_fetch_error()` - Record fetch error for park
+- `async fn record_fetch_error()` - Record fetch error for park (increments consecutive_errors)
+- `async fn reset_consecutive_errors()` - Reset error counters for all parks (called on catalog re-sync)
 
 **API support:**
 - `async fn get_activator_stats()` - Activator stats with rank (optional state filter)

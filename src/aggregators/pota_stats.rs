@@ -137,6 +137,17 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: PotaStatsC
             if let Err(e) = sync_park_catalog(&pool, &client).await {
                 tracing::warn!("POTA stats: periodic catalog sync failed: {}", e);
             }
+            // Reset consecutive error counters so previously-failing parks
+            // get retried next cycle (they may have been fixed upstream)
+            match pota_stats::reset_consecutive_errors(&pool).await {
+                Ok(n) if n > 0 => {
+                    tracing::info!("POTA stats: reset error counters for {} parks", n);
+                }
+                Err(e) => {
+                    tracing::warn!("POTA stats: failed to reset error counters: {}", e);
+                }
+                _ => {}
+            }
         }
 
         // Phase 3: sleep between batches

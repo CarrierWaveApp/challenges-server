@@ -69,6 +69,7 @@ pub async fn ensure_fetch_status(pool: &PgPool, park_reference: &str) -> Result<
 }
 
 /// Get the stalest parks (oldest activations_fetched_at, NULLs first).
+/// Skips parks with 3+ consecutive fetch errors.
 pub async fn get_stalest_parks(
     pool: &PgPool,
     batch_size: i64,
@@ -77,6 +78,7 @@ pub async fn get_stalest_parks(
         r#"
         SELECT park_reference
         FROM pota_fetch_status
+        WHERE consecutive_errors < 3
         ORDER BY activations_fetched_at ASC NULLS FIRST
         LIMIT $1
         "#,
@@ -204,7 +206,7 @@ pub async fn upsert_hunter_qsos(
     Ok(())
 }
 
-/// Mark a park as successfully fetched.
+/// Mark a park as successfully fetched (resets consecutive error counter).
 pub async fn update_fetch_status(
     pool: &PgPool,
     park_reference: &str,
@@ -217,6 +219,7 @@ pub async fn update_fetch_status(
         SET activations_fetched_at = CASE WHEN $2 THEN now() ELSE activations_fetched_at END,
             leaderboard_fetched_at = CASE WHEN $3 THEN now() ELSE leaderboard_fetched_at END,
             fetch_error = NULL,
+            consecutive_errors = 0,
             updated_at = now()
         WHERE park_reference = $1
         "#,
@@ -230,7 +233,7 @@ pub async fn update_fetch_status(
     Ok(())
 }
 
-/// Record a fetch error for a park.
+/// Record a fetch error for a park (increments consecutive error counter).
 pub async fn record_fetch_error(
     pool: &PgPool,
     park_reference: &str,
@@ -239,7 +242,9 @@ pub async fn record_fetch_error(
     sqlx::query(
         r#"
         UPDATE pota_fetch_status
-        SET fetch_error = $2, updated_at = now()
+        SET fetch_error = $2,
+            consecutive_errors = consecutive_errors + 1,
+            updated_at = now()
         WHERE park_reference = $1
         "#,
     )
@@ -249,6 +254,18 @@ pub async fn record_fetch_error(
     .await?;
 
     Ok(())
+}
+
+/// Reset consecutive error counters for all parks (called during catalog re-sync
+/// so that previously-failing parks get another chance each cycle).
+pub async fn reset_consecutive_errors(pool: &PgPool) -> Result<u64, AppError> {
+    let result = sqlx::query(
+        "UPDATE pota_fetch_status SET consecutive_errors = 0 WHERE consecutive_errors > 0",
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected())
 }
 
 // ---------------------------------------------------------------------------

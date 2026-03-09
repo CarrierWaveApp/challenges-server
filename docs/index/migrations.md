@@ -119,3 +119,9 @@ Truncates park_boundaries cache to force refetch with multi-parcel merge fix.
 
 **Operations:**
 - `TRUNCATE TABLE park_boundaries` - Clears all cached boundaries so the aggregator refetches with merged geometry
+
+### `migrations/014_pota_fetch_consecutive_errors.sql`
+Adds consecutive error counter to pota_fetch_status.
+
+**Columns added:**
+- `consecutive_errors` (INTEGER NOT NULL DEFAULT 0) - Tracks consecutive fetch failures; parks with 3+ errors are skipped until the next catalog re-sync resets counters
