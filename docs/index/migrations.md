@@ -113,3 +113,9 @@ Activity program registry table and seed data.
 - `iota` (sort 4) - Islands on the Air, reference only
 - `lota` (sort 5) - Lighthouses on the Air, reference only
 - `aoa` (sort 6) - Agents on Air, reference + hunter + dataEntry + dataVerification
+
+### `migrations/013_reset_park_boundaries.sql`
+Truncates park_boundaries cache to force refetch with multi-parcel merge fix.
+
+**Operations:**
+- `TRUNCATE TABLE park_boundaries` - Clears all cached boundaries so the aggregator refetches with merged geometry
