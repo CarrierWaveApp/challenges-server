@@ -54,21 +54,24 @@ struct SpotsPagination: Decodable {
 
 struct PotaSyncStatusResponse: Decodable {
     let totalParks: Int
-    let fetchedParks: Int
-    let unfetchedParks: Int
+    let parksFetched: Int
+    let parksPending: Int
     let completionPercentage: Double
     let oldestFetch: Date?
     let newestFetch: Date?
+    let warning: String?
 }
 
 // MARK: - Park Boundaries Status
 
 struct ParkBoundariesStatusResponse: Decodable {
-    let totalParks: Int
-    let fetchedParks: Int
-    let unfetchedParks: Int
+    let totalUsParks: Int
+    let totalCached: Int
+    let unfetched: Int
     let completionPercentage: Double
-    let errorCount: Int?
+    let exactMatches: Int
+    let spatialMatches: Int
+    let manualMatches: Int
     let oldestFetch: Date?
     let newestFetch: Date?
 }

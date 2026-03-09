@@ -147,7 +147,7 @@ struct DashboardView: View {
                 AggregatorRow(
                     name: "POTA Stats",
                     progress: pota.completionPercentage / 100.0,
-                    detail: "\(pota.fetchedParks)/\(pota.totalParks) parks"
+                    detail: "\(pota.parksFetched)/\(pota.totalParks) parks"
                 )
             }
         }

@@ -65,15 +65,15 @@ struct AggregatorsView: View {
             }
 
             LabeledContent("Fetched") {
-                Text("\(pota.fetchedParks)")
+                Text("\(pota.parksFetched)")
                     .fontDesign(.monospaced)
                     .foregroundStyle(.green)
             }
 
             LabeledContent("Remaining") {
-                Text("\(pota.unfetchedParks)")
+                Text("\(pota.parksPending)")
                     .fontDesign(.monospaced)
-                    .foregroundStyle(pota.unfetchedParks > 0 ? .orange : .green)
+                    .foregroundStyle(pota.parksPending > 0 ? .orange : .green)
             }
 
             if let oldest = pota.oldestFetch {
@@ -107,29 +107,31 @@ struct AggregatorsView: View {
             ProgressView(value: min(boundaries.completionPercentage / 100.0, 1.0))
                 .tint(boundaries.completionPercentage >= 100 ? .green : .blue)
 
-            LabeledContent("Total Parks") {
-                Text("\(boundaries.totalParks)")
+            LabeledContent("Total US Parks") {
+                Text("\(boundaries.totalUsParks)")
                     .fontDesign(.monospaced)
             }
 
-            LabeledContent("Fetched") {
-                Text("\(boundaries.fetchedParks)")
+            LabeledContent("Cached") {
+                Text("\(boundaries.totalCached)")
                     .fontDesign(.monospaced)
                     .foregroundStyle(.green)
             }
 
-            LabeledContent("Remaining") {
-                Text("\(boundaries.unfetchedParks)")
+            LabeledContent("Unfetched") {
+                Text("\(boundaries.unfetched)")
                     .fontDesign(.monospaced)
-                    .foregroundStyle(boundaries.unfetchedParks > 0 ? .orange : .green)
+                    .foregroundStyle(boundaries.unfetched > 0 ? .orange : .green)
             }
 
-            if let errorCount = boundaries.errorCount, errorCount > 0 {
-                LabeledContent("Errors") {
-                    Text("\(errorCount)")
-                        .fontDesign(.monospaced)
-                        .foregroundStyle(.red)
-                }
+            LabeledContent("Exact Matches") {
+                Text("\(boundaries.exactMatches)")
+                    .fontDesign(.monospaced)
+            }
+
+            LabeledContent("Spatial Matches") {
+                Text("\(boundaries.spatialMatches)")
+                    .fontDesign(.monospaced)
             }
 
             if let oldest = boundaries.oldestFetch {
@@ -214,10 +216,10 @@ struct AggregatorsView: View {
 
         await withTaskGroup(of: Void.self) { group in
             group.addTask {
-                do { potaStatus = try await api.getPotaSyncStatus() } catch { self.error = error.localizedDescription }
+                do { potaStatus = try await api.getPotaSyncStatus() } catch let e { self.error = e.localizedDescription }
             }
             group.addTask {
-                do { boundaryStatus = try await api.getParkBoundariesStatus() } catch {}
+                do { boundaryStatus = try await api.getParkBoundariesStatus() } catch let e { if self.error == nil { self.error = e.localizedDescription } }
             }
             group.addTask {
                 do { programs = try await api.getPrograms() } catch {}
