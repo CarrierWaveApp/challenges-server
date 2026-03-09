@@ -3,8 +3,7 @@ use sqlx::PgPool;
 use crate::db::park_boundaries::{self, UnfetchedPark};
 use crate::models::park_boundary::{ArcGisFeature, ArcGisResponse};
 
-const PADUS_FEDERAL_URL: &str = "https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/Protected_Areas_by_Manager_Federal/FeatureServer/0";
-const PADUS_STATE_URL: &str = "https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/Protected_Areas_by_Manager_State/FeatureServer/0";
+const PADUS_URL: &str = "https://services.arcgis.com/v01gqwM5QqNysAAi/arcgis/rest/services/Manager_Name_PADUS/FeatureServer/0";
 
 /// Configuration for the park boundaries aggregator.
 pub struct ParkBoundariesConfig {
@@ -183,20 +182,12 @@ async fn fetch_boundary_inner(
     client: &reqwest::Client,
     park: &UnfetchedPark,
 ) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
-    let state_name = park.location_desc.as_deref().and_then(state_code_to_name);
-
-    // Determine which service to query based on name patterns
-    let is_federal = is_federal_park(&park.name);
-    let service_url = if is_federal {
-        PADUS_FEDERAL_URL
-    } else {
-        PADUS_STATE_URL
-    };
+    let state_abbrev = park.location_desc.as_deref().and_then(state_code_to_abbrev);
 
     // Strategy 1: Name + state matching
     let search_name = normalize_park_name(&park.name);
-    if let Some(state) = &state_name {
-        match query_by_name(client, service_url, &search_name, state).await {
+    if let Some(state) = &state_abbrev {
+        match query_by_name(client, PADUS_URL, &search_name, state).await {
             Ok(Some(feature)) => {
                 save_feature(pool, park, &feature, "exact").await?;
                 return Ok(Some("exact".to_string()));
@@ -204,29 +195,7 @@ async fn fetch_boundary_inner(
             Ok(None) => {}
             Err(e) => {
                 tracing::warn!(
-                    "Park boundaries: {} name query ({}) failed: {}",
-                    park.reference,
-                    if is_federal { "federal" } else { "state" },
-                    e
-                );
-            }
-        }
-
-        // Try the other service if first didn't match
-        let alt_url = if is_federal {
-            PADUS_STATE_URL
-        } else {
-            PADUS_FEDERAL_URL
-        };
-        match query_by_name(client, alt_url, &search_name, state).await {
-            Ok(Some(feature)) => {
-                save_feature(pool, park, &feature, "exact").await?;
-                return Ok(Some("exact".to_string()));
-            }
-            Ok(None) => {}
-            Err(e) => {
-                tracing::warn!(
-                    "Park boundaries: {} alt name query failed: {}",
+                    "Park boundaries: {} name query failed: {}",
                     park.reference,
                     e
                 );
@@ -242,7 +211,7 @@ async fn fetch_boundary_inner(
 
     // Strategy 2: Spatial query (point-in-polygon)
     if let (Some(lat), Some(lon)) = (park.latitude, park.longitude) {
-        match query_by_point(client, PADUS_FEDERAL_URL, lon, lat).await {
+        match query_by_point(client, PADUS_URL, lon, lat).await {
             Ok(Some(feature)) => {
                 save_feature(pool, park, &feature, "spatial").await?;
                 return Ok(Some("spatial".to_string()));
@@ -250,21 +219,7 @@ async fn fetch_boundary_inner(
             Ok(None) => {}
             Err(e) => {
                 tracing::warn!(
-                    "Park boundaries: {} federal spatial query failed: {}",
-                    park.reference,
-                    e
-                );
-            }
-        }
-        match query_by_point(client, PADUS_STATE_URL, lon, lat).await {
-            Ok(Some(feature)) => {
-                save_feature(pool, park, &feature, "spatial").await?;
-                return Ok(Some("spatial".to_string()));
-            }
-            Ok(None) => {}
-            Err(e) => {
-                tracing::warn!(
-                    "Park boundaries: {} state spatial query failed: {}",
+                    "Park boundaries: {} spatial query failed: {}",
                     park.reference,
                     e
                 );
@@ -323,7 +278,7 @@ async fn query_by_name(
     // Prefer Designation feature class over Fee
     let best = features.into_iter().min_by_key(|f| {
         match f
-            .attributes
+            .properties
             .as_ref()
             .and_then(|a| a.feat_class.as_deref())
         {
@@ -371,7 +326,7 @@ async fn query_by_point(
     let features = resp.features.unwrap_or_default();
     let best = features.into_iter().min_by_key(|f| {
         match f
-            .attributes
+            .properties
             .as_ref()
             .and_then(|a| a.feat_class.as_deref())
         {
@@ -402,7 +357,7 @@ async fn save_feature(
         }
     };
 
-    let attrs = feature.attributes.as_ref();
+    let attrs = feature.properties.as_ref();
     let designation = attrs.and_then(|a| a.des_tp.as_deref());
     let manager = attrs.and_then(|a| a.mang_name.as_deref());
     let acreage = attrs.and_then(|a| a.gis_acres);
@@ -465,83 +420,13 @@ fn normalize_park_name(name: &str) -> String {
     result
 }
 
-/// Check if a park name suggests federal management.
-fn is_federal_park(name: &str) -> bool {
-    let federal_keywords = [
-        "National Park",
-        "National Forest",
-        "National Wildlife Refuge",
-        "National Recreation Area",
-        "National Monument",
-        "National Seashore",
-        "National Lakeshore",
-        "National Grassland",
-        "National Scenic Trail",
-        "BLM",
-    ];
-    federal_keywords.iter().any(|kw| name.contains(kw))
-}
-
-/// Convert POTA state code (e.g. "US-ME") to full state name for PAD-US queries.
-fn state_code_to_name(code: &str) -> Option<&'static str> {
-    let state = code.strip_prefix("US-")?;
-    match state {
-        "AL" => Some("Alabama"),
-        "AK" => Some("Alaska"),
-        "AZ" => Some("Arizona"),
-        "AR" => Some("Arkansas"),
-        "CA" => Some("California"),
-        "CO" => Some("Colorado"),
-        "CT" => Some("Connecticut"),
-        "DE" => Some("Delaware"),
-        "FL" => Some("Florida"),
-        "GA" => Some("Georgia"),
-        "HI" => Some("Hawaii"),
-        "ID" => Some("Idaho"),
-        "IL" => Some("Illinois"),
-        "IN" => Some("Indiana"),
-        "IA" => Some("Iowa"),
-        "KS" => Some("Kansas"),
-        "KY" => Some("Kentucky"),
-        "LA" => Some("Louisiana"),
-        "ME" => Some("Maine"),
-        "MD" => Some("Maryland"),
-        "MA" => Some("Massachusetts"),
-        "MI" => Some("Michigan"),
-        "MN" => Some("Minnesota"),
-        "MS" => Some("Mississippi"),
-        "MO" => Some("Missouri"),
-        "MT" => Some("Montana"),
-        "NE" => Some("Nebraska"),
-        "NV" => Some("Nevada"),
-        "NH" => Some("New Hampshire"),
-        "NJ" => Some("New Jersey"),
-        "NM" => Some("New Mexico"),
-        "NY" => Some("New York"),
-        "NC" => Some("North Carolina"),
-        "ND" => Some("North Dakota"),
-        "OH" => Some("Ohio"),
-        "OK" => Some("Oklahoma"),
-        "OR" => Some("Oregon"),
-        "PA" => Some("Pennsylvania"),
-        "RI" => Some("Rhode Island"),
-        "SC" => Some("South Carolina"),
-        "SD" => Some("South Dakota"),
-        "TN" => Some("Tennessee"),
-        "TX" => Some("Texas"),
-        "UT" => Some("Utah"),
-        "VT" => Some("Vermont"),
-        "VA" => Some("Virginia"),
-        "WA" => Some("Washington"),
-        "WV" => Some("West Virginia"),
-        "WI" => Some("Wisconsin"),
-        "WY" => Some("Wyoming"),
-        "DC" => Some("District of Columbia"),
-        "AS" => Some("American Samoa"),
-        "GU" => Some("Guam"),
-        "MP" => Some("Northern Mariana Islands"),
-        "PR" => Some("Puerto Rico"),
-        "VI" => Some("U.S. Virgin Islands"),
-        _ => None,
+/// Extract state abbreviation from POTA location code.
+/// Handles single-state codes like "US-ME" -> "ME".
+/// Returns None for multi-state codes like "US-DC,US-MD,US-WV".
+fn state_code_to_abbrev(code: &str) -> Option<&str> {
+    // Skip multi-state codes (contain commas)
+    if code.contains(',') {
+        return None;
     }
+    code.strip_prefix("US-")
 }

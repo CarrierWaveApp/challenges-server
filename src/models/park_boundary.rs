@@ -91,7 +91,8 @@ pub struct ArcGisResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct ArcGisFeature {
-    pub attributes: Option<ArcGisAttributes>,
+    #[serde(alias = "attributes")]
+    pub properties: Option<ArcGisAttributes>,
     pub geometry: Option<serde_json::Value>,
 }
 
