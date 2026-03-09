@@ -5,6 +5,7 @@ const navItems = [
   { to: '/', label: 'Challenges', match: (p: string) => p === '/' || p.startsWith('/challenges') },
   { to: '/programs', label: 'Programs', match: (p: string) => p.startsWith('/programs') },
   { to: '/clubs', label: 'Clubs', match: (p: string) => p.startsWith('/clubs') },
+  { to: '/sync', label: 'Sync', match: (p: string) => p.startsWith('/sync') },
 ];
 
 export default function Layout() {

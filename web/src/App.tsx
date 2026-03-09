@@ -8,6 +8,7 @@ import ProgramList from './pages/ProgramList';
 import ProgramEditor from './pages/ProgramEditor';
 import ClubList from './pages/ClubList';
 import ClubEditor from './pages/ClubEditor';
+import SyncStatus from './pages/SyncStatus';
 import { getToken } from './api/client';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -41,6 +42,7 @@ export default function App() {
         <Route path="clubs" element={<ClubList />} />
         <Route path="clubs/new" element={<ClubEditor />} />
         <Route path="clubs/:id" element={<ClubEditor />} />
+        <Route path="sync" element={<SyncStatus />} />
       </Route>
     </Routes>
   );

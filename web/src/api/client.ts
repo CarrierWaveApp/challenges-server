@@ -25,7 +25,7 @@ interface ApiError {
   };
 }
 
-async function handleResponse<T>(response: Response): Promise<T> {
+export async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const error: ApiError = await response.json().catch(() => ({
       error: { code: 'UNKNOWN', message: response.statusText },
@@ -36,7 +36,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return data.data as T;
 }
 
-function authHeaders(): HeadersInit {
+export function authHeaders(): HeadersInit {
   const token = getToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
