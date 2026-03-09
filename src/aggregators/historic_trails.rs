@@ -1,7 +1,13 @@
+use std::sync::Arc;
+
 use sqlx::PgPool;
+use tokio::sync::Semaphore;
 
 use crate::db::historic_trails::{self, UnfetchedTrail};
+use crate::metrics as app_metrics;
 use crate::models::historic_trail::{NpsTrailFeature, NpsTrailResponse};
+
+use super::park_boundaries::merge_geojson_geometries;
 
 const NPS_TRAILS_URL: &str = "https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/National_Trails_System/FeatureServer/0";
 
@@ -10,6 +16,7 @@ pub struct HistoricTrailsConfig {
     pub batch_size: i64,
     pub cycle_hours: u64,
     pub stale_days: i64,
+    pub concurrency: usize,
 }
 
 impl Default for HistoricTrailsConfig {
@@ -18,6 +25,7 @@ impl Default for HistoricTrailsConfig {
             batch_size: 20,
             cycle_hours: 168, // weekly — only 19 trails
             stale_days: 180,
+            concurrency: 5,
         }
     }
 }
@@ -34,7 +42,10 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: HistoricTr
     tracing::info!("Historic trails: waiting 60s before first cycle");
     tokio::time::sleep(std::time::Duration::from_secs(60)).await;
 
+    let semaphore = Arc::new(Semaphore::new(config.concurrency));
+
     loop {
+        let batch_start = std::time::Instant::now();
         let total_cached = historic_trails::count_trails(&pool).await.unwrap_or(0);
 
         // Phase 1: Fetch geometries for trails that don't have one yet
@@ -51,42 +62,9 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: HistoricTr
                         trails.len(),
                         total_cached
                     );
-                    let mut cached = 0u32;
-                    let mut no_match = 0u32;
-                    let mut errors = 0u32;
 
-                    for trail in &trails {
-                        match fetch_trail(&pool, &client, trail).await {
-                            FetchResult::Cached(quality) => {
-                                tracing::info!(
-                                    "Historic trails: {} '{}' -> cached ({})",
-                                    trail.reference,
-                                    trail.name,
-                                    quality
-                                );
-                                cached += 1;
-                            }
-                            FetchResult::NoMatch => {
-                                tracing::info!(
-                                    "Historic trails: {} '{}' -> no match",
-                                    trail.reference,
-                                    trail.name
-                                );
-                                no_match += 1;
-                            }
-                            FetchResult::Error(e) => {
-                                tracing::warn!(
-                                    "Historic trails: {} '{}' -> error: {}",
-                                    trail.reference,
-                                    trail.name,
-                                    e
-                                );
-                                errors += 1;
-                            }
-                        }
-                        // Rate limit: 1 request per second
-                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                    }
+                    let (cached, no_match, errors) =
+                        fetch_batch(&pool, &client, &semaphore, trails).await;
 
                     let new_total = historic_trails::count_trails(&pool).await.unwrap_or(0);
                     tracing::info!(
@@ -108,37 +86,17 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: HistoricTr
                         "Historic trails: refreshing {} stale trails",
                         stale.len()
                     );
-                    for trail in &stale {
-                        let unfetched = UnfetchedTrail {
-                            reference: trail.reference.clone(),
-                            name: trail.name.clone(),
-                            location_desc: trail.location_desc.clone(),
-                            managing_agency: trail.managing_agency.clone(),
-                        };
-                        match fetch_trail(&pool, &client, &unfetched).await {
-                            FetchResult::Cached(quality) => {
-                                tracing::info!(
-                                    "Historic trails: {} refreshed ({})",
-                                    trail.reference,
-                                    quality
-                                );
-                            }
-                            FetchResult::NoMatch => {
-                                tracing::info!(
-                                    "Historic trails: {} refresh -> no match",
-                                    trail.reference
-                                );
-                            }
-                            FetchResult::Error(e) => {
-                                tracing::warn!(
-                                    "Historic trails: {} refresh failed: {}",
-                                    trail.reference,
-                                    e
-                                );
-                            }
-                        }
-                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                    }
+                    let unfetched: Vec<UnfetchedTrail> = stale
+                        .into_iter()
+                        .map(|trail| UnfetchedTrail {
+                            reference: trail.reference,
+                            name: trail.name,
+                            location_desc: trail.location_desc,
+                            managing_agency: trail.managing_agency,
+                        })
+                        .collect();
+
+                    fetch_batch(&pool, &client, &semaphore, unfetched).await;
                 }
             }
             Err(e) => {
@@ -146,12 +104,92 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: HistoricTr
             }
         }
 
+        // Record batch metrics
+        let new_total = historic_trails::count_trails(&pool).await.unwrap_or(0);
+        metrics::gauge!(app_metrics::GIS_TRAILS_CACHED_TOTAL).set(new_total as f64);
+        metrics::histogram!(app_metrics::GIS_BATCH_DURATION_SECONDS, "aggregator" => "historic_trails")
+            .record(batch_start.elapsed().as_secs_f64());
+
         tracing::info!(
             "Historic trails: sleeping {}h until next cycle",
             config.cycle_hours
         );
         tokio::time::sleep(std::time::Duration::from_secs(config.cycle_hours * 3600)).await;
     }
+}
+
+/// Fetch a batch of trails concurrently using the semaphore for rate limiting.
+async fn fetch_batch(
+    pool: &PgPool,
+    client: &reqwest::Client,
+    semaphore: &Arc<Semaphore>,
+    trails: Vec<UnfetchedTrail>,
+) -> (u32, u32, u32) {
+    let mut handles = Vec::with_capacity(trails.len());
+
+    for trail in trails {
+        let pool = pool.clone();
+        let client = client.clone();
+        let semaphore = semaphore.clone();
+
+        let handle = tokio::spawn(async move {
+            let _permit = semaphore.acquire().await.unwrap();
+            let start = std::time::Instant::now();
+            let result = fetch_trail(&pool, &client, &trail).await;
+            let result_label = match &result {
+                FetchResult::Cached(_) => "cached",
+                FetchResult::NoMatch => "no_match",
+                FetchResult::Error(_) => "error",
+            };
+            metrics::counter!(app_metrics::GIS_FETCH_TOTAL, "source" => "nps_trails", "result" => result_label)
+                .increment(1);
+            metrics::histogram!(app_metrics::GIS_FETCH_DURATION_SECONDS, "source" => "nps_trails")
+                .record(start.elapsed().as_secs_f64());
+            (trail.reference, trail.name, result)
+        });
+        handles.push(handle);
+    }
+
+    let mut cached = 0u32;
+    let mut no_match = 0u32;
+    let mut errors = 0u32;
+
+    for handle in handles {
+        match handle.await {
+            Ok((reference, name, FetchResult::Cached(quality))) => {
+                tracing::info!(
+                    "Historic trails: {} '{}' -> cached ({})",
+                    reference,
+                    name,
+                    quality
+                );
+                cached += 1;
+            }
+            Ok((reference, name, FetchResult::NoMatch)) => {
+                tracing::info!(
+                    "Historic trails: {} '{}' -> no match",
+                    reference,
+                    name
+                );
+                no_match += 1;
+            }
+            Ok((reference, name, FetchResult::Error(e))) => {
+                tracing::warn!(
+                    "Historic trails: {} '{}' -> error: {}",
+                    reference,
+                    name,
+                    e
+                );
+                errors += 1;
+            }
+            Err(e) => {
+                tracing::error!("Historic trails: task join error: {}", e);
+                errors += 1;
+            }
+        }
+    }
+
+    (cached, no_match, errors)
 }
 
 async fn fetch_trail(
@@ -215,7 +253,7 @@ async fn fetch_trail_inner(
     Ok(None)
 }
 
-/// Query NPS Trails FeatureServer by trail name.
+/// Query NPS Trails FeatureServer by trail name — merges all features.
 async fn query_by_name(
     client: &reqwest::Client,
     service_url: &str,
@@ -251,7 +289,32 @@ async fn query_by_name(
     };
 
     let features = resp.features.unwrap_or_default();
-    Ok(features.into_iter().next())
+    Ok(merge_trail_features(features))
+}
+
+/// Merge all trail features into a single feature with merged geometry.
+/// A trail can have multiple line segments returned as separate features.
+fn merge_trail_features(features: Vec<NpsTrailFeature>) -> Option<NpsTrailFeature> {
+    if features.is_empty() {
+        return None;
+    }
+    if features.len() == 1 {
+        return features.into_iter().next();
+    }
+
+    let geometries: Vec<serde_json::Value> = features
+        .iter()
+        .filter_map(|f| f.geometry.clone())
+        .collect();
+
+    if geometries.is_empty() {
+        return None;
+    }
+
+    let merged = merge_geojson_geometries(geometries);
+    let mut result = features.into_iter().next().unwrap();
+    result.geometry = Some(merged);
+    Some(result)
 }
 
 /// Save a trail feature to the database.

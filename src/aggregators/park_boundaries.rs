@@ -1,6 +1,10 @@
+use std::sync::Arc;
+
 use sqlx::PgPool;
+use tokio::sync::Semaphore;
 
 use crate::db::park_boundaries::{self, UnfetchedPark};
+use crate::metrics as app_metrics;
 use crate::models::park_boundary::{ArcGisFeature, ArcGisResponse};
 
 const PADUS_URL: &str = "https://services.arcgis.com/v01gqwM5QqNysAAi/arcgis/rest/services/Manager_Name_PADUS/FeatureServer/0";
@@ -23,6 +27,7 @@ pub struct ParkBoundariesConfig {
     pub batch_size: i64,
     pub cycle_hours: u64,
     pub stale_days: i64,
+    pub concurrency: usize,
 }
 
 impl Default for ParkBoundariesConfig {
@@ -31,6 +36,7 @@ impl Default for ParkBoundariesConfig {
             batch_size: 20,
             cycle_hours: 24,
             stale_days: 90,
+            concurrency: 5,
         }
     }
 }
@@ -48,7 +54,10 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: ParkBounda
     tracing::info!("Park boundaries: waiting 120s for POTA stats to populate park catalog");
     tokio::time::sleep(std::time::Duration::from_secs(120)).await;
 
+    let semaphore = Arc::new(Semaphore::new(config.concurrency));
+
     loop {
+        let batch_start = std::time::Instant::now();
         let total_cached = park_boundaries::count_boundaries(&pool).await.unwrap_or(0);
 
         // Phase 1: Fetch boundaries for parks that don't have one yet
@@ -65,43 +74,9 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: ParkBounda
                         parks.len(),
                         total_cached
                     );
-                    let mut cached = 0u32;
-                    let mut no_match = 0u32;
-                    let mut errors = 0u32;
 
-                    for park in &parks {
-                        match fetch_boundary(&pool, &client, park).await {
-                            FetchResult::Cached(quality) => {
-                                tracing::info!(
-                                    "Park boundaries: {} '{}' -> cached ({})",
-                                    park.reference,
-                                    park.name,
-                                    quality
-                                );
-                                cached += 1;
-                            }
-                            FetchResult::NoMatch => {
-                                tracing::info!(
-                                    "Park boundaries: {} '{}' -> no match (loc={:?})",
-                                    park.reference,
-                                    park.name,
-                                    park.location_desc
-                                );
-                                no_match += 1;
-                            }
-                            FetchResult::Error(e) => {
-                                tracing::warn!(
-                                    "Park boundaries: {} '{}' -> error: {}",
-                                    park.reference,
-                                    park.name,
-                                    e
-                                );
-                                errors += 1;
-                            }
-                        }
-                        // Rate limit: 1 request per second to be polite to ArcGIS
-                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                    }
+                    let (cached, no_match, errors) =
+                        fetch_batch(&pool, &client, &semaphore, parks).await;
 
                     let new_total = park_boundaries::count_boundaries(&pool)
                         .await
@@ -130,38 +105,18 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: ParkBounda
                         "Park boundaries: refreshing {} stale boundaries",
                         stale.len()
                     );
-                    for park in &stale {
-                        let unfetched = UnfetchedPark {
-                            reference: park.reference.clone(),
-                            name: park.name.clone(),
-                            location_desc: park.location_desc.clone(),
+                    let unfetched: Vec<UnfetchedPark> = stale
+                        .into_iter()
+                        .map(|park| UnfetchedPark {
+                            reference: park.reference,
+                            name: park.name,
+                            location_desc: park.location_desc,
                             latitude: park.latitude,
                             longitude: park.longitude,
-                        };
-                        match fetch_boundary(&pool, &client, &unfetched).await {
-                            FetchResult::Cached(quality) => {
-                                tracing::info!(
-                                    "Park boundaries: {} refreshed ({})",
-                                    park.reference,
-                                    quality
-                                );
-                            }
-                            FetchResult::NoMatch => {
-                                tracing::info!(
-                                    "Park boundaries: {} refresh -> no match",
-                                    park.reference
-                                );
-                            }
-                            FetchResult::Error(e) => {
-                                tracing::warn!(
-                                    "Park boundaries: {} refresh failed: {}",
-                                    park.reference,
-                                    e
-                                );
-                            }
-                        }
-                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                    }
+                        })
+                        .collect();
+
+                    fetch_batch(&pool, &client, &semaphore, unfetched).await;
                 }
             }
             Err(e) => {
@@ -169,12 +124,98 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: ParkBounda
             }
         }
 
+        // Record batch metrics
+        let new_total = park_boundaries::count_boundaries(&pool).await.unwrap_or(0);
+        metrics::gauge!(app_metrics::GIS_BOUNDARIES_CACHED_TOTAL).set(new_total as f64);
+        metrics::histogram!(app_metrics::GIS_BATCH_DURATION_SECONDS, "aggregator" => "park_boundaries")
+            .record(batch_start.elapsed().as_secs_f64());
+
         tracing::info!(
             "Park boundaries: sleeping {}h until next cycle",
             config.cycle_hours
         );
         tokio::time::sleep(std::time::Duration::from_secs(config.cycle_hours * 3600)).await;
     }
+}
+
+/// Fetch a batch of parks concurrently using the semaphore for rate limiting.
+async fn fetch_batch(
+    pool: &PgPool,
+    client: &reqwest::Client,
+    semaphore: &Arc<Semaphore>,
+    parks: Vec<UnfetchedPark>,
+) -> (u32, u32, u32) {
+    let mut handles = Vec::with_capacity(parks.len());
+
+    for park in parks {
+        let pool = pool.clone();
+        let client = client.clone();
+        let semaphore = semaphore.clone();
+
+        let handle = tokio::spawn(async move {
+            let _permit = semaphore.acquire().await.unwrap();
+            let start = std::time::Instant::now();
+            let source_label = match data_source_for_park(&park.reference) {
+                DataSource::PadUs => "pad_us",
+                DataSource::NaturalEngland => "natural_england",
+                DataSource::Wdpa { .. } => "wdpa",
+            };
+            let result = fetch_boundary(&pool, &client, &park).await;
+            let result_label = match &result {
+                FetchResult::Cached(_) => "cached",
+                FetchResult::NoMatch => "no_match",
+                FetchResult::Error(_) => "error",
+            };
+            metrics::counter!(app_metrics::GIS_FETCH_TOTAL, "source" => source_label.to_string(), "result" => result_label)
+                .increment(1);
+            metrics::histogram!(app_metrics::GIS_FETCH_DURATION_SECONDS, "source" => source_label.to_string())
+                .record(start.elapsed().as_secs_f64());
+            (park.reference, park.name, park.location_desc, result)
+        });
+        handles.push(handle);
+    }
+
+    let mut cached = 0u32;
+    let mut no_match = 0u32;
+    let mut errors = 0u32;
+
+    for handle in handles {
+        match handle.await {
+            Ok((reference, name, location_desc, FetchResult::Cached(quality))) => {
+                tracing::info!(
+                    "Park boundaries: {} '{}' -> cached ({})",
+                    reference,
+                    name,
+                    quality
+                );
+                cached += 1;
+            }
+            Ok((reference, name, location_desc, FetchResult::NoMatch)) => {
+                tracing::info!(
+                    "Park boundaries: {} '{}' -> no match (loc={:?})",
+                    reference,
+                    name,
+                    location_desc
+                );
+                no_match += 1;
+            }
+            Ok((reference, name, _location_desc, FetchResult::Error(e))) => {
+                tracing::warn!(
+                    "Park boundaries: {} '{}' -> error: {}",
+                    reference,
+                    name,
+                    e
+                );
+                errors += 1;
+            }
+            Err(e) => {
+                tracing::error!("Park boundaries: task join error: {}", e);
+                errors += 1;
+            }
+        }
+    }
+
+    (cached, no_match, errors)
 }
 
 /// Determine which data source to use based on POTA reference prefix.
@@ -313,7 +354,8 @@ async fn query_padus_by_point(
     );
 
     let features = fetch_arcgis_features(client, &url, "PAD-US spatial").await?;
-    Ok(pick_best_feature(features))
+    // Merge spatial results too — a point can intersect multiple parcels of the same park
+    Ok(merge_padus_features(features))
 }
 
 // ─── UK (Natural England) ───────────────────────────────────────────────────
@@ -362,7 +404,7 @@ async fn fetch_boundary_uk(
     Ok(None)
 }
 
-/// Query Natural England by park name.
+/// Query Natural England by park name — merges all returned features.
 async fn query_uk_by_name(
     client: &reqwest::Client,
     search_name: &str,
@@ -377,10 +419,10 @@ async fn query_uk_by_name(
     );
 
     let features = fetch_arcgis_features(client, &url, "Natural England name").await?;
-    Ok(features.into_iter().next())
+    Ok(merge_arcgis_features(features))
 }
 
-/// Query Natural England by point intersection.
+/// Query Natural England by point intersection — merges all returned features.
 async fn query_uk_by_point(
     client: &reqwest::Client,
     lon: f64,
@@ -392,7 +434,7 @@ async fn query_uk_by_point(
     );
 
     let features = fetch_arcgis_features(client, &url, "Natural England spatial").await?;
-    Ok(features.into_iter().next())
+    Ok(merge_arcgis_features(features))
 }
 
 // ─── International (WDPA) ───────────────────────────────────────────────────
@@ -443,7 +485,7 @@ async fn fetch_boundary_wdpa(
     Ok(None)
 }
 
-/// Query WDPA by name and ISO3 country code.
+/// Query WDPA by name and ISO3 country code — merges all returned features.
 async fn query_wdpa_by_name(
     client: &reqwest::Client,
     search_name: &str,
@@ -462,10 +504,10 @@ async fn query_wdpa_by_name(
     );
 
     let features = fetch_arcgis_features(client, &url, "WDPA name").await?;
-    Ok(features.into_iter().next())
+    Ok(merge_arcgis_features(features))
 }
 
-/// Query WDPA by point intersection filtered by country.
+/// Query WDPA by point intersection filtered by country — merges all returned features.
 async fn query_wdpa_by_point(
     client: &reqwest::Client,
     lon: f64,
@@ -481,7 +523,7 @@ async fn query_wdpa_by_point(
     );
 
     let features = fetch_arcgis_features(client, &url, "WDPA spatial").await?;
-    Ok(features.into_iter().next())
+    Ok(merge_arcgis_features(features))
 }
 
 // ─── Shared helpers ─────────────────────────────────────────────────────────
@@ -514,21 +556,6 @@ async fn fetch_arcgis_features(
     };
 
     Ok(resp.features.unwrap_or_default())
-}
-
-/// Pick the best feature from a PAD-US result set (prefers Designation over Fee).
-fn pick_best_feature(features: Vec<ArcGisFeature>) -> Option<ArcGisFeature> {
-    features.into_iter().min_by_key(|f| {
-        match f
-            .properties
-            .as_ref()
-            .and_then(|a| a.feat_class.as_deref())
-        {
-            Some("Designation") => 0,
-            Some("Fee") => 1,
-            _ => 2,
-        }
-    })
 }
 
 /// Merge all PAD-US features from a name query into a single feature.
@@ -593,11 +620,7 @@ fn merge_padus_features(features: Vec<ArcGisFeature>) -> Option<ArcGisFeature> {
         return None;
     }
 
-    // Build a GeometryCollection from all individual geometries
-    let merged_geometry = serde_json::json!({
-        "type": "GeometryCollection",
-        "geometries": geometries
-    });
+    let merged_geometry = merge_geojson_geometries(geometries);
 
     // Take attributes from the first feature, override acreage with total
     let mut result = best_features.into_iter().next().unwrap();
@@ -608,6 +631,43 @@ fn merge_padus_features(features: Vec<ArcGisFeature>) -> Option<ArcGisFeature> {
         }
     }
     Some(result)
+}
+
+/// Merge all ArcGIS features (non-PAD-US) into a single feature with merged geometry.
+/// Used for Natural England and WDPA queries where there's no FeatClass grouping.
+fn merge_arcgis_features(features: Vec<ArcGisFeature>) -> Option<ArcGisFeature> {
+    if features.is_empty() {
+        return None;
+    }
+    if features.len() == 1 {
+        return features.into_iter().next();
+    }
+
+    let geometries: Vec<serde_json::Value> = features
+        .iter()
+        .filter_map(|f| f.geometry.clone())
+        .collect();
+
+    if geometries.is_empty() {
+        return None;
+    }
+
+    let merged_geometry = merge_geojson_geometries(geometries);
+    let mut result = features.into_iter().next().unwrap();
+    result.geometry = Some(merged_geometry);
+    Some(result)
+}
+
+/// Merge multiple GeoJSON geometries into one.
+/// Returns the single geometry if only one, or a GeometryCollection if multiple.
+pub fn merge_geojson_geometries(geometries: Vec<serde_json::Value>) -> serde_json::Value {
+    if geometries.len() == 1 {
+        return geometries.into_iter().next().unwrap();
+    }
+    serde_json::json!({
+        "type": "GeometryCollection",
+        "geometries": geometries
+    })
 }
 
 /// Save an ArcGIS feature as a park boundary.

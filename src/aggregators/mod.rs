@@ -71,6 +71,7 @@ pub fn spawn_historic_trails_aggregator(pool: PgPool, config: &Config) {
         batch_size: config.historic_trails_batch_size,
         cycle_hours: config.historic_trails_cycle_hours,
         stale_days: config.historic_trails_stale_days,
+        concurrency: config.historic_trails_concurrency,
     };
     tokio::spawn(async move {
         historic_trails::poll_loop(pool, client, trails_config).await;
@@ -92,6 +93,7 @@ pub fn spawn_park_boundaries_aggregator(pool: PgPool, config: &Config) {
         batch_size: config.park_boundaries_batch_size,
         cycle_hours: config.park_boundaries_cycle_hours,
         stale_days: config.park_boundaries_stale_days,
+        concurrency: config.park_boundaries_concurrency,
     };
     tokio::spawn(async move {
         park_boundaries::poll_loop(pool, client, boundaries_config).await;
@@ -113,6 +115,7 @@ pub fn spawn_polish_park_boundaries_aggregator(pool: PgPool, config: &Config) {
         batch_size: config.polish_park_boundaries_batch_size,
         cycle_hours: config.polish_park_boundaries_cycle_hours,
         stale_days: config.polish_park_boundaries_stale_days,
+        concurrency: config.polish_park_boundaries_concurrency,
     };
     tokio::spawn(async move {
         polish_park_boundaries::poll_loop(pool, client, boundaries_config).await;

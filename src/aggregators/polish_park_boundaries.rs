@@ -1,7 +1,13 @@
+use std::sync::Arc;
+
 use sqlx::PgPool;
+use tokio::sync::Semaphore;
 
 use crate::db::park_boundaries::{self, UnfetchedPark};
+use crate::metrics as app_metrics;
 use crate::models::park_boundary::{WfsFeature, WfsFeatureCollection};
+
+use super::park_boundaries::merge_geojson_geometries;
 
 /// GDOŚ WFS endpoint for Polish protected areas.
 const GDOS_WFS_URL: &str = "https://sdi.gdos.gov.pl/wfs";
@@ -21,6 +27,7 @@ pub struct PolishParkBoundariesConfig {
     pub batch_size: i64,
     pub cycle_hours: u64,
     pub stale_days: i64,
+    pub concurrency: usize,
 }
 
 impl Default for PolishParkBoundariesConfig {
@@ -29,6 +36,7 @@ impl Default for PolishParkBoundariesConfig {
             batch_size: 20,
             cycle_hours: 24,
             stale_days: 90,
+            concurrency: 3,
         }
     }
 }
@@ -45,7 +53,10 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: PolishPark
     tracing::info!("Polish park boundaries: waiting 180s for POTA stats to populate park catalog");
     tokio::time::sleep(std::time::Duration::from_secs(180)).await;
 
+    let semaphore = Arc::new(Semaphore::new(config.concurrency));
+
     loop {
+        let batch_start = std::time::Instant::now();
         let total_cached = park_boundaries::count_boundaries(&pool).await.unwrap_or(0);
 
         // Phase 1: Fetch boundaries for Polish parks that don't have one yet
@@ -62,42 +73,9 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: PolishPark
                         parks.len(),
                         total_cached
                     );
-                    let mut cached = 0u32;
-                    let mut no_match = 0u32;
-                    let mut errors = 0u32;
 
-                    for park in &parks {
-                        match fetch_boundary(&pool, &client, park).await {
-                            FetchResult::Cached(quality) => {
-                                tracing::info!(
-                                    "Polish park boundaries: {} '{}' -> cached ({})",
-                                    park.reference,
-                                    park.name,
-                                    quality
-                                );
-                                cached += 1;
-                            }
-                            FetchResult::NoMatch => {
-                                tracing::info!(
-                                    "Polish park boundaries: {} '{}' -> no match",
-                                    park.reference,
-                                    park.name,
-                                );
-                                no_match += 1;
-                            }
-                            FetchResult::Error(e) => {
-                                tracing::warn!(
-                                    "Polish park boundaries: {} '{}' -> error: {}",
-                                    park.reference,
-                                    park.name,
-                                    e
-                                );
-                                errors += 1;
-                            }
-                        }
-                        // Rate limit: 2 seconds between requests to be polite to GDOŚ
-                        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-                    }
+                    let (cached, no_match, errors) =
+                        fetch_batch(&pool, &client, &semaphore, parks).await;
 
                     let new_total = park_boundaries::count_boundaries(&pool)
                         .await
@@ -125,47 +103,23 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: PolishPark
         {
             Ok(stale) => {
                 // Only process SP- parks from the stale list
-                let polish_stale: Vec<_> = stale
+                let polish_stale: Vec<UnfetchedPark> = stale
                     .into_iter()
                     .filter(|s| s.reference.starts_with("SP-"))
+                    .map(|park| UnfetchedPark {
+                        reference: park.reference,
+                        name: park.name,
+                        location_desc: park.location_desc,
+                        latitude: park.latitude,
+                        longitude: park.longitude,
+                    })
                     .collect();
                 if !polish_stale.is_empty() {
                     tracing::info!(
                         "Polish park boundaries: refreshing {} stale boundaries",
                         polish_stale.len()
                     );
-                    for park in &polish_stale {
-                        let unfetched = UnfetchedPark {
-                            reference: park.reference.clone(),
-                            name: park.name.clone(),
-                            location_desc: park.location_desc.clone(),
-                            latitude: park.latitude,
-                            longitude: park.longitude,
-                        };
-                        match fetch_boundary(&pool, &client, &unfetched).await {
-                            FetchResult::Cached(quality) => {
-                                tracing::info!(
-                                    "Polish park boundaries: {} refreshed ({})",
-                                    park.reference,
-                                    quality
-                                );
-                            }
-                            FetchResult::NoMatch => {
-                                tracing::info!(
-                                    "Polish park boundaries: {} refresh -> no match",
-                                    park.reference
-                                );
-                            }
-                            FetchResult::Error(e) => {
-                                tracing::warn!(
-                                    "Polish park boundaries: {} refresh failed: {}",
-                                    park.reference,
-                                    e
-                                );
-                            }
-                        }
-                        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-                    }
+                    fetch_batch(&pool, &client, &semaphore, polish_stale).await;
                 }
             }
             Err(e) => {
@@ -176,12 +130,90 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: PolishPark
             }
         }
 
+        // Record batch metrics
+        metrics::histogram!(app_metrics::GIS_BATCH_DURATION_SECONDS, "aggregator" => "polish_park_boundaries")
+            .record(batch_start.elapsed().as_secs_f64());
+
         tracing::info!(
             "Polish park boundaries: sleeping {}h until next cycle",
             config.cycle_hours
         );
         tokio::time::sleep(std::time::Duration::from_secs(config.cycle_hours * 3600)).await;
     }
+}
+
+/// Fetch a batch of parks concurrently using the semaphore for rate limiting.
+async fn fetch_batch(
+    pool: &PgPool,
+    client: &reqwest::Client,
+    semaphore: &Arc<Semaphore>,
+    parks: Vec<UnfetchedPark>,
+) -> (u32, u32, u32) {
+    let mut handles = Vec::with_capacity(parks.len());
+
+    for park in parks {
+        let pool = pool.clone();
+        let client = client.clone();
+        let semaphore = semaphore.clone();
+
+        let handle = tokio::spawn(async move {
+            let _permit = semaphore.acquire().await.unwrap();
+            let start = std::time::Instant::now();
+            let result = fetch_boundary(&pool, &client, &park).await;
+            let result_label = match &result {
+                FetchResult::Cached(_) => "cached",
+                FetchResult::NoMatch => "no_match",
+                FetchResult::Error(_) => "error",
+            };
+            metrics::counter!(app_metrics::GIS_FETCH_TOTAL, "source" => "gdos_wfs", "result" => result_label)
+                .increment(1);
+            metrics::histogram!(app_metrics::GIS_FETCH_DURATION_SECONDS, "source" => "gdos_wfs")
+                .record(start.elapsed().as_secs_f64());
+            (park.reference, park.name, result)
+        });
+        handles.push(handle);
+    }
+
+    let mut cached = 0u32;
+    let mut no_match = 0u32;
+    let mut errors = 0u32;
+
+    for handle in handles {
+        match handle.await {
+            Ok((reference, name, FetchResult::Cached(quality))) => {
+                tracing::info!(
+                    "Polish park boundaries: {} '{}' -> cached ({})",
+                    reference,
+                    name,
+                    quality
+                );
+                cached += 1;
+            }
+            Ok((reference, name, FetchResult::NoMatch)) => {
+                tracing::info!(
+                    "Polish park boundaries: {} '{}' -> no match",
+                    reference,
+                    name,
+                );
+                no_match += 1;
+            }
+            Ok((reference, name, FetchResult::Error(e))) => {
+                tracing::warn!(
+                    "Polish park boundaries: {} '{}' -> error: {}",
+                    reference,
+                    name,
+                    e
+                );
+                errors += 1;
+            }
+            Err(e) => {
+                tracing::error!("Polish park boundaries: task join error: {}", e);
+                errors += 1;
+            }
+        }
+    }
+
+    (cached, no_match, errors)
 }
 
 /// Fetch boundary for a single Polish park from GDOŚ WFS.
@@ -252,7 +284,7 @@ async fn fetch_boundary_inner(
     Ok(None)
 }
 
-/// Query GDOŚ WFS by name using a CQL filter.
+/// Query GDOŚ WFS by name using a CQL filter — merges all features with geometry.
 async fn query_wfs_by_name(
     client: &reqwest::Client,
     layer: &str,
@@ -273,39 +305,11 @@ async fn query_wfs_by_name(
         urlencoded(&cql_filter)
     );
 
-    let resp = client.get(&url).send().await?;
-
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let body = resp.text().await.unwrap_or_default();
-        return Err(format!(
-            "WFS returned {} (first 200: {})",
-            status,
-            &body[..body.len().min(200)]
-        )
-        .into());
-    }
-
-    let resp_text = resp.text().await?;
-    let collection: WfsFeatureCollection = match serde_json::from_str(&resp_text) {
-        Ok(c) => c,
-        Err(e) => {
-            tracing::warn!(
-                "Polish park boundaries: WFS response parse error on {}: {} (first 200: {})",
-                layer,
-                e,
-                &resp_text[..resp_text.len().min(200)]
-            );
-            return Ok(None);
-        }
-    };
-
-    let features = collection.features.unwrap_or_default();
-    // Return the first feature with geometry
-    Ok(features.into_iter().find(|f| f.geometry.is_some()))
+    let features = fetch_wfs_features(client, &url, layer).await?;
+    Ok(merge_wfs_features(features))
 }
 
-/// Query GDOŚ WFS by point intersection using a BBOX filter.
+/// Query GDOŚ WFS by point intersection using a BBOX filter — merges all features with geometry.
 async fn query_wfs_by_point(
     client: &reqwest::Client,
     layer: &str,
@@ -332,7 +336,17 @@ async fn query_wfs_by_point(
         GDOS_WFS_URL, layer, bbox
     );
 
-    let resp = client.get(&url).send().await?;
+    let features = fetch_wfs_features(client, &url, layer).await?;
+    Ok(merge_wfs_features(features))
+}
+
+/// Fetch and parse WFS features from a URL.
+async fn fetch_wfs_features(
+    client: &reqwest::Client,
+    url: &str,
+    layer: &str,
+) -> Result<Vec<WfsFeature>, Box<dyn std::error::Error + Send + Sync>> {
+    let resp = client.get(url).send().await?;
 
     if !resp.status().is_success() {
         let status = resp.status();
@@ -350,17 +364,41 @@ async fn query_wfs_by_point(
         Ok(c) => c,
         Err(e) => {
             tracing::warn!(
-                "Polish park boundaries: WFS spatial parse error on {}: {} (first 200: {})",
+                "Polish park boundaries: WFS response parse error on {}: {} (first 200: {})",
                 layer,
                 e,
                 &resp_text[..resp_text.len().min(200)]
             );
-            return Ok(None);
+            return Ok(vec![]);
         }
     };
 
-    let features = collection.features.unwrap_or_default();
-    Ok(features.into_iter().find(|f| f.geometry.is_some()))
+    Ok(collection.features.unwrap_or_default())
+}
+
+/// Merge all WFS features with geometry into a single feature.
+fn merge_wfs_features(features: Vec<WfsFeature>) -> Option<WfsFeature> {
+    let with_geom: Vec<WfsFeature> = features
+        .into_iter()
+        .filter(|f| f.geometry.is_some())
+        .collect();
+
+    if with_geom.is_empty() {
+        return None;
+    }
+    if with_geom.len() == 1 {
+        return with_geom.into_iter().next();
+    }
+
+    let geometries: Vec<serde_json::Value> = with_geom
+        .iter()
+        .filter_map(|f| f.geometry.clone())
+        .collect();
+
+    let merged = merge_geojson_geometries(geometries);
+    let mut result = with_geom.into_iter().next().unwrap();
+    result.geometry = Some(merged);
+    Some(result)
 }
 
 /// Save a WFS feature as a park boundary.

@@ -1,6 +1,6 @@
 [package]
 name = "activities-server"
-version = "0.4.16"
+version = "0.4.17"
 edition = "2021"
 description = "Self-hostable activities server for Carrier Wave ham radio logging"
 license = "MIT"
@@ -38,6 +38,10 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 
 # CSV parsing (for POTA park catalog)
 csv = "1"
+
+# Metrics
+metrics = "0.24"
+metrics-exporter-prometheus = "0.16"
 
 # Utilities
 rand = "0.8"

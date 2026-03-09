@@ -21,14 +21,17 @@ pub struct Config {
     pub park_boundaries_batch_size: i64,
     pub park_boundaries_cycle_hours: u64,
     pub park_boundaries_stale_days: i64,
+    pub park_boundaries_concurrency: usize,
     pub polish_park_boundaries_enabled: bool,
     pub polish_park_boundaries_batch_size: i64,
     pub polish_park_boundaries_cycle_hours: u64,
     pub polish_park_boundaries_stale_days: i64,
+    pub polish_park_boundaries_concurrency: usize,
     pub historic_trails_enabled: bool,
     pub historic_trails_batch_size: i64,
     pub historic_trails_cycle_hours: u64,
     pub historic_trails_stale_days: i64,
+    pub historic_trails_concurrency: usize,
     pub rbn_proxy_enabled: bool,
     pub rbn_proxy_callsign: String,
 }
@@ -116,6 +119,11 @@ impl Config {
             .parse()
             .unwrap_or(90);
 
+        let park_boundaries_concurrency: usize = env::var("PARK_BOUNDARIES_CONCURRENCY")
+            .unwrap_or_else(|_| "5".to_string())
+            .parse()
+            .unwrap_or(5);
+
         let polish_park_boundaries_enabled = env::var("POLISH_PARK_BOUNDARIES_ENABLED")
             .unwrap_or_else(|_| "false".to_string())
             .parse()
@@ -144,6 +152,12 @@ impl Config {
                 .parse()
                 .unwrap_or(90);
 
+        let polish_park_boundaries_concurrency: usize =
+            env::var("POLISH_PARK_BOUNDARIES_CONCURRENCY")
+                .unwrap_or_else(|_| "3".to_string())
+                .parse()
+                .unwrap_or(3);
+
         let historic_trails_batch_size: i64 = env::var("HISTORIC_TRAILS_BATCH_SIZE")
             .unwrap_or_else(|_| "20".to_string())
             .parse()
@@ -158,6 +172,11 @@ impl Config {
             .unwrap_or_else(|_| "180".to_string())
             .parse()
             .unwrap_or(180);
+
+        let historic_trails_concurrency: usize = env::var("HISTORIC_TRAILS_CONCURRENCY")
+            .unwrap_or_else(|_| "5".to_string())
+            .parse()
+            .unwrap_or(5);
 
         let rbn_proxy_enabled = env::var("RBN_PROXY_ENABLED")
             .unwrap_or_else(|_| "false".to_string())
@@ -186,14 +205,17 @@ impl Config {
             park_boundaries_batch_size,
             park_boundaries_cycle_hours,
             park_boundaries_stale_days,
+            park_boundaries_concurrency,
             polish_park_boundaries_enabled,
             polish_park_boundaries_batch_size,
             polish_park_boundaries_cycle_hours,
             polish_park_boundaries_stale_days,
+            polish_park_boundaries_concurrency,
             historic_trails_enabled,
             historic_trails_batch_size,
             historic_trails_cycle_hours,
             historic_trails_stale_days,
+            historic_trails_concurrency,
             rbn_proxy_enabled,
             rbn_proxy_callsign,
         })

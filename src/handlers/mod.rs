@@ -1,4 +1,5 @@
 pub mod badges;
+pub mod metrics;
 pub mod challenges;
 pub mod pota_stats;
 pub mod clubs;
@@ -32,6 +33,7 @@ pub use invite_page::*;
 pub use invites::*;
 pub use join::*;
 pub use leaderboard::*;
+pub use metrics::*;
 pub use park_boundaries::*;
 pub use participants::*;
 pub use programs::*;

@@ -5,6 +5,7 @@ mod db;
 mod error;
 mod extractors;
 mod handlers;
+mod metrics;
 mod models;
 mod rbn;
 
@@ -55,6 +56,9 @@ async fn main() {
 
     tracing::info!("Database connected and migrations complete");
 
+    // Install Prometheus metrics
+    let metrics_handle = metrics::install();
+
     // Spawn spot aggregators and TTL cleanup
     if config.spots_enabled {
         aggregators::spawn_aggregators(pool.clone(), &config);
@@ -89,7 +93,7 @@ async fn main() {
     }
 
     // Build router
-    let app = create_router(pool.clone(), config.clone(), rbn_store);
+    let app = create_router(pool.clone(), config.clone(), rbn_store, metrics_handle);
 
     // Start server
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
@@ -99,7 +103,12 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-fn create_router(pool: sqlx::PgPool, config: Config, rbn_store: rbn::SpotStore) -> Router {
+fn create_router(
+    pool: sqlx::PgPool,
+    config: Config,
+    rbn_store: rbn::SpotStore,
+    metrics_handle: metrics_exporter_prometheus::PrometheusHandle,
+) -> Router {
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
@@ -272,8 +281,10 @@ fn create_router(pool: sqlx::PgPool, config: Config, rbn_store: rbn::SpotStore) 
 
     Router::new()
         .nest("/v1", v1_routes)
+        .route("/metrics", get(handlers::get_metrics))
         .merge(invite_route)
         .fallback_service(serve_dir)
+        .layer(Extension(metrics_handle))
         .layer(TraceLayer::new_for_http())
         .layer(cors)
         .with_state(pool)
