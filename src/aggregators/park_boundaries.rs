@@ -296,8 +296,9 @@ async fn query_padus_by_name(
     );
 
     let features = fetch_arcgis_features(client, &url, "PAD-US name").await?;
-    // Prefer Designation feature class over Fee
-    Ok(pick_best_feature(features))
+    // Merge all features into one — parks like Don Edwards SF Bay NWR (US-0189)
+    // have many parcels that must be combined into a single geometry.
+    Ok(merge_padus_features(features))
 }
 
 /// Query PAD-US by point intersection.
@@ -528,6 +529,85 @@ fn pick_best_feature(features: Vec<ArcGisFeature>) -> Option<ArcGisFeature> {
             _ => 2,
         }
     })
+}
+
+/// Merge all PAD-US features from a name query into a single feature.
+///
+/// Parks like Don Edwards San Francisco Bay NWR (US-0189) have many separate
+/// parcels in PAD-US, each returned as its own feature. We group by FeatClass
+/// (preferring Designation over Fee), then merge all geometries in the best
+/// group into one GeometryCollection so the full park boundary is preserved.
+fn merge_padus_features(features: Vec<ArcGisFeature>) -> Option<ArcGisFeature> {
+    if features.is_empty() {
+        return None;
+    }
+    if features.len() == 1 {
+        return features.into_iter().next();
+    }
+
+    // Determine the best FeatClass present
+    let best_class = features
+        .iter()
+        .filter_map(|f| {
+            f.properties
+                .as_ref()
+                .and_then(|a| a.feat_class.as_deref())
+        })
+        .min_by_key(|c| match *c {
+            "Designation" => 0,
+            "Fee" => 1,
+            _ => 2,
+        })
+        .unwrap_or("Unknown")
+        .to_string();
+
+    // Collect features matching the best class
+    let best_features: Vec<ArcGisFeature> = features
+        .into_iter()
+        .filter(|f| {
+            f.properties
+                .as_ref()
+                .and_then(|a| a.feat_class.as_deref())
+                .unwrap_or("Unknown")
+                == best_class
+        })
+        .collect();
+
+    if best_features.len() == 1 {
+        return best_features.into_iter().next();
+    }
+
+    // Collect all geometries and sum acreage
+    let mut geometries = Vec::new();
+    let mut total_acres: f64 = 0.0;
+    for feature in &best_features {
+        if let Some(geom) = &feature.geometry {
+            geometries.push(geom.clone());
+        }
+        if let Some(acres) = feature.properties.as_ref().and_then(|a| a.gis_acres) {
+            total_acres += acres;
+        }
+    }
+
+    if geometries.is_empty() {
+        return None;
+    }
+
+    // Build a GeometryCollection from all individual geometries
+    let merged_geometry = serde_json::json!({
+        "type": "GeometryCollection",
+        "geometries": geometries
+    });
+
+    // Take attributes from the first feature, override acreage with total
+    let mut result = best_features.into_iter().next().unwrap();
+    result.geometry = Some(merged_geometry);
+    if total_acres > 0.0 {
+        if let Some(ref mut attrs) = result.properties {
+            attrs.gis_acres = Some(total_acres);
+        }
+    }
+    Some(result)
 }
 
 /// Save an ArcGIS feature as a park boundary.
