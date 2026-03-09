@@ -1,4 +1,6 @@
 import type { Challenge, ChallengeListItem, Badge, Invite } from '../types/challenge';
+import type { Program, CreateProgramRequest, UpdateProgramRequest } from '../types/program';
+import type { Club, ClubMember } from '../types/club';
 
 const API_BASE = '/v1';
 const TOKEN_KEY = 'challenges_admin_token';
@@ -175,4 +177,155 @@ export async function revokeInvite(token: string): Promise<void> {
     }));
     throw new Error(error.error.message);
   }
+}
+
+// Programs
+export async function listPrograms(): Promise<{ programs: Program[]; version: number }> {
+  const response = await fetch(`${API_BASE}/admin/programs`, {
+    headers: authHeaders(),
+  });
+  return handleResponse(response);
+}
+
+export async function getProgram(slug: string): Promise<Program> {
+  const response = await fetch(`${API_BASE}/admin/programs/${slug}`, {
+    headers: authHeaders(),
+  });
+  return handleResponse(response);
+}
+
+export async function createProgram(program: CreateProgramRequest): Promise<Program> {
+  const response = await fetch(`${API_BASE}/admin/programs`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(),
+    },
+    body: JSON.stringify(program),
+  });
+  return handleResponse(response);
+}
+
+export async function updateProgram(slug: string, program: UpdateProgramRequest): Promise<Program> {
+  const response = await fetch(`${API_BASE}/admin/programs/${slug}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(),
+    },
+    body: JSON.stringify(program),
+  });
+  return handleResponse(response);
+}
+
+export async function deleteProgram(slug: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/admin/programs/${slug}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    const error: ApiError = await response.json().catch(() => ({
+      error: { code: 'UNKNOWN', message: response.statusText },
+    }));
+    throw new Error(error.error.message);
+  }
+}
+
+// Clubs
+export async function listClubs(): Promise<Club[]> {
+  const response = await fetch(`${API_BASE}/admin/clubs`, {
+    headers: authHeaders(),
+  });
+  return handleResponse(response);
+}
+
+export async function createClub(club: { name: string; callsign?: string; description?: string }): Promise<Club> {
+  const response = await fetch(`${API_BASE}/admin/clubs`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(),
+    },
+    body: JSON.stringify(club),
+  });
+  return handleResponse(response);
+}
+
+export async function updateClub(
+  id: string,
+  club: { name?: string; callsign?: string; description?: string },
+): Promise<Club> {
+  const response = await fetch(`${API_BASE}/admin/clubs/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(),
+    },
+    body: JSON.stringify(club),
+  });
+  return handleResponse(response);
+}
+
+export async function deleteClub(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/admin/clubs/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    const error: ApiError = await response.json().catch(() => ({
+      error: { code: 'UNKNOWN', message: response.statusText },
+    }));
+    throw new Error(error.error.message);
+  }
+}
+
+export async function listClubMembers(clubId: string): Promise<ClubMember[]> {
+  const response = await fetch(`${API_BASE}/admin/clubs/${clubId}/members`, {
+    headers: authHeaders(),
+  });
+  return handleResponse(response);
+}
+
+export async function addClubMembers(
+  clubId: string,
+  members: { callsign: string; role?: string }[],
+): Promise<ClubMember[]> {
+  const response = await fetch(`${API_BASE}/admin/clubs/${clubId}/members`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ members }),
+  });
+  return handleResponse(response);
+}
+
+export async function removeClubMember(clubId: string, callsign: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/admin/clubs/${clubId}/members/${encodeURIComponent(callsign)}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    const error: ApiError = await response.json().catch(() => ({
+      error: { code: 'UNKNOWN', message: response.statusText },
+    }));
+    throw new Error(error.error.message);
+  }
+}
+
+export async function updateClubMemberRole(
+  clubId: string,
+  callsign: string,
+  role: string,
+): Promise<ClubMember> {
+  const response = await fetch(`${API_BASE}/admin/clubs/${clubId}/members/${encodeURIComponent(callsign)}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ role }),
+  });
+  return handleResponse(response);
 }
