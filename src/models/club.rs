@@ -127,9 +127,13 @@ pub struct CreateClubRequest {
 #[serde(rename_all = "camelCase")]
 pub struct UpdateClubRequest {
     pub name: Option<String>,
-    pub callsign: Option<String>,
-    pub description: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_nullable")]
+    pub callsign: Option<Option<String>>,
+    #[serde(default, deserialize_with = "deserialize_optional_nullable")]
+    pub description: Option<Option<String>>,
+    #[serde(default, deserialize_with = "deserialize_optional_nullable")]
     pub notes_url: Option<Option<String>>,
+    #[serde(default, deserialize_with = "deserialize_optional_nullable")]
     pub notes_title: Option<Option<String>>,
 }
 
@@ -159,6 +163,18 @@ pub struct AddMemberEntry {
 
 fn default_member_role() -> String {
     "member".to_string()
+}
+
+/// Deserialize a field as `Option<Option<T>>` where:
+/// - field missing → `None` (don't update)
+/// - field is `null` → `Some(None)` (set to NULL)
+/// - field is a value → `Some(Some(value))` (set to value)
+fn deserialize_optional_nullable<'de, T, D>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
+where
+    T: Deserialize<'de>,
+    D: serde::Deserializer<'de>,
+{
+    Option::<T>::deserialize(deserializer).map(Some)
 }
 
 /// Request body for PATCH /v1/clubs/:id/members/:callsign.

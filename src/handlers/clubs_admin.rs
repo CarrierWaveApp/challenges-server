@@ -102,21 +102,17 @@ pub async fn update_club(
     Json(body): Json<UpdateClubRequest>,
 ) -> Result<Json<DataResponse<ClubResponse>>, AppError> {
     // Convert double-Option fields for DB layer
-    let notes_url = body
-        .notes_url
-        .as_ref()
-        .map(|o| o.as_deref());
-    let notes_title = body
-        .notes_title
-        .as_ref()
-        .map(|o| o.as_deref());
+    let callsign = body.callsign.as_ref().map(|o| o.as_deref());
+    let description = body.description.as_ref().map(|o| o.as_deref());
+    let notes_url = body.notes_url.as_ref().map(|o| o.as_deref());
+    let notes_title = body.notes_title.as_ref().map(|o| o.as_deref());
 
     let club = db::clubs::update_club(
         &pool,
         club_id,
         body.name.as_deref(),
-        body.callsign.as_deref(),
-        body.description.as_deref(),
+        callsign,
+        description,
         notes_url,
         notes_title,
     )

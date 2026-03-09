@@ -83,14 +83,18 @@ pub async fn update_club(
     pool: &PgPool,
     club_id: Uuid,
     name: Option<&str>,
-    callsign: Option<&str>,
-    description: Option<&str>,
+    callsign: Option<Option<&str>>,
+    description: Option<Option<&str>>,
     notes_url: Option<Option<&str>>,
     notes_title: Option<Option<&str>>,
 ) -> Result<Option<Club>, AppError> {
     // Flatten double-Option: None (outer) -> keep existing, Some(None) -> set NULL,
     // Some(Some(v)) -> set value. We use a sentinel approach: pass the inner value
     // (or NULL) and a boolean flag indicating whether to update.
+    let update_callsign = callsign.is_some();
+    let callsign_val = callsign.flatten();
+    let update_description = description.is_some();
+    let description_val = description.flatten();
     let update_notes_url = notes_url.is_some();
     let notes_url_val = notes_url.flatten();
     let update_notes_title = notes_title.is_some();
@@ -100,10 +104,10 @@ pub async fn update_club(
         r#"
         UPDATE clubs
         SET name        = COALESCE($2, name),
-            callsign    = COALESCE($3, callsign),
-            description = COALESCE($4, description),
-            notes_url   = CASE WHEN $5 THEN $6 ELSE notes_url END,
-            notes_title = CASE WHEN $7 THEN $8 ELSE notes_title END,
+            callsign    = CASE WHEN $3 THEN $4 ELSE callsign END,
+            description = CASE WHEN $5 THEN $6 ELSE description END,
+            notes_url   = CASE WHEN $7 THEN $8 ELSE notes_url END,
+            notes_title = CASE WHEN $9 THEN $10 ELSE notes_title END,
             updated_at  = now()
         WHERE id = $1
         RETURNING id, name, callsign, description, notes_url, notes_title,
@@ -112,8 +116,10 @@ pub async fn update_club(
     )
     .bind(club_id)
     .bind(name)
-    .bind(callsign)
-    .bind(description)
+    .bind(update_callsign)
+    .bind(callsign_val)
+    .bind(update_description)
+    .bind(description_val)
     .bind(update_notes_url)
     .bind(notes_url_val)
     .bind(update_notes_title)
