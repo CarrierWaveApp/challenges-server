@@ -58,6 +58,7 @@ async fn main() {
 
     // Install Prometheus metrics
     let metrics_handle = metrics::install();
+    metrics::spawn_pool_metrics(pool.clone());
 
     // Spawn spot aggregators and TTL cleanup
     if config.spots_enabled {
@@ -89,6 +90,7 @@ async fn main() {
     let rbn_store = rbn::SpotStore::new();
     if config.rbn_proxy_enabled {
         rbn::spawn_rbn_ingester(rbn_store.clone(), config.rbn_proxy_callsign.clone());
+        metrics::spawn_rbn_metrics(rbn_store.clone());
         tracing::info!("RBN proxy enabled (login: {})", config.rbn_proxy_callsign);
     }
 
@@ -271,7 +273,8 @@ fn create_router(
     let v1_routes = public_routes
         .merge(auth_routes)
         .merge(admin_routes)
-        .fallback(api_not_found);
+        .fallback(api_not_found)
+        .layer(axum::middleware::from_fn(metrics::http_metrics));
 
     // Friend invite page (server-rendered HTML for links opened in browsers)
     let invite_route = Router::new().route("/invite/:token", get(handlers::invite_page));

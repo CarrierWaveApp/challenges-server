@@ -73,6 +73,11 @@ impl SpotStore {
     }
 
     /// Set connection status.
+    /// Number of spots currently buffered.
+    pub fn len(&self) -> usize {
+        self.inner.spots.read().unwrap().len()
+    }
+
     pub fn set_connected(&self, connected: bool) {
         *self.inner.connected.write().unwrap() = connected;
     }
