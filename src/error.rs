@@ -48,6 +48,9 @@ pub enum AppError {
     #[error("Park not found")]
     ParkNotFound { reference: String },
 
+    #[error("Trail not found")]
+    TrailNotFound { reference: String },
+
     #[error("Active self-spot already exists for this program")]
     SelfSpotExists,
 
@@ -168,6 +171,11 @@ impl IntoResponse for AppError {
             Self::ParkNotFound { reference } => (
                 StatusCode::NOT_FOUND,
                 "PARK_NOT_FOUND",
+                Some(serde_json::json!({ "reference": reference })),
+            ),
+            Self::TrailNotFound { reference } => (
+                StatusCode::NOT_FOUND,
+                "TRAIL_NOT_FOUND",
                 Some(serde_json::json!({ "reference": reference })),
             ),
             Self::SelfSpotExists => (StatusCode::CONFLICT, "SELF_SPOT_EXISTS", None),

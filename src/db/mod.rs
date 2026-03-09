@@ -6,6 +6,7 @@ pub mod clubs;
 pub mod friend_invites;
 pub mod friend_requests;
 pub mod invites;
+pub mod historic_trails;
 pub mod park_boundaries;
 pub mod participants;
 pub mod programs;

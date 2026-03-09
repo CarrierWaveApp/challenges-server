@@ -21,6 +21,10 @@ pub struct Config {
     pub park_boundaries_batch_size: i64,
     pub park_boundaries_cycle_hours: u64,
     pub park_boundaries_stale_days: i64,
+    pub historic_trails_enabled: bool,
+    pub historic_trails_batch_size: i64,
+    pub historic_trails_cycle_hours: u64,
+    pub historic_trails_stale_days: i64,
 }
 
 impl Config {
@@ -106,6 +110,26 @@ impl Config {
             .parse()
             .unwrap_or(90);
 
+        let historic_trails_enabled = env::var("HISTORIC_TRAILS_ENABLED")
+            .unwrap_or_else(|_| "false".to_string())
+            .parse()
+            .unwrap_or(false);
+
+        let historic_trails_batch_size: i64 = env::var("HISTORIC_TRAILS_BATCH_SIZE")
+            .unwrap_or_else(|_| "20".to_string())
+            .parse()
+            .unwrap_or(20);
+
+        let historic_trails_cycle_hours: u64 = env::var("HISTORIC_TRAILS_CYCLE_HOURS")
+            .unwrap_or_else(|_| "168".to_string())
+            .parse()
+            .unwrap_or(168);
+
+        let historic_trails_stale_days: i64 = env::var("HISTORIC_TRAILS_STALE_DAYS")
+            .unwrap_or_else(|_| "180".to_string())
+            .parse()
+            .unwrap_or(180);
+
         Ok(Self {
             database_url,
             admin_token,
@@ -125,6 +149,10 @@ impl Config {
             park_boundaries_batch_size,
             park_boundaries_cycle_hours,
             park_boundaries_stale_days,
+            historic_trails_enabled,
+            historic_trails_batch_size,
+            historic_trails_cycle_hours,
+            historic_trails_stale_days,
         })
     }
 }
