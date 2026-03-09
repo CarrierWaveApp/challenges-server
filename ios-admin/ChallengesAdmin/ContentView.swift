@@ -27,6 +27,11 @@ struct MainTabView: View {
                     Label("Aggregators", systemImage: "arrow.triangle.2.circlepath")
                 }
 
+            ProgramsListView()
+                .tabItem {
+                    Label("Programs", systemImage: "list.bullet")
+                }
+
             ClubsListView()
                 .tabItem {
                     Label("Clubs", systemImage: "person.3")

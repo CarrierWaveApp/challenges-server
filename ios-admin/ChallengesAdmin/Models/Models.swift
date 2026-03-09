@@ -114,17 +114,52 @@ struct ProgramResponse: Decodable, Identifiable {
     let slug: String
     let name: String
     let shortName: String
-    let icon: String?
+    let icon: String
+    let iconUrl: String?
     let website: String?
-    let referenceLabel: String?
+    let serverBaseUrl: String?
+    let referenceLabel: String
     let referenceFormat: String?
     let referenceExample: String?
-    let multiRefAllowed: Bool?
+    let multiRefAllowed: Bool
     let activationThreshold: Int?
-    let supportsRove: Bool?
-    let capabilities: [String]?
-    let isActive: Bool?
-    let sortOrder: Int?
+    let supportsRove: Bool
+    let capabilities: [String]
+    let isActive: Bool
+}
+
+// MARK: - Program Requests
+
+struct CreateProgramRequest: Encodable {
+    let slug: String
+    let name: String
+    let shortName: String
+    let icon: String
+    var website: String?
+    let referenceLabel: String
+    var referenceFormat: String?
+    var referenceExample: String?
+    var multiRefAllowed: Bool = false
+    var activationThreshold: Int?
+    var supportsRove: Bool = false
+    var capabilities: [String] = []
+    var sortOrder: Int = 0
+}
+
+struct UpdateProgramRequest: Encodable {
+    var name: String?
+    var shortName: String?
+    var icon: String?
+    var website: String?
+    var referenceLabel: String?
+    var referenceFormat: String?
+    var referenceExample: String?
+    var multiRefAllowed: Bool?
+    var activationThreshold: Int?
+    var supportsRove: Bool?
+    var capabilities: [String]?
+    var sortOrder: Int?
+    var isActive: Bool?
 }
 
 // MARK: - Clubs (Admin)
@@ -142,11 +177,13 @@ struct ClubAdminResponse: Decodable, Identifiable {
 }
 
 struct ClubMemberAdminResponse: Decodable, Identifiable {
-    var id: String { "\(clubId)-\(callsign)" }
-    let clubId: String
+    var id: String { callsign }
     let callsign: String
     let role: String
-    let joinedAt: Date?
+    let joinedAt: Date
+    let lastSeenAt: Date?
+    let lastGrid: String?
+    let isCarrierWaveUser: Bool
 }
 
 // MARK: - Club Requests

@@ -259,8 +259,8 @@ struct AggregatorsView: View {
                     VStack(alignment: .leading) {
                         Text(program.name)
                             .font(.subheadline.weight(.medium))
-                        if let caps = program.capabilities {
-                            Text(caps.joined(separator: ", "))
+                        if !program.capabilities.isEmpty {
+                            Text(program.capabilities.joined(separator: ", "))
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
@@ -299,13 +299,13 @@ struct AggregatorsView: View {
 
         await withTaskGroup(of: Void.self) { group in
             group.addTask {
-                do { potaStatus = try await api.getPotaSyncStatus() } catch let e { self.error = e.localizedDescription }
+                do { potaStatus = try await api.getPotaSyncStatus() } catch let e { if !e.isCancellation { self.error = e.localizedDescription } }
             }
             group.addTask {
-                do { boundaryStatus = try await api.getParkBoundariesStatus() } catch let e { if self.error == nil { self.error = e.localizedDescription } }
+                do { boundaryStatus = try await api.getParkBoundariesStatus() } catch let e { if !e.isCancellation, self.error == nil { self.error = e.localizedDescription } }
             }
             group.addTask {
-                do { trailStatus = try await api.getTrailStatus() } catch let e { if self.error == nil { self.error = e.localizedDescription } }
+                do { trailStatus = try await api.getTrailStatus() } catch let e { if !e.isCancellation, self.error == nil { self.error = e.localizedDescription } }
             }
             group.addTask {
                 do { programs = try await api.getPrograms() } catch {}

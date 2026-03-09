@@ -6,6 +6,7 @@ enum APIError: LocalizedError {
     case httpError(statusCode: Int, message: String)
     case decodingError(Error)
     case networkError(Error)
+    case cancelled
 
     var errorDescription: String? {
         switch self {
@@ -19,7 +20,23 @@ enum APIError: LocalizedError {
             return "Decoding error: \(error.localizedDescription)"
         case .networkError(let error):
             return "Network error: \(error.localizedDescription)"
+        case .cancelled:
+            return nil
         }
+    }
+
+    var isCancellation: Bool {
+        if case .cancelled = self { return true }
+        return false
+    }
+}
+
+extension Error {
+    var isCancellation: Bool {
+        if self is CancellationError { return true }
+        if let urlError = self as? URLError, urlError.code == .cancelled { return true }
+        if let apiError = self as? APIError, apiError.isCancellation { return true }
+        return false
     }
 }
 
@@ -147,6 +164,20 @@ class APIClient {
         try await getWrapped("/v1/admin/programs")
     }
 
+    func createProgram(_ request: CreateProgramRequest) async throws -> ProgramResponse {
+        let wrapper: DataWrapper<ProgramResponse> = try await post("/v1/admin/programs", body: request)
+        return wrapper.data
+    }
+
+    func updateProgram(slug: String, _ request: UpdateProgramRequest) async throws -> ProgramResponse {
+        let wrapper: DataWrapper<ProgramResponse> = try await put("/v1/admin/programs/\(slug)", body: request)
+        return wrapper.data
+    }
+
+    func deleteProgram(slug: String) async throws {
+        try await delete("/v1/admin/programs/\(slug)")
+    }
+
     // MARK: - Clubs (Admin)
 
     func getClubs() async throws -> [ClubAdminResponse] {
@@ -229,6 +260,7 @@ class APIClient {
         do {
             (data, response) = try await URLSession.shared.data(for: request)
         } catch {
+            if error.isCancellation { throw APIError.cancelled }
             throw APIError.networkError(error)
         }
 

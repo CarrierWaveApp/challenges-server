@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ClubDetailView: View {
     @EnvironmentObject var config: ServerConfig
-    let club: ClubAdminResponse
+    @State private var club: ClubAdminResponse
 
     @State private var members: [ClubMemberAdminResponse] = []
     @State private var isLoading = true
@@ -11,6 +11,10 @@ struct ClubDetailView: View {
     @State private var showingEditSheet = false
 
     private var api: APIClient { APIClient(config: config) }
+
+    init(club: ClubAdminResponse) {
+        _club = State(initialValue: club)
+    }
 
     var body: some View {
         List {
@@ -42,7 +46,9 @@ struct ClubDetailView: View {
             AddMemberSheet(clubId: club.id) { await loadMembers() }
         }
         .sheet(isPresented: $showingEditSheet) {
-            EditClubSheet(club: club)
+            EditClubSheet(club: club) { updated in
+                club = updated
+            }
         }
     }
 
@@ -89,11 +95,9 @@ struct ClubDetailView: View {
                         Text(member.callsign)
                             .font(.headline)
                             .fontDesign(.monospaced)
-                        if let joined = member.joinedAt {
-                            Text("Joined \(joined.formatted(.relative(presentation: .named)))")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
+                        Text("Joined \(member.joinedAt.formatted(.relative(presentation: .named)))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                     Spacer()
                     RoleBadge(role: member.role)
@@ -232,6 +236,7 @@ struct EditClubSheet: View {
     @EnvironmentObject var config: ServerConfig
     @Environment(\.dismiss) private var dismiss
     let club: ClubAdminResponse
+    let onSaved: (ClubAdminResponse) -> Void
 
     @State private var name: String
     @State private var callsign: String
@@ -241,8 +246,9 @@ struct EditClubSheet: View {
     @State private var isSubmitting = false
     @State private var error: String?
 
-    init(club: ClubAdminResponse) {
+    init(club: ClubAdminResponse, onSaved: @escaping (ClubAdminResponse) -> Void) {
         self.club = club
+        self.onSaved = onSaved
         _name = State(initialValue: club.name)
         _callsign = State(initialValue: club.callsign ?? "")
         _description = State(initialValue: club.description ?? "")
@@ -305,7 +311,8 @@ struct EditClubSheet: View {
             notesTitle: notesTitle.isEmpty ? nil : notesTitle
         )
         do {
-            _ = try await api.updateClub(id: club.id, request)
+            let updated = try await api.updateClub(id: club.id, request)
+            onSaved(updated)
             dismiss()
         } catch {
             self.error = error.localizedDescription

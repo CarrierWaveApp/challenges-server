@@ -10,6 +10,7 @@ struct DashboardView: View {
     @State private var spotsResponse: SpotsListResponse?
     @State private var clubs: [ClubAdminResponse]?
     @State private var error: String?
+    @State private var serverDown = false
     @State private var isLoading = true
     @State private var lastRefresh: Date?
 
@@ -19,14 +20,15 @@ struct DashboardView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    if let error {
-                        ErrorBanner(message: error)
-                    }
-
-                    if isLoading && health == nil {
+                    if isLoading && health == nil && !serverDown {
                         ProgressView("Connecting to server...")
                             .padding(.top, 40)
+                    } else if serverDown {
+                        serverDownSection
                     } else {
+                        if let error {
+                            ErrorBanner(message: error)
+                        }
                         serverStatusSection
                         countsSection
                         aggregatorSummarySection
@@ -43,6 +45,45 @@ struct DashboardView: View {
             .navigationTitle("Dashboard")
             .refreshable { await loadAll() }
             .task { await loadAll() }
+        }
+    }
+
+    // MARK: - Server Down
+
+    private var serverDownSection: some View {
+        VStack(spacing: 16) {
+            Spacer().frame(height: 40)
+
+            Image(systemName: "exclamationmark.icloud.fill")
+                .font(.system(size: 56))
+                .foregroundStyle(.red)
+
+            Text("Server Unreachable")
+                .font(.title2.bold())
+
+            Text(config.baseURL)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fontDesign(.monospaced)
+
+            if let error {
+                Text(error)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            }
+
+            Button {
+                Task { await loadAll() }
+            } label: {
+                Label("Retry", systemImage: "arrow.clockwise")
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.blue)
+            .padding(.top, 8)
         }
     }
 
@@ -177,6 +218,7 @@ struct DashboardView: View {
     private func loadAll() async {
         isLoading = true
         error = nil
+        serverDown = false
 
         await withTaskGroup(of: Void.self) { group in
             group.addTask { await loadHealth() }
@@ -194,8 +236,12 @@ struct DashboardView: View {
     private func loadHealth() async {
         do {
             health = try await api.getHealth()
+            serverDown = false
         } catch {
-            self.error = error.localizedDescription
+            if !error.isCancellation {
+                serverDown = true
+                self.error = error.localizedDescription
+            }
         }
     }
 
