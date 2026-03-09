@@ -101,13 +101,33 @@ pub struct NpsTrailFeature {
 
 #[derive(Debug, Deserialize)]
 pub struct NpsTrailAttributes {
-    #[serde(alias = "Trail_Name", alias = "TRAIL_NAME", alias = "trailname")]
+    #[serde(
+        alias = "Trail_Name",
+        alias = "TRAIL_NAME",
+        alias = "trailname",
+        alias = "name"
+    )]
     pub trail_name: Option<String>,
-    #[serde(alias = "Mang_Agency", alias = "MANG_AGENCY", alias = "mangagency")]
+    #[serde(
+        alias = "Mang_Agency",
+        alias = "MANG_AGENCY",
+        alias = "mangagency",
+        alias = "primarytrailmaintainer"
+    )]
     pub managing_agency: Option<String>,
-    #[serde(alias = "Designation", alias = "DESIGNATION", alias = "designation")]
+    #[serde(
+        alias = "Designation",
+        alias = "DESIGNATION",
+        alias = "designation",
+        alias = "nationaltraildesignation"
+    )]
     pub designation: Option<String>,
-    #[serde(alias = "Length_MI", alias = "LENGTH_MI", alias = "Shape__Length")]
+    #[serde(
+        alias = "Length_MI",
+        alias = "LENGTH_MI",
+        alias = "Shape__Length",
+        alias = "lengthmiles"
+    )]
     pub length_miles: Option<f64>,
     #[serde(alias = "State", alias = "STATE", alias = "state")]
     pub state: Option<String>,

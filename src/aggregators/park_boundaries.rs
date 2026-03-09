@@ -685,10 +685,11 @@ async fn save_feature(
 }
 
 /// URL-encode a string for use in ArcGIS REST API query parameters.
-/// Note: `%` in SQL LIKE wildcards must NOT be encoded — ArcGIS expects
-/// the `where` parameter to contain raw SQL with `%` wildcards.
+/// The `%` must be encoded first (to `%25`) so that SQL LIKE wildcards
+/// don't get misinterpreted as URL percent-encoding by the server.
 fn urlencoded(s: &str) -> String {
-    s.replace(' ', "%20")
+    s.replace('%', "%25")
+        .replace(' ', "%20")
         .replace('\'', "%27")
         .replace('=', "%3D")
         .replace('&', "%26")

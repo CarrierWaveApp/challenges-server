@@ -9,7 +9,10 @@ use crate::models::historic_trail::{NpsTrailFeature, NpsTrailResponse};
 
 use super::park_boundaries::merge_geojson_geometries;
 
-const NPS_TRAILS_URL: &str = "https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/National_Trails_System/FeatureServer/0";
+/// National Trails layer on the USGS National Map (MapServer layer 11).
+/// The old FeatureServer at services.arcgis.com was retired; this is the
+/// current authoritative source for National Historic/Scenic Trail geometries.
+const NPS_TRAILS_URL: &str = "https://carto.nationalmap.gov/arcgis/rest/services/transportation/MapServer/11";
 
 /// Configuration for the historic trails aggregator.
 pub struct HistoricTrailsConfig {
@@ -253,23 +256,55 @@ async fn fetch_trail_inner(
     Ok(None)
 }
 
-/// Query NPS Trails FeatureServer by trail name — merges all features.
+/// Query National Trails MapServer by trail name — merges all line segments.
+///
+/// Queries the `nationaltraildesignation` field (e.g. "NHT - Lewis and Clark")
+/// which groups all segments of a given national trail. Falls back to the
+/// `name` field if no designation match is found.
 async fn query_by_name(
     client: &reqwest::Client,
     service_url: &str,
     search_name: &str,
 ) -> Result<Option<NpsTrailFeature>, Box<dyn std::error::Error + Send + Sync>> {
     let escaped_name = search_name.replace('\'', "''");
-    let where_clause = format!("Trail_Name LIKE '%{}%'", escaped_name);
+
+    // Strategy 1: match via nationaltraildesignation (e.g. "NHT - Lewis and Clark")
+    let where_clause = format!(
+        "nationaltraildesignation LIKE '%{}%'",
+        escaped_name
+    );
 
     let url = format!(
-        "{}/query?where={}&outFields=Trail_Name,Mang_Agency,Designation,Length_MI,State&f=geojson&outSR=4326",
+        "{}/query?where={}&outFields=name,nationaltraildesignation,primarytrailmaintainer,lengthmiles&f=geojson&outSR=4326&resultRecordCount=5000",
         service_url,
         urlencoded(&where_clause)
     );
 
+    let features = fetch_trail_response(client, &url).await?;
+    if !features.is_empty() {
+        return Ok(merge_trail_features(features));
+    }
+
+    // Strategy 2: match via segment name field
+    let where_clause = format!("name LIKE '%{}%'", escaped_name);
+
+    let url = format!(
+        "{}/query?where={}&outFields=name,nationaltraildesignation,primarytrailmaintainer,lengthmiles&f=geojson&outSR=4326&resultRecordCount=5000",
+        service_url,
+        urlencoded(&where_clause)
+    );
+
+    let features = fetch_trail_response(client, &url).await?;
+    Ok(merge_trail_features(features))
+}
+
+/// Fetch and parse trail features from an ArcGIS query URL.
+async fn fetch_trail_response(
+    client: &reqwest::Client,
+    url: &str,
+) -> Result<Vec<NpsTrailFeature>, Box<dyn std::error::Error + Send + Sync>> {
     let resp_text = client
-        .get(&url)
+        .get(url)
         .send()
         .await?
         .error_for_status()?
@@ -280,16 +315,15 @@ async fn query_by_name(
         Ok(r) => r,
         Err(e) => {
             tracing::warn!(
-                "Historic trails: ArcGIS response parse error: {} (first 200 chars: {})",
+                "Historic trails: response parse error: {} (first 200 chars: {})",
                 e,
                 &resp_text[..resp_text.len().min(200)]
             );
-            return Ok(None);
+            return Ok(vec![]);
         }
     };
 
-    let features = resp.features.unwrap_or_default();
-    Ok(merge_trail_features(features))
+    Ok(resp.features.unwrap_or_default())
 }
 
 /// Merge all trail features into a single feature with merged geometry.
@@ -359,8 +393,11 @@ async fn save_feature(
 }
 
 /// URL-encode a string for use in ArcGIS REST API query parameters.
+/// The `%` must be encoded first (to `%25`) so that SQL LIKE wildcards
+/// (`%`) don't get misinterpreted as URL percent-encoding by the server.
 fn urlencoded(s: &str) -> String {
-    s.replace(' ', "%20")
+    s.replace('%', "%25")
+        .replace(' ', "%20")
         .replace('\'', "%27")
         .replace('=', "%3D")
         .replace('&', "%26")

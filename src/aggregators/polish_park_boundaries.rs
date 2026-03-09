@@ -444,8 +444,11 @@ async fn save_wfs_feature(
 }
 
 /// URL-encode a string for use in WFS query parameters.
+/// The `%` must be encoded first (to `%25`) so that SQL LIKE wildcards
+/// don't get misinterpreted as URL percent-encoding by the server.
 fn urlencoded(s: &str) -> String {
-    s.replace(' ', "%20")
+    s.replace('%', "%25")
+        .replace(' ', "%20")
         .replace('\'', "%27")
         .replace('=', "%3D")
         .replace('&', "%26")
