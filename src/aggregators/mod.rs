@@ -3,7 +3,6 @@ pub mod park_boundaries;
 pub mod polish_park_boundaries;
 pub mod pota;
 pub mod pota_stats;
-pub mod rbn;
 pub mod sota;
 
 use sqlx::PgPool;
@@ -35,15 +34,6 @@ pub fn spawn_aggregators(pool: PgPool, config: &Config) {
             pota::poll_loop(pota_pool, pota_client).await;
         });
         tracing::info!("POTA aggregator started");
-    }
-
-    if config.rbn_aggregator_enabled {
-        let rbn_pool = pool.clone();
-        let rbn_client = client.clone();
-        tokio::spawn(async move {
-            rbn::poll_loop(rbn_pool, rbn_client).await;
-        });
-        tracing::info!("RBN aggregator started");
     }
 
     if config.sota_aggregator_enabled {

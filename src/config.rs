@@ -11,7 +11,6 @@ pub struct Config {
     pub invite_expiry_days: i64,
     pub spots_enabled: bool,
     pub pota_aggregator_enabled: bool,
-    pub rbn_aggregator_enabled: bool,
     pub sota_aggregator_enabled: bool,
     pub pota_stats_aggregator_enabled: bool,
     pub pota_stats_concurrency: usize,
@@ -65,11 +64,6 @@ impl Config {
             .unwrap_or(true);
 
         let pota_aggregator_enabled = env::var("POTA_AGGREGATOR_ENABLED")
-            .unwrap_or_else(|_| "false".to_string())
-            .parse()
-            .unwrap_or(false);
-
-        let rbn_aggregator_enabled = env::var("RBN_AGGREGATOR_ENABLED")
             .unwrap_or_else(|_| "false".to_string())
             .parse()
             .unwrap_or(false);
@@ -195,7 +189,6 @@ impl Config {
             invite_expiry_days,
             spots_enabled,
             pota_aggregator_enabled,
-            rbn_aggregator_enabled,
             sota_aggregator_enabled,
             pota_stats_aggregator_enabled,
             pota_stats_concurrency,

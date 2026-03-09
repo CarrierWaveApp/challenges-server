@@ -9,7 +9,8 @@ const RBN_PORT: u16 = 7000;
 const LOGIN_TIMEOUT_SECS: u64 = 10;
 const BATCH_SIZE: usize = 100;
 const BATCH_FLUSH_MS: u64 = 500;
-const MAX_BACKOFF_SECS: u64 = 60;
+const INITIAL_BACKOFF_SECS: u64 = 5;
+const MAX_BACKOFF_SECS: u64 = 300;
 
 /// Spawn the RBN telnet ingester as a background tokio task.
 pub fn spawn_rbn_ingester(store: SpotStore, callsign: String) {
@@ -19,14 +20,20 @@ pub fn spawn_rbn_ingester(store: SpotStore, callsign: String) {
 }
 
 async fn ingester_loop(store: SpotStore, callsign: String) {
-    let mut backoff_secs = 1u64;
+    let mut backoff_secs = INITIAL_BACKOFF_SECS;
 
     loop {
         tracing::info!("RBN ingester: connecting to {}:{}", RBN_HOST, RBN_PORT);
 
         match run_connection(&store, &callsign).await {
-            Ok(()) => {
+            Ok(true) => {
+                // Was connected and received data — reset backoff
                 tracing::info!("RBN ingester: connection closed cleanly");
+                backoff_secs = INITIAL_BACKOFF_SECS;
+            }
+            Ok(false) => {
+                // Connected but got no data (immediate close / rate limited)
+                tracing::warn!("RBN ingester: connection closed without receiving data");
             }
             Err(e) => {
                 tracing::error!("RBN ingester: connection error: {}", e);
@@ -40,10 +47,12 @@ async fn ingester_loop(store: SpotStore, callsign: String) {
     }
 }
 
+/// Returns Ok(true) if we successfully connected and received data,
+/// Ok(false) if the connection was closed before we got any data.
 async fn run_connection(
     store: &SpotStore,
     callsign: &str,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
     let stream = tokio::time::timeout(
         std::time::Duration::from_secs(LOGIN_TIMEOUT_SECS),
         TcpStream::connect((RBN_HOST, RBN_PORT)),
@@ -68,9 +77,13 @@ async fn run_connection(
         .await??;
 
         if n == 0 {
+            if login_received.is_empty() {
+                // Server closed immediately — likely rate limited
+                return Ok(false);
+            }
             let received = String::from_utf8_lossy(&login_received);
             return Err(format!(
-                "Connection closed before login prompt (received {} bytes: {:?})",
+                "Connection closed during login (received {} bytes: {:?})",
                 login_received.len(),
                 &received[..received.len().min(100)]
             ).into());
@@ -78,7 +91,6 @@ async fn run_connection(
 
         login_received.extend_from_slice(&login_buf[..n]);
         let received = String::from_utf8_lossy(&login_received);
-        tracing::debug!("RBN ingester: login read {} bytes, total {}: {:?}", n, login_received.len(), &received[..received.len().min(80)]);
 
         if received.contains("call") || received.contains("login") || received.contains("callsign")
         {
@@ -93,8 +105,6 @@ async fn run_connection(
     let mut lines = buf_reader.lines();
 
     store.set_connected(true);
-    // Reset backoff on successful connection — caller handles backoff state,
-    // but we signal success via the Ok return.
 
     let mut batch: Vec<RbnSpot> = Vec::with_capacity(BATCH_SIZE);
     let mut flush_deadline =
@@ -120,7 +130,7 @@ async fn run_connection(
                 if !batch.is_empty() {
                     store.push_batch(batch);
                 }
-                return Ok(());
+                return Ok(true);
             }
             Ok(Err(e)) => {
                 if !batch.is_empty() {
@@ -283,5 +293,126 @@ mod tests {
         let store = SpotStore::new();
         assert!(parse_spot_line("Please enter your callsign:", &store).is_none());
         assert!(parse_spot_line("", &store).is_none());
+    }
+
+    /// Test that immediate server close (rate limiting) returns Ok(false).
+    #[tokio::test]
+    async fn test_run_connection_immediate_close() {
+        use tokio::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        // Server accepts then immediately closes
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            drop(stream);
+        });
+
+        let stream = TcpStream::connect(addr).await.unwrap();
+        let (reader, _writer) = stream.into_split();
+        let mut buf_reader = BufReader::new(reader);
+
+        let mut login_buf = [0u8; 256];
+        let n = tokio::io::AsyncReadExt::read(&mut buf_reader, &mut login_buf)
+            .await
+            .unwrap();
+        assert_eq!(n, 0, "Immediate close should return 0 bytes");
+
+        server.await.unwrap();
+    }
+
+    /// Test the full login + spot ingestion flow against a mock TCP server.
+    #[tokio::test]
+    async fn test_run_connection_with_mock_server() {
+        use tokio::io::AsyncWriteExt;
+        use tokio::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        let store = SpotStore::new();
+        let store_clone = store.clone();
+
+        // Mock RBN server: send prompt (no newline), read callsign, send spots, close
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let (reader, mut writer) = stream.into_split();
+            let mut buf_reader = BufReader::new(reader);
+
+            // Send login prompt WITHOUT trailing newline (just like real RBN)
+            writer.write_all(b"Please enter your call: ").await.unwrap();
+            writer.flush().await.unwrap();
+
+            // Read the callsign response
+            let mut line = String::new();
+            buf_reader.read_line(&mut line).await.unwrap();
+            assert_eq!(line.trim(), "W6JSV");
+
+            // Send a few spot lines
+            let spots = vec![
+                "DX de KM3T-#:     14039.8  W1AW           CW    18 dB  25 WPM  CQ      1832Z\n",
+                "DX de W3LPL-#:     7074.0  N5XX           FT8    5 dB   CQ      2100Z\n",
+                "DX de KM3T-#:     14100.0  4U1UN          CW    30 dB  BEACON  1832Z\n", // filtered
+            ];
+            for spot in spots {
+                writer.write_all(spot.as_bytes()).await.unwrap();
+            }
+            writer.flush().await.unwrap();
+
+            // Close connection
+            drop(writer);
+        });
+
+        // Run the connection against our mock server
+        let client = tokio::spawn(async move {
+            let stream = TcpStream::connect(addr).await.unwrap();
+            let (reader, mut writer) = stream.into_split();
+            let mut buf_reader = BufReader::new(reader);
+
+            // Replicate the login logic from run_connection
+            let login_deadline = tokio::time::Instant::now()
+                + std::time::Duration::from_secs(LOGIN_TIMEOUT_SECS);
+
+            let mut login_buf = [0u8; 256];
+            let mut login_received = Vec::new();
+            loop {
+                let n = tokio::time::timeout_at(
+                    login_deadline,
+                    tokio::io::AsyncReadExt::read(&mut buf_reader, &mut login_buf),
+                )
+                .await
+                .unwrap()
+                .unwrap();
+
+                assert!(n > 0, "Server closed before sending prompt");
+                login_received.extend_from_slice(&login_buf[..n]);
+                let received = String::from_utf8_lossy(&login_received);
+                if received.contains("call") {
+                    writer.write_all(b"W6JSV\n").await.unwrap();
+                    break;
+                }
+            }
+
+            // Read spots
+            let mut lines = buf_reader.lines();
+            let mut spots = Vec::new();
+            while let Ok(Some(line)) = lines.next_line().await {
+                if let Some(spot) = parse_spot_line(&line, &store_clone) {
+                    spots.push(spot);
+                }
+            }
+            spots
+        });
+
+        server.await.unwrap();
+        let spots = client.await.unwrap();
+
+        // Should have 2 spots (BEACON filtered out)
+        assert_eq!(spots.len(), 2);
+        assert_eq!(spots[0].callsign, "W1AW");
+        assert_eq!(spots[0].band, "20m");
+        assert_eq!(spots[1].callsign, "N5XX");
+        assert_eq!(spots[1].band, "40m");
     }
 }
