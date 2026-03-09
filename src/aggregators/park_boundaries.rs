@@ -558,12 +558,12 @@ async fn fetch_arcgis_features(
     Ok(resp.features.unwrap_or_default())
 }
 
-/// Merge all PAD-US features from a name query into a single feature.
+/// Merge all PAD-US features into a single feature with combined geometry.
 ///
 /// Parks like Don Edwards San Francisco Bay NWR (US-0189) have many separate
-/// parcels in PAD-US, each returned as its own feature. We group by FeatClass
-/// (preferring Designation over Fee), then merge all geometries in the best
-/// group into one GeometryCollection so the full park boundary is preserved.
+/// parcels in PAD-US across multiple FeatClass categories (Designation, Fee,
+/// Marine, etc.). We merge ALL geometries into a single GeometryCollection
+/// so the full park boundary is preserved, and sum the total acreage.
 fn merge_padus_features(features: Vec<ArcGisFeature>) -> Option<ArcGisFeature> {
     if features.is_empty() {
         return None;
@@ -572,42 +572,10 @@ fn merge_padus_features(features: Vec<ArcGisFeature>) -> Option<ArcGisFeature> {
         return features.into_iter().next();
     }
 
-    // Determine the best FeatClass present
-    let best_class = features
-        .iter()
-        .filter_map(|f| {
-            f.properties
-                .as_ref()
-                .and_then(|a| a.feat_class.as_deref())
-        })
-        .min_by_key(|c| match *c {
-            "Designation" => 0,
-            "Fee" => 1,
-            _ => 2,
-        })
-        .unwrap_or("Unknown")
-        .to_string();
-
-    // Collect features matching the best class
-    let best_features: Vec<ArcGisFeature> = features
-        .into_iter()
-        .filter(|f| {
-            f.properties
-                .as_ref()
-                .and_then(|a| a.feat_class.as_deref())
-                .unwrap_or("Unknown")
-                == best_class
-        })
-        .collect();
-
-    if best_features.len() == 1 {
-        return best_features.into_iter().next();
-    }
-
-    // Collect all geometries and sum acreage
+    // Collect all geometries and sum acreage across all FeatClass categories
     let mut geometries = Vec::new();
     let mut total_acres: f64 = 0.0;
-    for feature in &best_features {
+    for feature in &features {
         if let Some(geom) = &feature.geometry {
             geometries.push(geom.clone());
         }
@@ -623,7 +591,7 @@ fn merge_padus_features(features: Vec<ArcGisFeature>) -> Option<ArcGisFeature> {
     let merged_geometry = merge_geojson_geometries(geometries);
 
     // Take attributes from the first feature, override acreage with total
-    let mut result = best_features.into_iter().next().unwrap();
+    let mut result = features.into_iter().next().unwrap();
     result.geometry = Some(merged_geometry);
     if total_acres > 0.0 {
         if let Some(ref mut attrs) = result.properties {
