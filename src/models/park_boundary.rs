@@ -82,6 +82,32 @@ pub struct BoundaryStatusResponse {
     pub newest_fetch: Option<String>,
 }
 
+// --- WFS API types (GDOŚ Poland) ---
+
+#[derive(Debug, Deserialize)]
+pub struct WfsFeatureCollection {
+    pub features: Option<Vec<WfsFeature>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WfsFeature {
+    pub properties: Option<WfsProperties>,
+    pub geometry: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WfsProperties {
+    /// Name of the protected area
+    #[serde(alias = "nazwa")]
+    pub nazwa: Option<String>,
+    /// Area in hectares
+    #[serde(alias = "powierzchnia", alias = "pow_ha")]
+    pub area_ha: Option<f64>,
+    /// INSPIRE ID or local identifier
+    #[serde(alias = "inspireid", alias = "id_iip")]
+    pub inspire_id: Option<String>,
+}
+
 // --- ArcGIS API types ---
 
 #[derive(Debug, Deserialize)]

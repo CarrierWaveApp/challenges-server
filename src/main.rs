@@ -71,6 +71,11 @@ async fn main() {
         aggregators::spawn_park_boundaries_aggregator(pool.clone(), &config);
     }
 
+    // Spawn Polish park boundaries aggregator (requires POTA stats for park catalog)
+    if config.polish_park_boundaries_enabled {
+        aggregators::spawn_polish_park_boundaries_aggregator(pool.clone(), &config);
+    }
+
     // Spawn historic trails aggregator
     if config.historic_trails_enabled {
         aggregators::spawn_historic_trails_aggregator(pool.clone(), &config);

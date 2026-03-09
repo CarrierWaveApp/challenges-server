@@ -1,5 +1,6 @@
 pub mod historic_trails;
 pub mod park_boundaries;
+pub mod polish_park_boundaries;
 pub mod pota;
 pub mod pota_stats;
 pub mod rbn;
@@ -96,6 +97,27 @@ pub fn spawn_park_boundaries_aggregator(pool: PgPool, config: &Config) {
         park_boundaries::poll_loop(pool, client, boundaries_config).await;
     });
     tracing::info!("Park boundaries aggregator started");
+}
+
+/// Spawn the Polish park boundaries aggregator (requires POTA stats for park catalog).
+pub fn spawn_polish_park_boundaries_aggregator(pool: PgPool, config: &Config) {
+    let client = reqwest::Client::builder()
+        .user_agent(format!(
+            "{}/{}",
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_VERSION")
+        ))
+        .build()
+        .expect("failed to build HTTP client");
+    let boundaries_config = polish_park_boundaries::PolishParkBoundariesConfig {
+        batch_size: config.polish_park_boundaries_batch_size,
+        cycle_hours: config.polish_park_boundaries_cycle_hours,
+        stale_days: config.polish_park_boundaries_stale_days,
+    };
+    tokio::spawn(async move {
+        polish_park_boundaries::poll_loop(pool, client, boundaries_config).await;
+    });
+    tracing::info!("Polish park boundaries aggregator started");
 }
 
 /// Spawn the POTA stats aggregator (independent of the spots system).

@@ -21,7 +21,7 @@ Application entry point and router setup.
 Environment variable configuration.
 
 **Exports:**
-- `struct Config` - Application configuration with database_url, admin_token, port, base_url, invite_base_url, invite_expiry_days
+- `struct Config` - Application configuration with database_url, admin_token, port, base_url, invite_base_url, invite_expiry_days, polish_park_boundaries_* fields
 - `impl Config::from_env()` - Load config from environment variables
 - `enum ConfigError` - Configuration errors (Missing, Invalid)
 
