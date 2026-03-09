@@ -34,6 +34,7 @@ async fn ingester_loop(store: SpotStore, callsign: String) {
         }
 
         store.set_connected(false);
+        crate::metrics::record_rbn_connected(false);
         tracing::info!("RBN ingester: reconnecting in {}s", backoff_secs);
         tokio::time::sleep(std::time::Duration::from_secs(backoff_secs)).await;
         backoff_secs = (backoff_secs * 2).min(MAX_BACKOFF_SECS);
@@ -73,6 +74,7 @@ async fn run_connection(
     }
 
     store.set_connected(true);
+    crate::metrics::record_rbn_connected(true);
     // Reset backoff on successful connection — caller handles backoff state,
     // but we signal success via the Ok return.
 
@@ -85,12 +87,20 @@ async fn run_connection(
 
         match result {
             Ok(Ok(Some(line))) => {
-                if let Some(spot) = parse_spot_line(&line, store) {
-                    batch.push(spot);
+                if line.starts_with("DX de ") {
+                    if let Some(spot) = parse_spot_line(&line, store) {
+                        batch.push(spot);
+                    } else {
+                        crate::metrics::record_rbn_parse_error();
+                    }
                 }
 
                 if batch.len() >= BATCH_SIZE {
+                    let count = batch.len() as u64;
                     store.push_batch(std::mem::take(&mut batch));
+                    crate::metrics::record_rbn_spots_ingested(count);
+                    let (store_size, _) = store.health_info();
+                    crate::metrics::record_rbn_store_size(store_size);
                     flush_deadline = tokio::time::Instant::now()
                         + std::time::Duration::from_millis(BATCH_FLUSH_MS);
                 }
@@ -98,20 +108,28 @@ async fn run_connection(
             Ok(Ok(None)) => {
                 // Connection closed
                 if !batch.is_empty() {
+                    let count = batch.len() as u64;
                     store.push_batch(batch);
+                    crate::metrics::record_rbn_spots_ingested(count);
                 }
                 return Ok(());
             }
             Ok(Err(e)) => {
                 if !batch.is_empty() {
+                    let count = batch.len() as u64;
                     store.push_batch(batch);
+                    crate::metrics::record_rbn_spots_ingested(count);
                 }
                 return Err(e.into());
             }
             Err(_) => {
                 // Flush timeout — push whatever we have
                 if !batch.is_empty() {
+                    let count = batch.len() as u64;
                     store.push_batch(std::mem::take(&mut batch));
+                    crate::metrics::record_rbn_spots_ingested(count);
+                    let (store_size, _) = store.health_info();
+                    crate::metrics::record_rbn_store_size(store_size);
                 }
                 flush_deadline = tokio::time::Instant::now()
                     + std::time::Duration::from_millis(BATCH_FLUSH_MS);

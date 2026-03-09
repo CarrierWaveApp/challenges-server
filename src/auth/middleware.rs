@@ -73,6 +73,14 @@ async fn validate_token(pool: &PgPool, token: &str) -> Result<Option<AuthContext
     .fetch_optional(pool)
     .await?;
 
+    match &participant {
+        Some(_) => {
+            crate::metrics::record_auth_validation("success");
+            crate::metrics::record_unique_client();
+        }
+        None => crate::metrics::record_auth_validation("invalid_token"),
+    }
+
     Ok(participant.map(|p| AuthContext {
         callsign: p.callsign,
         participant_id: p.id,

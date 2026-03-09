@@ -36,8 +36,18 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client) {
 
     loop {
         interval.tick().await;
-        if let Err(e) = fetch_and_upsert(&pool, &client).await {
-            tracing::error!("POTA aggregator error: {}", e);
+        let start = std::time::Instant::now();
+        match fetch_and_upsert(&pool, &client).await {
+            Ok(()) => {
+                crate::metrics::record_aggregator_sync_duration(
+                    "pota_spots",
+                    start.elapsed().as_secs_f64(),
+                );
+            }
+            Err(e) => {
+                tracing::error!("POTA aggregator error: {}", e);
+                crate::metrics::record_aggregator_error("pota_spots");
+            }
         }
     }
 }
@@ -69,6 +79,7 @@ async fn fetch_and_upsert(
         }
     }
 
+    crate::metrics::record_aggregator_records_synced("pota_spots", upserted as u64);
     tracing::debug!("POTA: upserted {}/{} spots", upserted, spots.len());
     Ok(())
 }

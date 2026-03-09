@@ -45,6 +45,8 @@ pub async fn get_or_create_participant(
     .fetch_one(pool)
     .await?;
 
+    crate::metrics::record_token_issued();
+
     Ok((participant, true))
 }
 

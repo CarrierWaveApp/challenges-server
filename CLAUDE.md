@@ -128,6 +128,7 @@ RBN_PROXY_CALLSIGN=W6JSV                                      # Optional, defaul
 - `PUT /v1/admin/challenges/{id}` - Update challenge (admin)
 - `DELETE /v1/admin/challenges/{id}` - Delete challenge (admin)
 - `GET /v1/admin/trails/status` - Historic trails sync status (admin)
+- `GET /metrics` - Prometheus metrics exposition
 
 ### Not Yet Implemented
 - Badge upload/retrieval

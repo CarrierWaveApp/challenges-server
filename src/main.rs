@@ -5,6 +5,7 @@ mod db;
 mod error;
 mod extractors;
 mod handlers;
+mod metrics;
 mod models;
 mod rbn;
 
@@ -24,6 +25,7 @@ use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use config::Config;
+use metrics_exporter_prometheus::PrometheusHandle;
 
 #[tokio::main]
 async fn main() {
@@ -55,6 +57,21 @@ async fn main() {
 
     tracing::info!("Database connected and migrations complete");
 
+    // Initialize Prometheus metrics
+    let metrics_handle = metrics::init_metrics();
+
+    // Spawn DB pool metrics reporter
+    {
+        let pool = pool.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(15));
+            loop {
+                interval.tick().await;
+                metrics::record_db_pool_stats(&pool);
+            }
+        });
+    }
+
     // Spawn spot aggregators and TTL cleanup
     if config.spots_enabled {
         aggregators::spawn_aggregators(pool.clone(), &config);
@@ -84,7 +101,7 @@ async fn main() {
     }
 
     // Build router
-    let app = create_router(pool.clone(), config.clone(), rbn_store);
+    let app = create_router(pool.clone(), config.clone(), rbn_store, metrics_handle);
 
     // Start server
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
@@ -94,7 +111,12 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-fn create_router(pool: sqlx::PgPool, config: Config, rbn_store: rbn::SpotStore) -> Router {
+fn create_router(
+    pool: sqlx::PgPool,
+    config: Config,
+    rbn_store: rbn::SpotStore,
+    metrics_handle: metrics_exporter_prometheus::PrometheusHandle,
+) -> Router {
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
@@ -267,10 +289,13 @@ fn create_router(pool: sqlx::PgPool, config: Config, rbn_store: rbn::SpotStore) 
 
     Router::new()
         .nest("/v1", v1_routes)
+        .route("/metrics", get(metrics::metrics_handler))
         .merge(invite_route)
         .fallback_service(serve_dir)
+        .layer(middleware::from_fn(metrics::track_http_metrics))
         .layer(TraceLayer::new_for_http())
         .layer(cors)
+        .layer(Extension(metrics_handle))
         .with_state(pool)
 }
 

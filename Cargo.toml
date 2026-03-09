@@ -43,5 +43,9 @@ csv = "1"
 rand = "0.8"
 tower = "0.5.3"
 
+# Metrics
+metrics = "0.24"
+metrics-exporter-prometheus = { version = "0.16", default-features = false }
+
 [dev-dependencies]
 axum-test = "15"

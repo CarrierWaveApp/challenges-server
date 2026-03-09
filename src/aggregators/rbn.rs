@@ -35,8 +35,18 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client) {
 
     loop {
         interval.tick().await;
-        if let Err(e) = fetch_and_upsert(&pool, &client).await {
-            tracing::error!("RBN aggregator error: {}", e);
+        let start = std::time::Instant::now();
+        match fetch_and_upsert(&pool, &client).await {
+            Ok(()) => {
+                crate::metrics::record_aggregator_sync_duration(
+                    "rbn_spots",
+                    start.elapsed().as_secs_f64(),
+                );
+            }
+            Err(e) => {
+                tracing::error!("RBN aggregator error: {}", e);
+                crate::metrics::record_aggregator_error("rbn_spots");
+            }
         }
     }
 }
@@ -64,6 +74,7 @@ async fn fetch_and_upsert(
         }
     }
 
+    crate::metrics::record_aggregator_records_synced("rbn_spots", upserted as u64);
     tracing::debug!("RBN: upserted {}/{} spots", upserted, resp.spots.len());
     Ok(())
 }

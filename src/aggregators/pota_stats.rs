@@ -118,6 +118,11 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: PotaStatsC
             }
         }
 
+        crate::metrics::record_aggregator_records_synced("pota_stats", succeeded as u64);
+        for _ in 0..failed {
+            crate::metrics::record_aggregator_error("pota_stats");
+        }
+
         tracing::info!(
             "POTA stats: batch {}/{} succeeded, {} failed ({}% unfetched)",
             succeeded,
