@@ -5,6 +5,19 @@ use crate::models::park_boundary::{ArcGisFeature, ArcGisResponse};
 
 const PADUS_URL: &str = "https://services.arcgis.com/v01gqwM5QqNysAAi/arcgis/rest/services/Manager_Name_PADUS/FeatureServer/0";
 
+/// Natural England ArcGIS FeatureServer for UK national park boundaries.
+const NATURAL_ENGLAND_URL: &str = "https://services.arcgis.com/JJzESW51TqeY9uat/ArcGIS/rest/services/National_Parks_England/FeatureServer/0";
+
+/// WDPA (World Database on Protected Areas) ArcGIS FeatureServer for international parks.
+const WDPA_URL: &str = "https://services5.arcgis.com/Mj0hjvkNtV7NRhA7/arcgis/rest/services/WDPA_v0/FeatureServer/0";
+
+/// Which data source to use for a given park.
+enum DataSource {
+    PadUs,
+    NaturalEngland,
+    Wdpa { iso3: &'static str },
+}
+
 /// Configuration for the park boundaries aggregator.
 pub struct ParkBoundariesConfig {
     pub batch_size: i64,
@@ -69,7 +82,7 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: ParkBounda
                             }
                             FetchResult::NoMatch => {
                                 tracing::info!(
-                                    "Park boundaries: {} '{}' -> no match (state={:?})",
+                                    "Park boundaries: {} '{}' -> no match (loc={:?})",
                                     park.reference,
                                     park.name,
                                     park.location_desc
@@ -164,7 +177,22 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: ParkBounda
     }
 }
 
-/// Fetch boundary for a single park from PAD-US.
+/// Determine which data source to use based on POTA reference prefix.
+fn data_source_for_park(reference: &str) -> DataSource {
+    if reference.starts_with("G-")
+        || reference.starts_with("GM-")
+        || reference.starts_with("GW-")
+        || reference.starts_with("GI-")
+    {
+        DataSource::NaturalEngland
+    } else if reference.starts_with("I-") {
+        DataSource::Wdpa { iso3: "ITA" }
+    } else {
+        DataSource::PadUs
+    }
+}
+
+/// Fetch boundary for a single park, routing to the correct data source.
 async fn fetch_boundary(
     pool: &PgPool,
     client: &reqwest::Client,
@@ -182,14 +210,28 @@ async fn fetch_boundary_inner(
     client: &reqwest::Client,
     park: &UnfetchedPark,
 ) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
+    match data_source_for_park(&park.reference) {
+        DataSource::PadUs => fetch_boundary_padus(pool, client, park).await,
+        DataSource::NaturalEngland => fetch_boundary_uk(pool, client, park).await,
+        DataSource::Wdpa { iso3 } => fetch_boundary_wdpa(pool, client, park, iso3).await,
+    }
+}
+
+// ─── US (PAD-US) ────────────────────────────────────────────────────────────
+
+async fn fetch_boundary_padus(
+    pool: &PgPool,
+    client: &reqwest::Client,
+    park: &UnfetchedPark,
+) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
     let state_abbrev = park.location_desc.as_deref().and_then(state_code_to_abbrev);
 
     // Strategy 1: Name + state matching
     let search_name = normalize_park_name(&park.name);
     if let Some(state) = &state_abbrev {
-        match query_by_name(client, PADUS_URL, &search_name, state).await {
+        match query_padus_by_name(client, &search_name, state).await {
             Ok(Some(feature)) => {
-                save_feature(pool, park, &feature, "exact").await?;
+                save_feature(pool, park, &feature, "exact", "pad_us_4").await?;
                 return Ok(Some("exact".to_string()));
             }
             Ok(None) => {}
@@ -211,9 +253,9 @@ async fn fetch_boundary_inner(
 
     // Strategy 2: Spatial query (point-in-polygon)
     if let (Some(lat), Some(lon)) = (park.latitude, park.longitude) {
-        match query_by_point(client, PADUS_URL, lon, lat).await {
+        match query_padus_by_point(client, lon, lat).await {
             Ok(Some(feature)) => {
-                save_feature(pool, park, &feature, "spatial").await?;
+                save_feature(pool, park, &feature, "spatial", "pad_us_4").await?;
                 return Ok(Some("spatial".to_string()));
             }
             Ok(None) => {}
@@ -236,9 +278,8 @@ async fn fetch_boundary_inner(
 }
 
 /// Query PAD-US by name and state.
-async fn query_by_name(
+async fn query_padus_by_name(
     client: &reqwest::Client,
-    service_url: &str,
     search_name: &str,
     state: &str,
 ) -> Result<Option<ArcGisFeature>, Box<dyn std::error::Error + Send + Sync>> {
@@ -250,61 +291,208 @@ async fn query_by_name(
 
     let url = format!(
         "{}/query?where={}&outFields=Loc_Nm,Unit_Nm,Mang_Name,Des_Tp,GIS_Acres,FeatClass&f=geojson&outSR=4326",
-        service_url,
+        PADUS_URL,
         urlencoded(&where_clause)
     );
 
-    let resp_text = client
-        .get(&url)
-        .send()
-        .await?
-        .error_for_status()?
-        .text()
-        .await?;
-
-    let resp: ArcGisResponse = match serde_json::from_str(&resp_text) {
-        Ok(r) => r,
-        Err(e) => {
-            tracing::warn!(
-                "Park boundaries: ArcGIS response parse error: {} (first 200 chars: {})",
-                e,
-                &resp_text[..resp_text.len().min(200)]
-            );
-            return Ok(None);
-        }
-    };
-
-    let features = resp.features.unwrap_or_default();
+    let features = fetch_arcgis_features(client, &url, "PAD-US name").await?;
     // Prefer Designation feature class over Fee
-    let best = features.into_iter().min_by_key(|f| {
-        match f
-            .properties
-            .as_ref()
-            .and_then(|a| a.feat_class.as_deref())
-        {
-            Some("Designation") => 0,
-            Some("Fee") => 1,
-            _ => 2,
-        }
-    });
-
-    Ok(best)
+    Ok(pick_best_feature(features))
 }
 
 /// Query PAD-US by point intersection.
-async fn query_by_point(
+async fn query_padus_by_point(
     client: &reqwest::Client,
-    service_url: &str,
     lon: f64,
     lat: f64,
 ) -> Result<Option<ArcGisFeature>, Box<dyn std::error::Error + Send + Sync>> {
     let url = format!(
         "{}/query?geometry={},{}&geometryType=esriGeometryPoint&spatialRel=esriSpatialRelIntersects&outFields=Loc_Nm,Unit_Nm,Mang_Name,Des_Tp,GIS_Acres,FeatClass&f=geojson&outSR=4326",
-        service_url, lon, lat
+        PADUS_URL, lon, lat
     );
 
+    let features = fetch_arcgis_features(client, &url, "PAD-US spatial").await?;
+    Ok(pick_best_feature(features))
+}
+
+// ─── UK (Natural England) ───────────────────────────────────────────────────
+
+async fn fetch_boundary_uk(
+    pool: &PgPool,
+    client: &reqwest::Client,
+    park: &UnfetchedPark,
+) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
+    let search_name = normalize_park_name(&park.name);
+
+    // Strategy 1: Name matching against Natural England dataset
+    match query_uk_by_name(client, &search_name).await {
+        Ok(Some(feature)) => {
+            save_feature(pool, park, &feature, "exact", "natural_england").await?;
+            return Ok(Some("exact".to_string()));
+        }
+        Ok(None) => {}
+        Err(e) => {
+            tracing::warn!(
+                "Park boundaries: {} UK name query failed: {}",
+                park.reference,
+                e
+            );
+        }
+    }
+
+    // Strategy 2: Spatial query (point-in-polygon)
+    if let (Some(lat), Some(lon)) = (park.latitude, park.longitude) {
+        match query_uk_by_point(client, lon, lat).await {
+            Ok(Some(feature)) => {
+                save_feature(pool, park, &feature, "spatial", "natural_england").await?;
+                return Ok(Some("spatial".to_string()));
+            }
+            Ok(None) => {}
+            Err(e) => {
+                tracing::warn!(
+                    "Park boundaries: {} UK spatial query failed: {}",
+                    park.reference,
+                    e
+                );
+            }
+        }
+    }
+
+    Ok(None)
+}
+
+/// Query Natural England by park name.
+async fn query_uk_by_name(
+    client: &reqwest::Client,
+    search_name: &str,
+) -> Result<Option<ArcGisFeature>, Box<dyn std::error::Error + Send + Sync>> {
+    let escaped_name = search_name.replace('\'', "''");
+    let where_clause = format!("NAME LIKE '%{}%'", escaped_name);
+
+    let url = format!(
+        "{}/query?where={}&outFields=NAME,DESIG_DATE,AREA_HA&f=geojson&outSR=4326",
+        NATURAL_ENGLAND_URL,
+        urlencoded(&where_clause)
+    );
+
+    let features = fetch_arcgis_features(client, &url, "Natural England name").await?;
+    Ok(features.into_iter().next())
+}
+
+/// Query Natural England by point intersection.
+async fn query_uk_by_point(
+    client: &reqwest::Client,
+    lon: f64,
+    lat: f64,
+) -> Result<Option<ArcGisFeature>, Box<dyn std::error::Error + Send + Sync>> {
+    let url = format!(
+        "{}/query?geometry={},{}&geometryType=esriGeometryPoint&spatialRel=esriSpatialRelIntersects&outFields=NAME,DESIG_DATE,AREA_HA&f=geojson&outSR=4326",
+        NATURAL_ENGLAND_URL, lon, lat
+    );
+
+    let features = fetch_arcgis_features(client, &url, "Natural England spatial").await?;
+    Ok(features.into_iter().next())
+}
+
+// ─── International (WDPA) ───────────────────────────────────────────────────
+
+async fn fetch_boundary_wdpa(
+    pool: &PgPool,
+    client: &reqwest::Client,
+    park: &UnfetchedPark,
+    iso3: &str,
+) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
+    let search_name = normalize_park_name(&park.name);
+    let source = format!("wdpa_{}", iso3.to_lowercase());
+
+    // Strategy 1: Name + country matching
+    match query_wdpa_by_name(client, &search_name, iso3).await {
+        Ok(Some(feature)) => {
+            save_feature(pool, park, &feature, "exact", &source).await?;
+            return Ok(Some("exact".to_string()));
+        }
+        Ok(None) => {}
+        Err(e) => {
+            tracing::warn!(
+                "Park boundaries: {} WDPA name query failed: {}",
+                park.reference,
+                e
+            );
+        }
+    }
+
+    // Strategy 2: Spatial query (point-in-polygon) filtered by country
+    if let (Some(lat), Some(lon)) = (park.latitude, park.longitude) {
+        match query_wdpa_by_point(client, lon, lat, iso3).await {
+            Ok(Some(feature)) => {
+                save_feature(pool, park, &feature, "spatial", &source).await?;
+                return Ok(Some("spatial".to_string()));
+            }
+            Ok(None) => {}
+            Err(e) => {
+                tracing::warn!(
+                    "Park boundaries: {} WDPA spatial query failed: {}",
+                    park.reference,
+                    e
+                );
+            }
+        }
+    }
+
+    Ok(None)
+}
+
+/// Query WDPA by name and ISO3 country code.
+async fn query_wdpa_by_name(
+    client: &reqwest::Client,
+    search_name: &str,
+    iso3: &str,
+) -> Result<Option<ArcGisFeature>, Box<dyn std::error::Error + Send + Sync>> {
+    let escaped_name = search_name.replace('\'', "''");
+    let where_clause = format!(
+        "NAME LIKE '%{}%' AND ISO3 = '{}'",
+        escaped_name, iso3
+    );
+
+    let url = format!(
+        "{}/query?where={}&outFields=NAME,DESIG_ENG,DESIG,IUCN_CAT,REP_AREA,ISO3&f=geojson&outSR=4326",
+        WDPA_URL,
+        urlencoded(&where_clause)
+    );
+
+    let features = fetch_arcgis_features(client, &url, "WDPA name").await?;
+    Ok(features.into_iter().next())
+}
+
+/// Query WDPA by point intersection filtered by country.
+async fn query_wdpa_by_point(
+    client: &reqwest::Client,
+    lon: f64,
+    lat: f64,
+    iso3: &str,
+) -> Result<Option<ArcGisFeature>, Box<dyn std::error::Error + Send + Sync>> {
+    let where_clause = format!("ISO3 = '{}'", iso3);
+
+    let url = format!(
+        "{}/query?geometry={},{}&geometryType=esriGeometryPoint&spatialRel=esriSpatialRelIntersects&where={}&outFields=NAME,DESIG_ENG,DESIG,IUCN_CAT,REP_AREA,ISO3&f=geojson&outSR=4326",
+        WDPA_URL, lon, lat,
+        urlencoded(&where_clause)
+    );
+
+    let features = fetch_arcgis_features(client, &url, "WDPA spatial").await?;
+    Ok(features.into_iter().next())
+}
+
+// ─── Shared helpers ─────────────────────────────────────────────────────────
+
+/// Fetch features from an ArcGIS REST endpoint, parsing the standard response format.
+async fn fetch_arcgis_features(
+    client: &reqwest::Client,
+    url: &str,
+    label: &str,
+) -> Result<Vec<ArcGisFeature>, Box<dyn std::error::Error + Send + Sync>> {
     let resp_text = client
-        .get(&url)
+        .get(url)
         .send()
         .await?
         .error_for_status()?
@@ -315,16 +503,21 @@ async fn query_by_point(
         Ok(r) => r,
         Err(e) => {
             tracing::warn!(
-                "Park boundaries: ArcGIS spatial response parse error: {} (first 200 chars: {})",
+                "Park boundaries: {} response parse error: {} (first 200 chars: {})",
+                label,
                 e,
                 &resp_text[..resp_text.len().min(200)]
             );
-            return Ok(None);
+            return Ok(vec![]);
         }
     };
 
-    let features = resp.features.unwrap_or_default();
-    let best = features.into_iter().min_by_key(|f| {
+    Ok(resp.features.unwrap_or_default())
+}
+
+/// Pick the best feature from a PAD-US result set (prefers Designation over Fee).
+fn pick_best_feature(features: Vec<ArcGisFeature>) -> Option<ArcGisFeature> {
+    features.into_iter().min_by_key(|f| {
         match f
             .properties
             .as_ref()
@@ -334,9 +527,7 @@ async fn query_by_point(
             Some("Fee") => 1,
             _ => 2,
         }
-    });
-
-    Ok(best)
+    })
 }
 
 /// Save an ArcGIS feature as a park boundary.
@@ -345,6 +536,7 @@ async fn save_feature(
     park: &UnfetchedPark,
     feature: &ArcGisFeature,
     match_quality: &str,
+    source: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let geojson = match &feature.geometry {
         Some(g) => serde_json::to_string(g)?,
@@ -358,9 +550,15 @@ async fn save_feature(
     };
 
     let attrs = feature.properties.as_ref();
-    let designation = attrs.and_then(|a| a.des_tp.as_deref());
+    let designation = attrs
+        .and_then(|a| a.des_tp.as_deref())
+        .or_else(|| attrs.and_then(|a| a.desig_eng.as_deref()))
+        .or_else(|| attrs.and_then(|a| a.desig.as_deref()));
     let manager = attrs.and_then(|a| a.mang_name.as_deref());
-    let acreage = attrs.and_then(|a| a.gis_acres);
+    let acreage = attrs
+        .and_then(|a| a.gis_acres)
+        .or_else(|| attrs.and_then(|a| a.area_ha.map(|ha| ha * 2.47105)))
+        .or_else(|| attrs.and_then(|a| a.rep_area.map(|km2| km2 * 247.105)));
 
     park_boundaries::upsert_boundary(
         pool,
@@ -371,7 +569,7 @@ async fn save_feature(
         acreage,
         match_quality,
         &geojson,
-        "pad_us_4",
+        source,
     )
     .await?;
 
@@ -388,7 +586,7 @@ fn urlencoded(s: &str) -> String {
         .replace('&', "%26")
 }
 
-/// Normalize a POTA park name for PAD-US search by stripping common suffixes.
+/// Normalize a POTA park name for search by stripping common suffixes.
 fn normalize_park_name(name: &str) -> String {
     let suffixes = [
         " National Park and Preserve",
@@ -408,6 +606,9 @@ fn normalize_park_name(name: &str) -> String {
         " WMA",
         " State Natural Area",
         " State Historic Site",
+        " Parco Nazionale",
+        " Parco Regionale",
+        " Riserva Naturale",
     ];
 
     let mut result = name.to_string();
