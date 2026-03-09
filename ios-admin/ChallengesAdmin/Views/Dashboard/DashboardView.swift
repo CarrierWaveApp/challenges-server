@@ -5,6 +5,8 @@ struct DashboardView: View {
     @State private var health: HealthResponse?
     @State private var challenges: ChallengesListResponse?
     @State private var potaStatus: PotaSyncStatusResponse?
+    @State private var boundaryStatus: ParkBoundariesStatusResponse?
+    @State private var trailStatus: TrailStatusResponse?
     @State private var spotsResponse: SpotsListResponse?
     @State private var clubs: [ClubAdminResponse]?
     @State private var error: String?
@@ -150,6 +152,22 @@ struct DashboardView: View {
                     detail: "\(pota.parksFetched)/\(pota.totalParks) parks"
                 )
             }
+
+            if let boundaries = boundaryStatus {
+                AggregatorRow(
+                    name: "Park Boundaries",
+                    progress: Double(boundaries.completionPercentage) / 100.0,
+                    detail: "\(boundaries.totalCached)/\(boundaries.totalParks) parks"
+                )
+            }
+
+            if let trails = trailStatus {
+                AggregatorRow(
+                    name: "Historic Trails",
+                    progress: Double(trails.completionPercentage) / 100.0,
+                    detail: "\(trails.totalCached)/\(trails.totalCatalog) trails"
+                )
+            }
         }
         .cardStyle()
     }
@@ -164,6 +182,8 @@ struct DashboardView: View {
             group.addTask { await loadHealth() }
             group.addTask { await loadChallenges() }
             group.addTask { await loadPotaStatus() }
+            group.addTask { await loadBoundaryStatus() }
+            group.addTask { await loadTrailStatus() }
             group.addTask { await loadClubs() }
         }
 
@@ -190,6 +210,22 @@ struct DashboardView: View {
     private func loadPotaStatus() async {
         do {
             potaStatus = try await api.getPotaSyncStatus()
+        } catch {
+            // Non-critical
+        }
+    }
+
+    private func loadBoundaryStatus() async {
+        do {
+            boundaryStatus = try await api.getParkBoundariesStatus()
+        } catch {
+            // Non-critical
+        }
+    }
+
+    private func loadTrailStatus() async {
+        do {
+            trailStatus = try await api.getTrailStatus()
         } catch {
             // Non-critical
         }

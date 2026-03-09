@@ -4,6 +4,7 @@ struct AggregatorsView: View {
     @EnvironmentObject var config: ServerConfig
     @State private var potaStatus: PotaSyncStatusResponse?
     @State private var boundaryStatus: ParkBoundariesStatusResponse?
+    @State private var trailStatus: TrailStatusResponse?
     @State private var programs: ProgramListResponse?
     @State private var error: String?
     @State private var isLoading = true
@@ -27,6 +28,10 @@ struct AggregatorsView: View {
 
                 if let boundaries = boundaryStatus {
                     boundariesSection(boundaries)
+                }
+
+                if let trails = trailStatus {
+                    trailsSection(trails)
                 }
 
                 spotAggregatorSection
@@ -99,16 +104,36 @@ struct AggregatorsView: View {
     private func boundariesSection(_ boundaries: ParkBoundariesStatusResponse) -> some View {
         Section {
             LabeledContent("Completion") {
-                Text(String(format: "%.1f%%", boundaries.completionPercentage))
+                Text("\(boundaries.completionPercentage)%")
                     .fontDesign(.monospaced)
                     .foregroundStyle(boundaries.completionPercentage >= 100 ? .green : .primary)
             }
 
-            ProgressView(value: min(boundaries.completionPercentage / 100.0, 1.0))
+            ProgressView(value: min(Double(boundaries.completionPercentage) / 100.0, 1.0))
                 .tint(boundaries.completionPercentage >= 100 ? .green : .blue)
 
-            LabeledContent("Total US Parks") {
-                Text("\(boundaries.totalUsParks)")
+            LabeledContent("Total Parks") {
+                Text("\(boundaries.totalParks)")
+                    .fontDesign(.monospaced)
+            }
+
+            LabeledContent("US Parks") {
+                Text("\(boundaries.byCountry.us.totalParks)")
+                    .fontDesign(.monospaced)
+            }
+
+            LabeledContent("UK Parks") {
+                Text("\(boundaries.byCountry.uk.totalParks)")
+                    .fontDesign(.monospaced)
+            }
+
+            LabeledContent("Italian Parks") {
+                Text("\(boundaries.byCountry.it.totalParks)")
+                    .fontDesign(.monospaced)
+            }
+
+            LabeledContent("Polish Parks") {
+                Text("\(boundaries.byCountry.pl.totalParks)")
                     .fontDesign(.monospaced)
             }
 
@@ -136,19 +161,77 @@ struct AggregatorsView: View {
 
             if let oldest = boundaries.oldestFetch {
                 LabeledContent("Oldest Fetch") {
-                    Text(oldest.formatted(.relative(presentation: .named)))
+                    Text(oldest)
                         .foregroundStyle(.secondary)
                 }
             }
 
             if let newest = boundaries.newestFetch {
                 LabeledContent("Newest Fetch") {
-                    Text(newest.formatted(.relative(presentation: .named)))
+                    Text(newest)
                         .foregroundStyle(.secondary)
                 }
             }
         } header: {
             Label("Park Boundaries Aggregator", systemImage: "map.fill")
+        }
+    }
+
+    // MARK: - Historic Trails
+
+    private func trailsSection(_ trails: TrailStatusResponse) -> some View {
+        Section {
+            LabeledContent("Completion") {
+                Text("\(trails.completionPercentage)%")
+                    .fontDesign(.monospaced)
+                    .foregroundStyle(trails.completionPercentage >= 100 ? .green : .primary)
+            }
+
+            ProgressView(value: min(Double(trails.completionPercentage) / 100.0, 1.0))
+                .tint(trails.completionPercentage >= 100 ? .green : .blue)
+
+            LabeledContent("Total Catalog") {
+                Text("\(trails.totalCatalog)")
+                    .fontDesign(.monospaced)
+            }
+
+            LabeledContent("Cached") {
+                Text("\(trails.totalCached)")
+                    .fontDesign(.monospaced)
+                    .foregroundStyle(.green)
+            }
+
+            LabeledContent("Unfetched") {
+                Text("\(trails.unfetched)")
+                    .fontDesign(.monospaced)
+                    .foregroundStyle(trails.unfetched > 0 ? .orange : .green)
+            }
+
+            LabeledContent("Exact Matches") {
+                Text("\(trails.exactMatches)")
+                    .fontDesign(.monospaced)
+            }
+
+            LabeledContent("Spatial Matches") {
+                Text("\(trails.spatialMatches)")
+                    .fontDesign(.monospaced)
+            }
+
+            if let oldest = trails.oldestFetch {
+                LabeledContent("Oldest Fetch") {
+                    Text(oldest)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if let newest = trails.newestFetch {
+                LabeledContent("Newest Fetch") {
+                    Text(newest)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } header: {
+            Label("Historic Trails Aggregator", systemImage: "figure.hiking")
         }
     }
 
@@ -220,6 +303,9 @@ struct AggregatorsView: View {
             }
             group.addTask {
                 do { boundaryStatus = try await api.getParkBoundariesStatus() } catch let e { if self.error == nil { self.error = e.localizedDescription } }
+            }
+            group.addTask {
+                do { trailStatus = try await api.getTrailStatus() } catch let e { if self.error == nil { self.error = e.localizedDescription } }
             }
             group.addTask {
                 do { programs = try await api.getPrograms() } catch {}

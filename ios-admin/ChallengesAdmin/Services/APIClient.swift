@@ -137,6 +137,10 @@ class APIClient {
         try await getWrapped("/v1/parks/boundaries/status")
     }
 
+    func getTrailStatus() async throws -> TrailStatusResponse {
+        try await getWrapped("/v1/trails/status")
+    }
+
     // MARK: - Programs (Admin)
 
     func getPrograms() async throws -> ProgramListResponse {

@@ -65,15 +65,41 @@ struct PotaSyncStatusResponse: Decodable {
 // MARK: - Park Boundaries Status
 
 struct ParkBoundariesStatusResponse: Decodable {
-    let totalUsParks: Int
+    let totalParks: Int
     let totalCached: Int
     let unfetched: Int
-    let completionPercentage: Double
+    let completionPercentage: Int
+    let byCountry: BoundaryCountryStats
     let exactMatches: Int
     let spatialMatches: Int
     let manualMatches: Int
-    let oldestFetch: Date?
-    let newestFetch: Date?
+    let oldestFetch: String?
+    let newestFetch: String?
+}
+
+struct BoundaryCountryStats: Decodable {
+    let us: BoundaryCountryStat
+    let uk: BoundaryCountryStat
+    let it: BoundaryCountryStat
+    let pl: BoundaryCountryStat
+}
+
+struct BoundaryCountryStat: Decodable {
+    let totalParks: Int
+}
+
+// MARK: - Historic Trails Status
+
+struct TrailStatusResponse: Decodable {
+    let totalCatalog: Int
+    let totalCached: Int
+    let unfetched: Int
+    let completionPercentage: Int
+    let exactMatches: Int
+    let spatialMatches: Int
+    let manualMatches: Int
+    let oldestFetch: String?
+    let newestFetch: String?
 }
 
 // MARK: - Programs
