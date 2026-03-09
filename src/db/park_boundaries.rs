@@ -119,8 +119,8 @@ pub async fn upsert_boundary(
              match_quality, geometry, geometry_simplified, source,
              fetched_at, matched_at)
         VALUES ($1, $2, $3, $4, $5, $6,
-                ST_Multi(ST_GeomFromGeoJSON($7)),
-                ST_Simplify(ST_Multi(ST_GeomFromGeoJSON($7)), 0.001),
+                ST_Multi(ST_CollectionExtract(ST_GeomFromGeoJSON($7), 3)),
+                ST_Simplify(ST_Multi(ST_CollectionExtract(ST_GeomFromGeoJSON($7), 3)), 0.001),
                 $8, NOW(), NOW())
         ON CONFLICT (pota_reference) DO UPDATE SET
             park_name = EXCLUDED.park_name,

@@ -6,6 +6,7 @@ struct AggregatorsView: View {
     @State private var boundaryStatus: ParkBoundariesStatusResponse?
     @State private var trailStatus: TrailStatusResponse?
     @State private var programs: ProgramListResponse?
+    @State private var health: HealthResponse?
     @State private var error: String?
     @State private var isLoading = true
 
@@ -35,6 +36,8 @@ struct AggregatorsView: View {
                 }
 
                 spotAggregatorSection
+
+                rbnProxySection
 
                 if let programs {
                     programsSection(programs)
@@ -240,13 +243,50 @@ struct AggregatorsView: View {
     private var spotAggregatorSection: some View {
         Section {
             SpotAggregatorRow(name: "POTA Spots", icon: "tree", interval: "60s", source: "api.pota.app")
-            SpotAggregatorRow(name: "RBN", icon: "antenna.radiowaves.left.and.right", interval: "30s", source: "vailrerbn.com")
             SpotAggregatorRow(name: "SOTA Spots", icon: "mountain.2", interval: "90s", source: "api2.sota.org.uk")
             SpotAggregatorRow(name: "TTL Cleanup", icon: "trash", interval: "120s", source: "Removes expired spots")
         } header: {
             Label("Spot Aggregators", systemImage: "dot.radiowaves.left.and.right")
         } footer: {
             Text("Spot aggregators run continuously when enabled in server config.")
+        }
+    }
+
+    // MARK: - RBN Proxy
+
+    @ViewBuilder
+    private var rbnProxySection: some View {
+        if let rbn = health?.rbn {
+            Section {
+                LabeledContent("Status") {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(rbn.connected ? .green : .red)
+                            .frame(width: 8, height: 8)
+                        Text(rbn.connected ? "Connected" : "Disconnected")
+                            .foregroundStyle(rbn.connected ? .green : .red)
+                    }
+                }
+
+                LabeledContent("Spots in Store") {
+                    Text("\(rbn.spotsInStore)")
+                        .fontDesign(.monospaced)
+                }
+
+                LabeledContent("Spots/min") {
+                    Text(String(format: "%.1f", rbn.spotsPerMinute))
+                        .fontDesign(.monospaced)
+                }
+
+                if let oldest = rbn.oldestSpot {
+                    LabeledContent("Oldest Spot") {
+                        Text(oldest.formatted(.relative(presentation: .named)))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } header: {
+                Label("RBN Proxy", systemImage: "antenna.radiowaves.left.and.right")
+            }
         }
     }
 
@@ -309,6 +349,9 @@ struct AggregatorsView: View {
             }
             group.addTask {
                 do { programs = try await api.getPrograms() } catch {}
+            }
+            group.addTask {
+                do { health = try await api.getHealth() } catch {}
             }
         }
 

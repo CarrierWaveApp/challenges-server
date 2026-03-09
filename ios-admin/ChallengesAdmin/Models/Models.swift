@@ -5,6 +5,14 @@ import Foundation
 struct HealthResponse: Decodable {
     let status: String
     let version: String
+    let rbn: RbnHealth?
+}
+
+struct RbnHealth: Decodable {
+    let connected: Bool
+    let spotsInStore: Int
+    let oldestSpot: Date?
+    let spotsPerMinute: Double
 }
 
 // MARK: - Challenges
