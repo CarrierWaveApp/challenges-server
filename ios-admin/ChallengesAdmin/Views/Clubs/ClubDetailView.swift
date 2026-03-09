@@ -305,10 +305,10 @@ struct EditClubSheet: View {
         let api = APIClient(config: config)
         let request = UpdateClubRequest(
             name: name,
-            callsign: callsign.isEmpty ? nil : callsign,
-            description: description.isEmpty ? nil : description,
-            notesUrl: notesUrl.isEmpty ? nil : notesUrl,
-            notesTitle: notesTitle.isEmpty ? nil : notesTitle
+            callsign: callsign.isEmpty ? .null : .value(callsign),
+            description: description.isEmpty ? .null : .value(description),
+            notesUrl: notesUrl.isEmpty ? .null : .value(notesUrl),
+            notesTitle: notesTitle.isEmpty ? .null : .value(notesTitle)
         )
         do {
             let updated = try await api.updateClub(id: club.id, request)

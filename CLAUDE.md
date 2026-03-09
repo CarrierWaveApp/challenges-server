@@ -7,6 +7,11 @@
 
 A self-hostable Rust/Axum HTTP API server for ham radio challenge tracking. Enables operators to track progress toward awards (DXCC, WAS, POTA milestones) with leaderboards and time-limited competitions. The official FullDuplex challenges server is one deployment of this codebase.
 
+## Terminology
+
+- **"admin app"** refers to the **iOS admin app** in `ios-admin/`, NOT the web UI in `web/`.
+- The web UI (`web/`) is built into the server binary and served as static files.
+
 ## Quick Reference
 
 | Area | Description | Details |

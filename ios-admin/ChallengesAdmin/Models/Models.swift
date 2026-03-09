@@ -204,10 +204,29 @@ struct CreateClubRequest: Encodable {
 
 struct UpdateClubRequest: Encodable {
     var name: String?
-    var callsign: String?
-    var description: String?
-    var notesUrl: String?
-    var notesTitle: String?
+    var callsign: Nullable<String>?
+    var description: Nullable<String>?
+    var notesUrl: Nullable<String>?
+    var notesTitle: Nullable<String>?
+}
+
+/// Wrapper that encodes as `null` instead of being skipped by JSONEncoder.
+/// - `Nullable<String>?.none` → key omitted (don't update)
+/// - `Nullable<String>?.some(.null)` → `"key": null` (clear to NULL)
+/// - `Nullable<String>?.some(.value("x"))` → `"key": "x"` (set value)
+enum Nullable<T: Encodable>: Encodable {
+    case null
+    case value(T)
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .null:
+            try container.encodeNil()
+        case .value(let wrapped):
+            try container.encode(wrapped)
+        }
+    }
 }
 
 struct AddMembersRequest: Encodable {
