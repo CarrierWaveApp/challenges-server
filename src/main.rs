@@ -70,6 +70,11 @@ async fn main() {
         aggregators::spawn_park_boundaries_aggregator(pool.clone(), &config);
     }
 
+    // Spawn historic trails aggregator
+    if config.historic_trails_enabled {
+        aggregators::spawn_historic_trails_aggregator(pool.clone(), &config);
+    }
+
     // Build router
     let app = create_router(pool.clone(), config.clone());
 
@@ -127,6 +132,9 @@ fn create_router(pool: sqlx::PgPool, config: Config) -> Router {
             "/parks/boundaries/:reference",
             get(handlers::get_boundary),
         )
+        .route("/trails", get(handlers::get_trails))
+        .route("/trails/status", get(handlers::get_trail_status))
+        .route("/trails/:reference", get(handlers::get_trail))
         .layer(middleware::from_fn_with_state(
             pool.clone(),
             auth::optional_auth,
@@ -224,6 +232,10 @@ fn create_router(pool: sqlx::PgPool, config: Config) -> Router {
             delete(handlers::remove_club_member).put(handlers::update_club_member_role),
         )
         .route("/admin/spots/:id", delete(handlers::admin_delete_spot))
+        .route(
+            "/admin/trails/status",
+            get(handlers::get_trail_status),
+        )
         .layer(middleware::from_fn_with_state(
             config.admin_token,
             auth::require_admin,

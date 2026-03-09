@@ -1,3 +1,4 @@
+pub mod historic_trails;
 pub mod park_boundaries;
 pub mod pota;
 pub mod pota_stats;
@@ -53,6 +54,27 @@ pub fn spawn_aggregators(pool: PgPool, config: &Config) {
         tracing::info!("SOTA aggregator started");
     }
 
+}
+
+/// Spawn the historic trails aggregator.
+pub fn spawn_historic_trails_aggregator(pool: PgPool, config: &Config) {
+    let client = reqwest::Client::builder()
+        .user_agent(format!(
+            "{}/{}",
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_VERSION")
+        ))
+        .build()
+        .expect("failed to build HTTP client");
+    let trails_config = historic_trails::HistoricTrailsConfig {
+        batch_size: config.historic_trails_batch_size,
+        cycle_hours: config.historic_trails_cycle_hours,
+        stale_days: config.historic_trails_stale_days,
+    };
+    tokio::spawn(async move {
+        historic_trails::poll_loop(pool, client, trails_config).await;
+    });
+    tracing::info!("Historic trails aggregator started");
 }
 
 /// Spawn the park boundaries aggregator (requires POTA stats for park catalog).
