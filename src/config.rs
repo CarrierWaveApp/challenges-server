@@ -17,6 +17,10 @@ pub struct Config {
     pub pota_stats_concurrency: usize,
     pub pota_stats_batch_size: i64,
     pub pota_stats_cycle_hours: u64,
+    pub park_boundaries_enabled: bool,
+    pub park_boundaries_batch_size: i64,
+    pub park_boundaries_cycle_hours: u64,
+    pub park_boundaries_stale_days: i64,
 }
 
 impl Config {
@@ -82,6 +86,26 @@ impl Config {
             .parse()
             .unwrap_or(24);
 
+        let park_boundaries_enabled = env::var("PARK_BOUNDARIES_ENABLED")
+            .unwrap_or_else(|_| "false".to_string())
+            .parse()
+            .unwrap_or(false);
+
+        let park_boundaries_batch_size: i64 = env::var("PARK_BOUNDARIES_BATCH_SIZE")
+            .unwrap_or_else(|_| "20".to_string())
+            .parse()
+            .unwrap_or(20);
+
+        let park_boundaries_cycle_hours: u64 = env::var("PARK_BOUNDARIES_CYCLE_HOURS")
+            .unwrap_or_else(|_| "24".to_string())
+            .parse()
+            .unwrap_or(24);
+
+        let park_boundaries_stale_days: i64 = env::var("PARK_BOUNDARIES_STALE_DAYS")
+            .unwrap_or_else(|_| "90".to_string())
+            .parse()
+            .unwrap_or(90);
+
         Ok(Self {
             database_url,
             admin_token,
@@ -97,6 +121,10 @@ impl Config {
             pota_stats_concurrency,
             pota_stats_batch_size,
             pota_stats_cycle_hours,
+            park_boundaries_enabled,
+            park_boundaries_batch_size,
+            park_boundaries_cycle_hours,
+            park_boundaries_stale_days,
         })
     }
 }

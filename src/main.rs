@@ -65,6 +65,11 @@ async fn main() {
         aggregators::spawn_pota_stats_aggregator(pool.clone(), &config);
     }
 
+    // Spawn park boundaries aggregator (requires POTA stats for park catalog)
+    if config.park_boundaries_enabled {
+        aggregators::spawn_park_boundaries_aggregator(pool.clone(), &config);
+    }
+
     // Build router
     let app = create_router(pool.clone(), config.clone());
 
@@ -113,6 +118,11 @@ fn create_router(pool: sqlx::PgPool, config: Config) -> Router {
             get(handlers::get_activator_rankings),
         )
         .route("/pota/stats/status", get(handlers::get_sync_status))
+        .route("/parks/boundaries", get(handlers::get_boundaries))
+        .route(
+            "/parks/boundaries/:reference",
+            get(handlers::get_boundary),
+        )
         .layer(middleware::from_fn_with_state(
             pool.clone(),
             auth::optional_auth,

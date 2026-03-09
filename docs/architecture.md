@@ -60,6 +60,7 @@ See [migrations/](../migrations/) for full schema. Key tables:
 | `earned_badges` | Which callsigns earned which badges |
 | `challenge_snapshots` | Frozen leaderboards for ended challenges |
 | `invite_tokens` | Invite codes for private challenges |
+| `park_boundaries` | Cached POTA park boundary polygons (PostGIS geometry) |
 
 ### Key Indexes
 
@@ -94,7 +95,7 @@ All configuration via environment variables (12-factor app):
 | Crate | Version | Purpose |
 |-------|---------|---------|
 | `axum` | 0.7 | HTTP framework |
-| `sqlx` | 0.8 | Async Postgres with compile-time checks |
+| `sqlx` | 0.8 | Async Postgres with compile-time checks (PostGIS for park boundaries) |
 | `tokio` | 1 | Async runtime |
 | `serde` | 1 | JSON serialization |
 | `tower-http` | 0.5 | CORS, tracing middleware |

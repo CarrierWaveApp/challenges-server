@@ -71,6 +71,7 @@ RUST_LOG=info                                                 # Optional
 | Core (main, config, error) | [docs/index/core.md](docs/index/core.md) |
 | Migrations | [docs/index/migrations.md](docs/index/migrations.md) |
 | POTA Stats | [docs/index/pota_stats.md](docs/index/pota_stats.md) |
+| Park Boundaries | [docs/index/park_boundaries.md](docs/index/park_boundaries.md) |
 | Tests | [docs/index/tests.md](docs/index/tests.md) |
 
 **Search policy:**
@@ -110,6 +111,8 @@ RUST_LOG=info                                                 # Optional
 - `GET /v1/pota/stats/park/:reference` - Park detail with stats
 - `GET /v1/pota/stats/rankings/activators` - Paginated activator leaderboard
 - `GET /v1/pota/stats/status` - Sync progress and completion status
+- `GET /v1/parks/boundaries` - Park boundary polygons (by refs or bbox)
+- `GET /v1/parks/boundaries/{reference}` - Single park boundary (full resolution)
 - `GET /v1/health` - Health check
 - `POST /v1/admin/challenges` - Create challenge (admin)
 - `PUT /v1/admin/challenges/{id}` - Update challenge (admin)

@@ -1,3 +1,4 @@
+pub mod park_boundaries;
 pub mod pota;
 pub mod pota_stats;
 pub mod rbn;
@@ -52,6 +53,27 @@ pub fn spawn_aggregators(pool: PgPool, config: &Config) {
         tracing::info!("SOTA aggregator started");
     }
 
+}
+
+/// Spawn the park boundaries aggregator (requires POTA stats for park catalog).
+pub fn spawn_park_boundaries_aggregator(pool: PgPool, config: &Config) {
+    let client = reqwest::Client::builder()
+        .user_agent(format!(
+            "{}/{}",
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_VERSION")
+        ))
+        .build()
+        .expect("failed to build HTTP client");
+    let boundaries_config = park_boundaries::ParkBoundariesConfig {
+        batch_size: config.park_boundaries_batch_size,
+        cycle_hours: config.park_boundaries_cycle_hours,
+        stale_days: config.park_boundaries_stale_days,
+    };
+    tokio::spawn(async move {
+        park_boundaries::poll_loop(pool, client, boundaries_config).await;
+    });
+    tracing::info!("Park boundaries aggregator started");
 }
 
 /// Spawn the POTA stats aggregator (independent of the spots system).
