@@ -160,6 +160,21 @@ async fn fetch_batch(
             let _permit = semaphore.acquire().await.unwrap();
             let start = std::time::Instant::now();
             let result = fetch_boundary(&pool, &client, &park).await;
+
+            // Record no-match sentinel so the park doesn't block the queue
+            if matches!(result, FetchResult::NoMatch) {
+                if let Err(e) =
+                    park_boundaries::upsert_no_match(&pool, &park.reference, &park.name, "gdos_wfs")
+                        .await
+                {
+                    tracing::error!(
+                        "Polish park boundaries: {} failed to record no-match: {}",
+                        park.reference,
+                        e
+                    );
+                }
+            }
+
             let result_label = match &result {
                 FetchResult::Cached(_) => "cached",
                 FetchResult::NoMatch => "no_match",

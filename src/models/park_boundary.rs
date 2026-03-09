@@ -79,6 +79,7 @@ pub struct BoundaryStatusResponse {
     pub exact_matches: i64,
     pub spatial_matches: i64,
     pub manual_matches: i64,
+    pub no_matches: i64,
     pub oldest_fetch: Option<String>,
     pub newest_fetch: Option<String>,
 }

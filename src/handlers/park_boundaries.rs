@@ -146,9 +146,10 @@ pub async fn get_boundary_status(
     let status = db::get_boundary_status(&pool).await?;
 
     let total_parks = status.total_us_parks + status.total_uk_parks + status.total_it_parks + status.total_pl_parks;
-    let unfetched = total_parks - status.total_cached;
+    let total_attempted = status.total_cached + status.no_match_count;
+    let unfetched = total_parks - total_attempted;
     let completion_percentage = if total_parks > 0 {
-        status.total_cached * 100 / total_parks
+        total_attempted * 100 / total_parks
     } else {
         0
     };
@@ -176,6 +177,7 @@ pub async fn get_boundary_status(
             exact_matches: status.exact_matches,
             spatial_matches: status.spatial_matches,
             manual_matches: status.manual_matches,
+            no_matches: status.no_match_count,
             oldest_fetch: status.oldest_fetch.map(|t| t.to_rfc3339()),
             newest_fetch: status.newest_fetch.map(|t| t.to_rfc3339()),
         },

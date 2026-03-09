@@ -53,7 +53,8 @@ Database queries for park boundaries.
 
 **Aggregator support:**
 - `async fn upsert_boundary()` - Insert/update boundary with PostGIS geometry conversion
-- `async fn count_boundaries()` - Count total cached boundaries
+- `async fn upsert_no_match()` - Record a park as attempted with no boundary found (NULL geometry, match_quality='none')
+- `async fn count_boundaries()` - Count total cached boundaries (excludes no-match sentinels)
 - `async fn get_unfetched_parks()` - Get US/UK/IT parks without cached boundaries
 - `async fn get_unfetched_polish_parks()` - Get SP- parks without cached boundaries
 - `async fn get_stale_boundaries()` - Get boundaries older than N days for refresh

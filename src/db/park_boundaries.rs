@@ -14,6 +14,7 @@ pub async fn get_boundaries_by_refs(
                ST_AsGeoJSON(geometry_simplified) as geometry_json
         FROM park_boundaries
         WHERE pota_reference = ANY($1)
+          AND match_quality != 'none'
         "#,
     )
     .bind(refs)
@@ -33,6 +34,7 @@ pub async fn get_boundary_by_ref(
                ST_AsGeoJSON(geometry) as geometry_json
         FROM park_boundaries
         WHERE pota_reference = $1
+          AND match_quality != 'none'
         "#,
     )
     .bind(reference)
@@ -147,11 +149,46 @@ pub async fn upsert_boundary(
     Ok(())
 }
 
-/// Count total cached boundaries.
+/// Record that a park was attempted but no boundary was found.
+/// Inserts a row with NULL geometry and match_quality='none' so the park
+/// is excluded from the unfetched queue. It will be retried during stale
+/// boundary refresh cycles.
+pub async fn upsert_no_match(
+    pool: &PgPool,
+    pota_reference: &str,
+    park_name: &str,
+    source: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        INSERT INTO park_boundaries
+            (pota_reference, park_name, match_quality, geometry, geometry_simplified,
+             source, fetched_at, matched_at)
+        VALUES ($1, $2, 'none', NULL, NULL, $3, NOW(), NOW())
+        ON CONFLICT (pota_reference) DO UPDATE SET
+            park_name = EXCLUDED.park_name,
+            match_quality = EXCLUDED.match_quality,
+            geometry = NULL,
+            geometry_simplified = NULL,
+            source = EXCLUDED.source,
+            fetched_at = NOW()
+        "#,
+    )
+    .bind(pota_reference)
+    .bind(park_name)
+    .bind(source)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// Count total cached boundaries (excludes no-match sentinel rows).
 pub async fn count_boundaries(pool: &PgPool) -> Result<i64, sqlx::Error> {
-    let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM park_boundaries")
-        .fetch_one(pool)
-        .await?;
+    let row: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM park_boundaries WHERE match_quality != 'none'",
+    )
+    .fetch_one(pool)
+    .await?;
     Ok(row.0)
 }
 
@@ -233,7 +270,7 @@ pub async fn get_boundary_status(pool: &PgPool) -> Result<BoundaryStatusRow, sql
     sqlx::query_as::<_, BoundaryStatusRow>(
         r#"
         SELECT
-            (SELECT COUNT(*) FROM park_boundaries) as total_cached,
+            (SELECT COUNT(*) FROM park_boundaries WHERE match_quality != 'none') as total_cached,
             (SELECT COUNT(*) FROM pota_parks WHERE reference LIKE 'US-%' AND active = true) as total_us_parks,
             (SELECT COUNT(*) FROM pota_parks
              WHERE (reference LIKE 'G-%' OR reference LIKE 'GM-%'
@@ -244,8 +281,9 @@ pub async fn get_boundary_status(pool: &PgPool) -> Result<BoundaryStatusRow, sql
             (SELECT COUNT(*) FROM park_boundaries WHERE match_quality = 'exact') as exact_matches,
             (SELECT COUNT(*) FROM park_boundaries WHERE match_quality = 'spatial') as spatial_matches,
             (SELECT COUNT(*) FROM park_boundaries WHERE match_quality = 'manual') as manual_matches,
-            (SELECT MIN(fetched_at) FROM park_boundaries) as oldest_fetch,
-            (SELECT MAX(fetched_at) FROM park_boundaries) as newest_fetch
+            (SELECT COUNT(*) FROM park_boundaries WHERE match_quality = 'none') as no_match_count,
+            (SELECT MIN(fetched_at) FROM park_boundaries WHERE match_quality != 'none') as oldest_fetch,
+            (SELECT MAX(fetched_at) FROM park_boundaries WHERE match_quality != 'none') as newest_fetch
         "#,
     )
     .fetch_one(pool)
@@ -262,6 +300,7 @@ pub struct BoundaryStatusRow {
     pub exact_matches: i64,
     pub spatial_matches: i64,
     pub manual_matches: i64,
+    pub no_match_count: i64,
     pub oldest_fetch: Option<chrono::DateTime<chrono::Utc>>,
     pub newest_fetch: Option<chrono::DateTime<chrono::Utc>>,
 }
