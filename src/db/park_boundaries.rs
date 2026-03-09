@@ -155,7 +155,8 @@ pub async fn count_boundaries(pool: &PgPool) -> Result<i64, sqlx::Error> {
     Ok(row.0)
 }
 
-/// Get references that need fetching (no boundary row yet), limited to US parks.
+/// Get references that need fetching (no boundary row yet).
+/// Includes US, UK (G-), and Italian (I-) parks.
 pub async fn get_unfetched_parks(
     pool: &PgPool,
     limit: i64,
@@ -166,7 +167,12 @@ pub async fn get_unfetched_parks(
         FROM pota_parks p
         LEFT JOIN park_boundaries b ON p.reference = b.pota_reference
         WHERE b.pota_reference IS NULL
-          AND p.reference LIKE 'US-%'
+          AND (p.reference LIKE 'US-%'
+               OR p.reference LIKE 'G-%'
+               OR p.reference LIKE 'GM-%'
+               OR p.reference LIKE 'GW-%'
+               OR p.reference LIKE 'GI-%'
+               OR p.reference LIKE 'I-%')
           AND p.active = true
         ORDER BY p.reference
         LIMIT $1
@@ -229,6 +235,12 @@ pub async fn get_boundary_status(pool: &PgPool) -> Result<BoundaryStatusRow, sql
         SELECT
             (SELECT COUNT(*) FROM park_boundaries) as total_cached,
             (SELECT COUNT(*) FROM pota_parks WHERE reference LIKE 'US-%' AND active = true) as total_us_parks,
+            (SELECT COUNT(*) FROM pota_parks
+             WHERE (reference LIKE 'G-%' OR reference LIKE 'GM-%'
+                    OR reference LIKE 'GW-%' OR reference LIKE 'GI-%')
+               AND active = true) as total_uk_parks,
+            (SELECT COUNT(*) FROM pota_parks WHERE reference LIKE 'I-%' AND active = true) as total_it_parks,
+            (SELECT COUNT(*) FROM pota_parks WHERE reference LIKE 'SP-%' AND active = true) as total_pl_parks,
             (SELECT COUNT(*) FROM park_boundaries WHERE match_quality = 'exact') as exact_matches,
             (SELECT COUNT(*) FROM park_boundaries WHERE match_quality = 'spatial') as spatial_matches,
             (SELECT COUNT(*) FROM park_boundaries WHERE match_quality = 'manual') as manual_matches,
@@ -244,6 +256,9 @@ pub async fn get_boundary_status(pool: &PgPool) -> Result<BoundaryStatusRow, sql
 pub struct BoundaryStatusRow {
     pub total_cached: i64,
     pub total_us_parks: i64,
+    pub total_uk_parks: i64,
+    pub total_it_parks: i64,
+    pub total_pl_parks: i64,
     pub exact_matches: i64,
     pub spatial_matches: i64,
     pub manual_matches: i64,

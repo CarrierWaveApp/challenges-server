@@ -1,6 +1,6 @@
 # Park Boundaries Index
 
-POTA park boundary polygon cache: fetches from PAD-US ArcGIS API, caches in PostGIS, serves GeoJSON.
+POTA park boundary polygon cache: fetches from PAD-US (US), Natural England (UK), and WDPA (Italy) ArcGIS APIs, caches in PostGIS, serves GeoJSON.
 
 ## Files
 
@@ -28,6 +28,9 @@ Data structures for park boundaries feature.
 - `struct BoundaryProperties` - reference, name, designation, manager, acreage, match_quality, source
 - `struct BoundariesResponse` - GeoJSON FeatureCollection with meta
 - `struct BoundariesMeta` - matched count and unmatched_refs list
+- `struct BoundaryStatusResponse` - Sync status with per-country breakdown
+- `struct BoundaryCountryStats` - US, UK, IT park counts
+- `struct BoundaryCountryStat` - Single country total_parks
 
 **WFS API types (GDOŚ Poland):**
 - `struct WfsFeatureCollection` - Response from GDOŚ WFS GetFeature
@@ -35,9 +38,9 @@ Data structures for park boundaries feature.
 - `struct WfsProperties` - GDOŚ field mapping (nazwa, area_ha, inspire_id)
 
 **ArcGIS API types (upstream JSON):**
-- `struct ArcGisResponse` - Response from PAD-US FeatureServer query
+- `struct ArcGisResponse` - Response from ArcGIS FeatureServer query
 - `struct ArcGisFeature` - Single feature with attributes and geometry
-- `struct ArcGisAttributes` - PAD-US field mapping (Loc_Nm, Mang_Name, Des_Tp, GIS_Acres, etc.)
+- `struct ArcGisAttributes` - Combined field mapping for PAD-US, Natural England, and WDPA
 
 ### `src/db/park_boundaries.rs`
 Database queries for park boundaries.
@@ -51,29 +54,45 @@ Database queries for park boundaries.
 **Aggregator support:**
 - `async fn upsert_boundary()` - Insert/update boundary with PostGIS geometry conversion
 - `async fn count_boundaries()` - Count total cached boundaries
-- `async fn get_unfetched_parks()` - Get US parks without cached boundaries
+- `async fn get_unfetched_parks()` - Get US/UK/IT parks without cached boundaries
 - `async fn get_unfetched_polish_parks()` - Get SP- parks without cached boundaries
 - `async fn get_stale_boundaries()` - Get boundaries older than N days for refresh
+- `async fn get_boundary_status()` - Sync stats with per-country park counts
 
 **Helper types:**
 - `struct UnfetchedPark` - Park needing boundary fetch (reference, name, location, lat/lon)
 - `struct StaleBoundary` - Stale boundary needing refresh
+- `struct BoundaryStatusRow` - Raw status query result with US/UK/IT counts
 
 ### `src/aggregators/park_boundaries.rs`
-Background aggregator that fetches park boundaries from PAD-US ArcGIS API.
+Background aggregator that fetches park boundaries from multiple data sources.
+
+**Data sources:**
+- PAD-US ArcGIS FeatureServer (US parks)
+- Natural England ArcGIS FeatureServer (UK parks: G-, GM-, GW-, GI- prefixes)
+- WDPA ArcGIS FeatureServer (Italian parks: I- prefix)
 
 **Exports:**
 - `struct ParkBoundariesConfig` - batch_size, cycle_hours, stale_days
 - `async fn poll_loop()` - Main loop: fetch unfetched parks, refresh stale, sleep
 
 **Internal functions:**
-- `async fn fetch_boundary()` - Fetch boundary for single park (name match, then spatial fallback)
-- `async fn query_by_name()` - Query PAD-US by name + state
-- `async fn query_by_point()` - Query PAD-US by point intersection
-- `async fn save_feature()` - Save ArcGIS feature to database
-- `fn normalize_park_name()` - Strip common suffixes for search
-- `fn is_federal_park()` - Determine federal vs state service URL
-- `fn state_code_to_name()` - Convert US-XX to full state name
+- `fn data_source_for_park()` - Route park to correct data source by reference prefix
+- `async fn fetch_boundary()` - Fetch boundary for single park (dispatches by country)
+- `async fn fetch_boundary_padus()` - US: name+state match, then spatial fallback
+- `async fn fetch_boundary_uk()` - UK: name match, then spatial fallback (Natural England)
+- `async fn fetch_boundary_wdpa()` - International: name+country match, then spatial (WDPA)
+- `async fn query_padus_by_name()` - Query PAD-US by name + state
+- `async fn query_padus_by_point()` - Query PAD-US by point intersection
+- `async fn query_uk_by_name()` - Query Natural England by park name
+- `async fn query_uk_by_point()` - Query Natural England by point intersection
+- `async fn query_wdpa_by_name()` - Query WDPA by name + ISO3 country code
+- `async fn query_wdpa_by_point()` - Query WDPA by point + ISO3 filter
+- `async fn fetch_arcgis_features()` - Shared ArcGIS response fetcher/parser
+- `fn pick_best_feature()` - Select best PAD-US feature (Designation > Fee)
+- `async fn save_feature()` - Save ArcGIS feature to database (source-aware)
+- `fn normalize_park_name()` - Strip common suffixes (US, UK, Italian)
+- `fn state_code_to_abbrev()` - Convert US-XX to state abbreviation
 
 ### `src/aggregators/polish_park_boundaries.rs`
 Background aggregator that fetches Polish park boundaries from GDOŚ WFS.
@@ -104,3 +123,4 @@ HTTP handlers for park boundaries API endpoints.
 **Exports:**
 - `async fn get_boundaries()` - GET /v1/parks/boundaries?refs=...&bbox=...
 - `async fn get_boundary()` - GET /v1/parks/boundaries/:reference
+- `async fn get_boundary_status()` - GET /v1/parks/boundaries/status

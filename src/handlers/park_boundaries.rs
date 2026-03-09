@@ -5,8 +5,9 @@ use crate::db::park_boundaries as db;
 use crate::error::AppError;
 use crate::extractors::{Json, Path};
 use crate::models::park_boundary::{
-    BoundariesMeta, BoundariesQuery, BoundariesResponse, BoundaryFeature, BoundaryProperties,
-    BoundaryStatusResponse, ParkBoundaryRow,
+    BoundariesMeta, BoundariesQuery, BoundariesResponse, BoundaryCountryStat,
+    BoundaryCountryStats, BoundaryFeature, BoundaryProperties, BoundaryStatusResponse,
+    ParkBoundaryRow,
 };
 
 use super::DataResponse;
@@ -144,19 +145,34 @@ pub async fn get_boundary_status(
 ) -> Result<Json<DataResponse<BoundaryStatusResponse>>, AppError> {
     let status = db::get_boundary_status(&pool).await?;
 
-    let unfetched = status.total_us_parks - status.total_cached;
-    let completion_percentage = if status.total_us_parks > 0 {
-        status.total_cached * 100 / status.total_us_parks
+    let total_parks = status.total_us_parks + status.total_uk_parks + status.total_it_parks + status.total_pl_parks;
+    let unfetched = total_parks - status.total_cached;
+    let completion_percentage = if total_parks > 0 {
+        status.total_cached * 100 / total_parks
     } else {
         0
     };
 
     Ok(Json(DataResponse {
         data: BoundaryStatusResponse {
-            total_us_parks: status.total_us_parks,
+            total_parks,
             total_cached: status.total_cached,
             unfetched,
             completion_percentage,
+            by_country: BoundaryCountryStats {
+                us: BoundaryCountryStat {
+                    total_parks: status.total_us_parks,
+                },
+                uk: BoundaryCountryStat {
+                    total_parks: status.total_uk_parks,
+                },
+                it: BoundaryCountryStat {
+                    total_parks: status.total_it_parks,
+                },
+                pl: BoundaryCountryStat {
+                    total_parks: status.total_pl_parks,
+                },
+            },
             exact_matches: status.exact_matches,
             spatial_matches: status.spatial_matches,
             manual_matches: status.manual_matches,

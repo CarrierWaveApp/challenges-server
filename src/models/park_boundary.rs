@@ -71,15 +71,31 @@ pub struct BoundariesMeta {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BoundaryStatusResponse {
-    pub total_us_parks: i64,
+    pub total_parks: i64,
     pub total_cached: i64,
     pub unfetched: i64,
     pub completion_percentage: i64,
+    pub by_country: BoundaryCountryStats,
     pub exact_matches: i64,
     pub spatial_matches: i64,
     pub manual_matches: i64,
     pub oldest_fetch: Option<String>,
     pub newest_fetch: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BoundaryCountryStats {
+    pub us: BoundaryCountryStat,
+    pub uk: BoundaryCountryStat,
+    pub it: BoundaryCountryStat,
+    pub pl: BoundaryCountryStat,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BoundaryCountryStat {
+    pub total_parks: i64,
 }
 
 // --- WFS API types (GDOŚ Poland) ---
@@ -125,6 +141,7 @@ pub struct ArcGisFeature {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ArcGisAttributes {
+    // PAD-US fields
     #[serde(alias = "Loc_Nm")]
     pub loc_nm: Option<String>,
     #[serde(alias = "Unit_Nm")]
@@ -137,4 +154,22 @@ pub struct ArcGisAttributes {
     pub gis_acres: Option<f64>,
     #[serde(alias = "FeatClass")]
     pub feat_class: Option<String>,
+
+    // Natural England fields
+    #[serde(alias = "NAME")]
+    pub name: Option<String>,
+    #[serde(alias = "AREA_HA")]
+    pub area_ha: Option<f64>,
+
+    // WDPA fields
+    #[serde(alias = "DESIG_ENG")]
+    pub desig_eng: Option<String>,
+    #[serde(alias = "DESIG")]
+    pub desig: Option<String>,
+    #[serde(alias = "IUCN_CAT")]
+    pub iucn_cat: Option<String>,
+    #[serde(alias = "REP_AREA")]
+    pub rep_area: Option<f64>,
+    #[serde(alias = "ISO3")]
+    pub iso3: Option<String>,
 }
