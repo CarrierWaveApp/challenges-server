@@ -84,6 +84,7 @@ pub struct CreateChallengeRequest {
     pub configuration: serde_json::Value,
     pub invite_config: Option<serde_json::Value>,
     pub hamalert_config: Option<serde_json::Value>,
+    pub is_active: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Default)]

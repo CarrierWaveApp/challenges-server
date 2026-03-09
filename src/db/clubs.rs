@@ -322,7 +322,7 @@ pub async fn get_club_members_enriched(
                cm.joined_at,
                p.last_seen_at,
                CAST(NULL AS TEXT) AS last_grid,
-               (p.id IS NOT NULL) AS is_carrier_wave_user
+               COALESCE(p.id IS NOT NULL, false) AS is_carrier_wave_user
         FROM club_members cm
         LEFT JOIN participants p ON UPPER(p.callsign) = cm.callsign
         WHERE cm.club_id = $1

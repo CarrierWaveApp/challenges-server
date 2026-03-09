@@ -83,8 +83,8 @@ pub async fn create_challenge(
 
     let challenge = sqlx::query_as::<_, Challenge>(
         r#"
-        INSERT INTO challenges (id, name, description, author, category, challenge_type, configuration, invite_config, hamalert_config)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        INSERT INTO challenges (id, name, description, author, category, challenge_type, configuration, invite_config, hamalert_config, is_active)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, COALESCE($10, true))
         RETURNING id, version, name, description, author, category, challenge_type,
                   configuration, invite_config, hamalert_config, is_active,
                   created_at, updated_at
@@ -99,6 +99,7 @@ pub async fn create_challenge(
     .bind(&req.configuration)
     .bind(&req.invite_config)
     .bind(&req.hamalert_config)
+    .bind(req.is_active)
     .fetch_one(pool)
     .await?;
 
@@ -115,7 +116,8 @@ pub async fn update_challenge(
         UPDATE challenges
         SET name = $2, description = $3, author = $4, category = $5,
             challenge_type = $6, configuration = $7, invite_config = $8,
-            hamalert_config = $9, version = version + 1, updated_at = now()
+            hamalert_config = $9, is_active = COALESCE($10, is_active),
+            version = version + 1, updated_at = now()
         WHERE id = $1
         RETURNING id, version, name, description, author, category, challenge_type,
                   configuration, invite_config, hamalert_config, is_active,
@@ -131,6 +133,7 @@ pub async fn update_challenge(
     .bind(&req.configuration)
     .bind(&req.invite_config)
     .bind(&req.hamalert_config)
+    .bind(req.is_active)
     .fetch_optional(pool)
     .await?;
 
