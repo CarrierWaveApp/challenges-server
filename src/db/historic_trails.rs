@@ -121,8 +121,8 @@ pub async fn upsert_trail(
              geometry, geometry_simplified, source,
              fetched_at, matched_at)
         VALUES ($1, $2, $3, $4, $5, $6, $7,
-                ST_Multi(ST_GeomFromGeoJSON($8)),
-                ST_Simplify(ST_Multi(ST_GeomFromGeoJSON($8)), 0.005),
+                ST_Multi(ST_CollectionExtract(ST_GeomFromGeoJSON($8), 2)),
+                ST_Simplify(ST_Multi(ST_CollectionExtract(ST_GeomFromGeoJSON($8), 2)), 0.005),
                 $9, NOW(), NOW())
         ON CONFLICT (trail_reference) DO UPDATE SET
             trail_name = EXCLUDED.trail_name,

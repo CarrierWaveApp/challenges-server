@@ -59,7 +59,7 @@ Database queries for POTA stats.
 - `async fn upsert_park()` - Upsert park from CSV catalog
 - `async fn ensure_fetch_status()` - Ensure fetch_status row exists
 - `async fn get_stalest_parks()` - Get parks with oldest fetch timestamp (skips 3+ consecutive errors)
-- `async fn count_us_parks()` - Count US parks
+- `async fn count_parks()` - Count all imported parks
 - `async fn count_unfetched_parks()` - Count never-fetched parks
 - `async fn update_park_stats()` - Update park aggregate stats
 - `async fn upsert_activation()` - Upsert single activation record
@@ -91,7 +91,7 @@ Background aggregator that fetches POTA park data.
 - `async fn poll_loop()` - Main loop: sync catalog, fetch batches, sleep
 
 **Internal functions:**
-- `async fn sync_park_catalog()` - Fetch CSV, upsert US parks
+- `async fn sync_park_catalog()` - Fetch CSV, upsert parks for supported countries (US, UK, IT, PL)
 - `async fn fetch_park_data()` - Fetch stats + activations + leaderboard for one park
 - `async fn fetch_park_stats()` - GET /park/stats/{ref}
 - `async fn fetch_park_activations()` - GET /park/activations/{ref}?count=all

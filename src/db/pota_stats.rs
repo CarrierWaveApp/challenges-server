@@ -91,12 +91,10 @@ pub async fn get_stalest_parks(
 }
 
 /// Count US parks (reference starts with "US-").
-pub async fn count_us_parks(pool: &PgPool) -> Result<i64, AppError> {
-    let count = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM pota_parks WHERE reference LIKE 'US-%'",
-    )
-    .fetch_one(pool)
-    .await?;
+pub async fn count_parks(pool: &PgPool) -> Result<i64, AppError> {
+    let count = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM pota_parks")
+        .fetch_one(pool)
+        .await?;
 
     Ok(count)
 }

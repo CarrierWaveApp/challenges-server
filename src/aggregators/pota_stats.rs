@@ -36,7 +36,7 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: PotaStatsC
     loop {
         match sync_park_catalog(&pool, &client).await {
             Ok(count) => {
-                tracing::info!("POTA stats: synced {} US parks", count);
+                tracing::info!("POTA stats: synced {} parks from catalog", count);
                 break;
             }
             Err(e) => {
@@ -50,10 +50,10 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: PotaStatsC
 
     // Phase 2: Continuous batch fetching
     loop {
-        let total_parks = match pota_stats::count_us_parks(&pool).await {
+        let total_parks = match pota_stats::count_parks(&pool).await {
             Ok(n) => n.max(1),
             Err(e) => {
-                tracing::error!("POTA stats: count_us_parks failed: {}", e);
+                tracing::error!("POTA stats: count_parks failed: {}", e);
                 tokio::time::sleep(std::time::Duration::from_secs(60)).await;
                 continue;
             }
@@ -180,8 +180,15 @@ async fn sync_park_catalog(
             }
         };
 
-        // Only include US parks
-        if !park.reference.starts_with("US-") {
+        // Only include parks for countries with boundary data sources
+        if !park.reference.starts_with("US-")
+            && !park.reference.starts_with("G-")
+            && !park.reference.starts_with("GM-")
+            && !park.reference.starts_with("GW-")
+            && !park.reference.starts_with("GI-")
+            && !park.reference.starts_with("I-")
+            && !park.reference.starts_with("SP-")
+        {
             continue;
         }
 
