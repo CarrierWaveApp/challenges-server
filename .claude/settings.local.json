@@ -12,7 +12,24 @@
       "Bash(python3:*)",
       "Bash(TOKEN=\"fd_CkYZS0Nzn0lqUswShFqF7pTHIorfO0ju\")",
       "Bash(gh run list:*)",
-      "Bash(gh release view:*)"
+      "Bash(gh release view:*)",
+      "Bash(ansible-playbook:*)",
+      "Bash(ssh:*)",
+      "Bash(ansible:*)",
+      "Bash(xcodegen generate:*)",
+      "Bash(xcodebuild:*)",
+      "Bash(xcrun devicectl:*)",
+      "Bash(host activities.carrierwave.app)",
+      "Bash(~/.claude/skills/xcode-build/scripts/xc deploy:*)",
+      "Bash(open:*)",
+      "Read(//Users/jsvana/projects/activities-server/ios-admin/**)",
+      "Bash(swift /tmp/gen_icon.swift)",
+      "Bash(~/.claude/skills/xcode-build/scripts/xc build:*)",
+      "Bash(cargo test:*)",
+      "Bash(timeout 10 cargo run:*)",
+      "Bash(npm run:*)",
+      "Bash(gh api:*)",
+      "Bash(gh search:*)"
     ]
   }
 }
