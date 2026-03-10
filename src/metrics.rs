@@ -10,6 +10,7 @@ pub const GIS_FETCH_DURATION_SECONDS: &str = "gis_fetch_duration_seconds";
 pub const GIS_BOUNDARIES_CACHED_TOTAL: &str = "gis_boundaries_cached_total";
 pub const GIS_TRAILS_CACHED_TOTAL: &str = "gis_trails_cached_total";
 pub const GIS_BATCH_DURATION_SECONDS: &str = "gis_batch_duration_seconds";
+pub const SYNC_LAST_COMPLETED_TIMESTAMP: &str = "sync_last_completed_timestamp";
 
 // ─── HTTP metric names ──────────────────────────────────────────────────────
 

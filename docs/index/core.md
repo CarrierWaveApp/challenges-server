@@ -33,6 +33,30 @@ Environment variable configuration.
 - `INVITE_BASE_URL` - Optional, default "https://activities.carrierwave.app", base URL for friend invite links
 - `INVITE_EXPIRY_DAYS` - Optional, default 7, how long friend invite links are valid
 
+### `src/metrics.rs`
+Prometheus metrics constants, middleware, and background tasks.
+
+**Exports:**
+- `fn install()` - Install Prometheus recorder, return render handle
+- `async fn http_metrics()` - Axum middleware recording request count, duration, in-flight gauge
+- `fn spawn_pool_metrics()` - Background task recording DB pool metrics every 15s
+- `fn spawn_rbn_metrics()` - Background task recording RBN buffer size every 15s
+
+**Metric Constants:**
+- `GIS_FETCH_TOTAL` - Counter: GIS fetch attempts (labels: source, result)
+- `GIS_FETCH_DURATION_SECONDS` - Histogram: GIS fetch latency (labels: source)
+- `GIS_BOUNDARIES_CACHED_TOTAL` - Gauge: park boundaries cached
+- `GIS_TRAILS_CACHED_TOTAL` - Gauge: historic trails cached
+- `GIS_BATCH_DURATION_SECONDS` - Histogram: batch sync duration (labels: aggregator)
+- `SYNC_LAST_COMPLETED_TIMESTAMP` - Gauge: Unix timestamp of last completed sync cycle (labels: aggregator)
+- `HTTP_REQUESTS_TOTAL` - Counter: HTTP requests (labels: method, path, status)
+- `HTTP_REQUEST_DURATION_SECONDS` - Histogram: HTTP request latency (labels: method, path, status)
+- `HTTP_REQUESTS_IN_FLIGHT` - Gauge: current in-flight HTTP requests (labels: method, path)
+- `DB_POOL_CONNECTIONS` - Gauge: total DB connections
+- `DB_POOL_IDLE_CONNECTIONS` - Gauge: idle DB connections
+- `DB_POOL_SIZE` - Gauge: DB pool size
+- `RBN_SPOTS_BUFFERED` - Gauge: RBN spots in buffer
+
 ### `src/error.rs`
 Application error types with HTTP responses.
 

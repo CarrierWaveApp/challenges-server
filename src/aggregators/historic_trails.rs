@@ -124,6 +124,8 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: HistoricTr
         metrics::gauge!(app_metrics::GIS_TRAILS_CACHED_TOTAL).set(new_total as f64);
         metrics::histogram!(app_metrics::GIS_BATCH_DURATION_SECONDS, "aggregator" => "historic_trails")
             .record(batch_start.elapsed().as_secs_f64());
+        metrics::gauge!(app_metrics::SYNC_LAST_COMPLETED_TIMESTAMP, "aggregator" => "historic_trails")
+            .set(chrono::Utc::now().timestamp() as f64);
 
         tracing::info!(
             "Historic trails: sleeping {}h until next cycle",
