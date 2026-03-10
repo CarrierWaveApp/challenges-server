@@ -105,7 +105,7 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: PolishPark
                 // Only process SP- parks from the stale list
                 let polish_stale: Vec<UnfetchedPark> = stale
                     .into_iter()
-                    .filter(|s| s.reference.starts_with("SP-"))
+                    .filter(|s| s.reference.starts_with("PL-"))
                     .map(|park| UnfetchedPark {
                         reference: park.reference,
                         name: park.name,

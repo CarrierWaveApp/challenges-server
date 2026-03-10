@@ -235,13 +235,9 @@ async fn fetch_batch(
 
 /// Determine which data source to use based on POTA reference prefix.
 fn data_source_for_park(reference: &str) -> DataSource {
-    if reference.starts_with("G-")
-        || reference.starts_with("GM-")
-        || reference.starts_with("GW-")
-        || reference.starts_with("GI-")
-    {
+    if reference.starts_with("GB-") {
         DataSource::NaturalEngland
-    } else if reference.starts_with("I-") {
+    } else if reference.starts_with("IT-") {
         DataSource::Wdpa { iso3: "ITA" }
     } else {
         DataSource::PadUs

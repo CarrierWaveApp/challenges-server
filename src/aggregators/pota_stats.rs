@@ -182,12 +182,9 @@ async fn sync_park_catalog(
 
         // Only include parks for countries with boundary data sources
         if !park.reference.starts_with("US-")
-            && !park.reference.starts_with("G-")
-            && !park.reference.starts_with("GM-")
-            && !park.reference.starts_with("GW-")
-            && !park.reference.starts_with("GI-")
-            && !park.reference.starts_with("I-")
-            && !park.reference.starts_with("SP-")
+            && !park.reference.starts_with("GB-")
+            && !park.reference.starts_with("IT-")
+            && !park.reference.starts_with("PL-")
         {
             continue;
         }
