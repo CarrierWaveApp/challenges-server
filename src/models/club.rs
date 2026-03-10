@@ -131,9 +131,17 @@ pub struct UpdateClubRequest {
     pub callsign: Option<Option<String>>,
     #[serde(default, deserialize_with = "deserialize_optional_nullable")]
     pub description: Option<Option<String>>,
-    #[serde(default, deserialize_with = "deserialize_optional_nullable")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_optional_nullable",
+        alias = "notes_url"
+    )]
     pub notes_url: Option<Option<String>>,
-    #[serde(default, deserialize_with = "deserialize_optional_nullable")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_optional_nullable",
+        alias = "notes_title"
+    )]
     pub notes_title: Option<Option<String>>,
 }
 
@@ -182,4 +190,13 @@ where
 #[serde(rename_all = "camelCase")]
 pub struct UpdateMemberRoleRequest {
     pub role: String,
+}
+
+/// Response for POST /v1/admin/clubs/:id/import-notes.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportNotesResponse {
+    pub imported: usize,
+    pub skipped: usize,
+    pub callsigns: Vec<String>,
 }

@@ -253,7 +253,13 @@ export async function createClub(club: { name: string; callsign?: string; descri
 
 export async function updateClub(
   id: string,
-  club: { name?: string; callsign?: string | null; description?: string | null },
+  club: {
+    name?: string;
+    callsign?: string | null;
+    description?: string | null;
+    notesUrl?: string | null;
+    notesTitle?: string | null;
+  },
 ): Promise<Club> {
   const response = await fetch(`${API_BASE}/admin/clubs/${id}`, {
     method: 'PUT',
@@ -262,6 +268,16 @@ export async function updateClub(
       ...authHeaders(),
     },
     body: JSON.stringify(club),
+  });
+  return handleResponse(response);
+}
+
+export async function importNotesMembers(
+  clubId: string,
+): Promise<{ imported: number; skipped: number; callsigns: string[] }> {
+  const response = await fetch(`${API_BASE}/admin/clubs/${clubId}/import-notes`, {
+    method: 'POST',
+    headers: authHeaders(),
   });
   return handleResponse(response);
 }

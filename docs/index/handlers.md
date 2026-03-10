@@ -109,3 +109,17 @@ Friend invite links and friend requests.
 **Exports:**
 - `async fn get_invite_link()` - GET /v1/friends/invite-link - Generate friend invite link (auth required)
 - `async fn create_friend_request()` - POST /v1/friends/requests - Create friend request by user ID or invite token (auth required)
+
+### `src/handlers/clubs_admin.rs`
+Admin CRUD for clubs and members.
+
+**Exports:**
+- `async fn list_clubs_admin()` - GET /v1/admin/clubs - List all clubs with member counts
+- `async fn list_club_members_admin()` - GET /v1/admin/clubs/:id/members - List club members
+- `async fn create_club()` - POST /v1/admin/clubs - Create a club
+- `async fn update_club()` - PUT /v1/admin/clubs/:id - Update club metadata
+- `async fn delete_club()` - DELETE /v1/admin/clubs/:id - Delete a club
+- `async fn add_club_members()` - POST /v1/admin/clubs/:id/members - Add members
+- `async fn remove_club_member()` - DELETE /v1/admin/clubs/:id/members/:callsign - Remove member
+- `async fn update_club_member_role()` - PUT /v1/admin/clubs/:id/members/:callsign - Update role
+- `async fn import_notes_members()` - POST /v1/admin/clubs/:id/import-notes - Import members from callsign notes URL

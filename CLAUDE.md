@@ -132,6 +132,7 @@ RBN_PROXY_CALLSIGN=W6JSV                                      # Optional, defaul
 - `POST /v1/admin/challenges` - Create challenge (admin)
 - `PUT /v1/admin/challenges/{id}` - Update challenge (admin)
 - `DELETE /v1/admin/challenges/{id}` - Delete challenge (admin)
+- `POST /v1/admin/clubs/{id}/import-notes` - Import members from callsign notes URL (admin)
 - `GET /v1/admin/trails/status` - Historic trails sync status (admin)
 
 ### Not Yet Implemented

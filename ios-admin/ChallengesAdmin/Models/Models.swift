@@ -81,6 +81,7 @@ struct ParkBoundariesStatusResponse: Decodable {
     let exactMatches: Int
     let spatialMatches: Int
     let manualMatches: Int
+    let noMatches: Int?
     let oldestFetch: String?
     let newestFetch: String?
 }
@@ -228,6 +229,14 @@ enum Nullable<T: Encodable>: Encodable {
         }
     }
 }
+
+struct ImportNotesResponse: Decodable {
+    let imported: Int
+    let skipped: Int
+    let callsigns: [String]
+}
+
+struct EmptyBody: Encodable {}
 
 struct AddMembersRequest: Encodable {
     let members: [AddMemberEntry]

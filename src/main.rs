@@ -256,6 +256,10 @@ fn create_router(
             post(handlers::add_club_members).get(handlers::list_club_members_admin),
         )
         .route(
+            "/admin/clubs/:id/import-notes",
+            post(handlers::import_notes_members),
+        )
+        .route(
             "/admin/clubs/:id/members/:callsign",
             delete(handlers::remove_club_member).put(handlers::update_club_member_role),
         )

@@ -9,6 +9,8 @@ struct ClubDetailView: View {
     @State private var error: String?
     @State private var showingAddMember = false
     @State private var showingEditSheet = false
+    @State private var isImporting = false
+    @State private var importResult: String?
 
     private var api: APIClient { APIClient(config: config) }
 
@@ -35,6 +37,14 @@ struct ClubDetailView: View {
                     } label: {
                         Label("Add Member", systemImage: "person.badge.plus")
                     }
+                    if club.notesUrl != nil {
+                        Button {
+                            Task { await importFromNotes() }
+                        } label: {
+                            Label("Import from Notes", systemImage: "square.and.arrow.down")
+                        }
+                        .disabled(isImporting)
+                    }
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
@@ -48,6 +58,16 @@ struct ClubDetailView: View {
         .sheet(isPresented: $showingEditSheet) {
             EditClubSheet(club: club) { updated in
                 club = updated
+            }
+        }
+        .alert("Import Notes", isPresented: .init(
+            get: { importResult != nil },
+            set: { if !$0 { importResult = nil } }
+        )) {
+            Button("OK") { importResult = nil }
+        } message: {
+            if let result = importResult {
+                Text(result)
             }
         }
     }
@@ -127,6 +147,22 @@ struct ClubDetailView: View {
             self.error = error.localizedDescription
         }
         isLoading = false
+    }
+
+    private func importFromNotes() async {
+        isImporting = true
+        do {
+            let result = try await api.importNotesMembers(clubId: club.id)
+            if result.imported > 0 {
+                importResult = "Imported \(result.imported) member\(result.imported == 1 ? "" : "s") (\(result.skipped) already existed)"
+                await loadMembers()
+            } else {
+                importResult = "No new members to import (\(result.skipped) already existed)"
+            }
+        } catch {
+            self.error = error.localizedDescription
+        }
+        isImporting = false
     }
 
     private func removeMember(_ member: ClubMemberAdminResponse) async {

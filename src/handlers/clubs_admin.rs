@@ -1,4 +1,5 @@
-use axum::{extract::State, http::StatusCode};
+use axum::extract::State;
+use axum::http::StatusCode;
 use uuid::Uuid;
 
 use crate::extractors::{Json, Path};
@@ -7,8 +8,8 @@ use sqlx::PgPool;
 use crate::db;
 use crate::error::AppError;
 use crate::models::club::{
-    AddMembersRequest, ClubMemberResponse, ClubResponse, CreateClubRequest, UpdateClubRequest,
-    UpdateMemberRoleRequest,
+    AddMembersRequest, ClubMemberResponse, ClubResponse, CreateClubRequest, ImportNotesResponse,
+    UpdateClubRequest, UpdateMemberRoleRequest,
 };
 
 use super::DataResponse;
@@ -232,6 +233,94 @@ pub async fn update_club_member_role(
             last_seen_at: member.last_seen_at,
             last_grid: member.last_grid,
             is_carrier_wave_user: member.is_carrier_wave_user,
+        },
+    }))
+}
+
+/// POST /v1/admin/clubs/:id/import-notes
+/// Fetch the club's callsign notes URL and import callsigns as members.
+///
+/// Parses Ham2K PoLo callsign notes format:
+/// - One callsign per line, followed by space and note text
+/// - Lines starting with `#` are comments (ignored)
+/// - Empty lines are ignored
+pub async fn import_notes_members(
+    State(pool): State<PgPool>,
+    Path(club_id): Path<Uuid>,
+) -> Result<Json<DataResponse<ImportNotesResponse>>, AppError> {
+    let club = db::clubs::get_club_detail(&pool, club_id)
+        .await?
+        .ok_or(AppError::ClubNotFound { club_id })?;
+
+    let notes_url = club.notes_url.ok_or(AppError::Validation {
+        message: "Club has no notes URL configured".to_string(),
+    })?;
+
+    // Fetch the notes file
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(&notes_url)
+        .send()
+        .await
+        .map_err(|e| AppError::Internal(format!("Failed to fetch notes URL: {}", e)))?
+        .error_for_status()
+        .map_err(|e| AppError::Internal(format!("Notes URL returned error: {}", e)))?;
+
+    let body = resp
+        .text()
+        .await
+        .map_err(|e| AppError::Internal(format!("Failed to read notes response: {}", e)))?;
+
+    // Parse callsigns from the notes file
+    let callsigns: Vec<String> = body
+        .lines()
+        .filter(|line| {
+            let trimmed = line.trim();
+            !trimmed.is_empty() && !trimmed.starts_with('#')
+        })
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            // First token is the callsign
+            trimmed.split_whitespace().next().map(|cs| cs.to_uppercase())
+        })
+        .collect();
+
+    if callsigns.is_empty() {
+        return Ok(Json(DataResponse {
+            data: ImportNotesResponse {
+                imported: 0,
+                skipped: 0,
+                callsigns: vec![],
+            },
+        }));
+    }
+
+    // Get existing members to avoid duplicates
+    let existing = db::clubs::get_club_members_enriched(&pool, club_id).await?;
+    let existing_callsigns: std::collections::HashSet<String> =
+        existing.iter().map(|m| m.callsign.clone()).collect();
+
+    let new_callsigns: Vec<String> = callsigns
+        .into_iter()
+        .filter(|cs| !existing_callsigns.contains(cs))
+        .collect();
+
+    let skipped = existing_callsigns.len().saturating_sub(0); // existing that overlap
+    let imported = new_callsigns.len();
+
+    if !new_callsigns.is_empty() {
+        let member_tuples: Vec<(String, String)> = new_callsigns
+            .iter()
+            .map(|cs| (cs.clone(), "member".to_string()))
+            .collect();
+        db::clubs::add_members(&pool, club_id, &member_tuples).await?;
+    }
+
+    Ok(Json(DataResponse {
+        data: ImportNotesResponse {
+            imported,
+            skipped: existing_callsigns.len(),
+            callsigns: new_callsigns,
         },
     }))
 }

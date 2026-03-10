@@ -215,6 +215,14 @@ class APIClient {
         try await delete("/v1/admin/clubs/\(clubId)/members/\(callsign)")
     }
 
+    func importNotesMembers(clubId: String) async throws -> ImportNotesResponse {
+        let wrapper: DataWrapper<ImportNotesResponse> = try await post(
+            "/v1/admin/clubs/\(clubId)/import-notes",
+            body: EmptyBody()
+        )
+        return wrapper.data
+    }
+
     // MARK: - Challenges (Admin)
 
     func createChallenge(_ body: [String: Any]) async throws {

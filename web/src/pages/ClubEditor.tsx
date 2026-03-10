@@ -8,6 +8,7 @@ import {
   addClubMembers,
   removeClubMember,
   updateClubMemberRole,
+  importNotesMembers,
 } from '../api/client';
 import type { Club, ClubMember } from '../types/club';
 
@@ -19,6 +20,8 @@ export default function ClubEditor() {
   const [name, setName] = useState('');
   const [callsign, setCallsign] = useState('');
   const [description, setDescription] = useState('');
+  const [notesUrl, setNotesUrl] = useState('');
+  const [notesTitle, setNotesTitle] = useState('');
 
   const [members, setMembers] = useState<ClubMember[]>([]);
   const [newCallsign, setNewCallsign] = useState('');
@@ -26,6 +29,8 @@ export default function ClubEditor() {
 
   const [loading, setLoading] = useState(!!id);
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -46,6 +51,8 @@ export default function ClubEditor() {
       setName(club.name);
       setCallsign(club.callsign || '');
       setDescription(club.description || '');
+      setNotesUrl(club.notesUrl || '');
+      setNotesTitle(club.notesTitle || '');
 
       const memberList = await listClubMembers(clubId);
       setMembers(memberList);
@@ -67,6 +74,8 @@ export default function ClubEditor() {
           name,
           callsign: callsign || null,
           description: description || null,
+          notesUrl: notesUrl || null,
+          notesTitle: notesTitle || null,
         });
       } else {
         await createClub({
@@ -81,6 +90,27 @@ export default function ClubEditor() {
       setError(err instanceof Error ? err.message : 'Failed to save club');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleImportNotes = async () => {
+    if (!id) return;
+    try {
+      setImporting(true);
+      setError('');
+      setImportResult('');
+      const result = await importNotesMembers(id);
+      setImportResult(
+        result.imported > 0
+          ? `Imported ${result.imported} member${result.imported !== 1 ? 's' : ''} (${result.skipped} already existed)`
+          : `No new members to import (${result.skipped} already existed)`,
+      );
+      const memberList = await listClubMembers(id);
+      setMembers(memberList);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to import notes');
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -185,6 +215,31 @@ export default function ClubEditor() {
           />
         </div>
 
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Notes URL</label>
+          <input
+            type="url"
+            value={notesUrl}
+            onChange={(e) => setNotesUrl(e.target.value)}
+            placeholder="https://example.com/callsign-notes.txt"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Ham2K PoLo callsign notes file URL
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Notes Title</label>
+          <input
+            type="text"
+            value={notesTitle}
+            onChange={(e) => setNotesTitle(e.target.value)}
+            placeholder="Club Member Notes"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          />
+        </div>
+
         <div className="flex justify-end">
           <button
             type="submit"
@@ -199,9 +254,26 @@ export default function ClubEditor() {
       {/* Members section - only for existing clubs */}
       {isEditing && (
         <div className="mt-10">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">
-            Members ({members.length})
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-medium text-gray-900">
+              Members ({members.length})
+            </h2>
+            {notesUrl && (
+              <button
+                type="button"
+                onClick={handleImportNotes}
+                disabled={importing}
+                className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+              >
+                {importing ? 'Importing...' : 'Import from Notes'}
+              </button>
+            )}
+          </div>
+          {importResult && (
+            <div className="mb-4 rounded-md bg-green-50 p-3">
+              <p className="text-sm text-green-800">{importResult}</p>
+            </div>
+          )}
 
           <div className="flex gap-2 mb-4">
             <input
