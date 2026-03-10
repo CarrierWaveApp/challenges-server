@@ -147,3 +147,9 @@ Adds NTIR (NPS National Trails Intermountain Region) Feature Service names as a 
 **Data:**
 - Maps 18 existing catalog trails to their NTIR Feature Service names
 - Inserts NHT-BTFD (Butterfield Overland National Historic Trail) with NTIR source
+
+### `migrations/018_reset_exact_match_boundaries.sql`
+Forces re-fetch of US park boundaries matched by name after fixing over-broad LIKE query.
+
+**Operations:**
+- Sets `fetched_at` to epoch for all `match_quality = 'exact'` / `source = 'pad_us_4'` rows, triggering stale-boundary refresh with the new exact-match-first query logic
