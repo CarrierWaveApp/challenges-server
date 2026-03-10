@@ -131,3 +131,9 @@ Adds consecutive error counter to historic_trail_catalog.
 
 **Columns added:**
 - `consecutive_errors` (INTEGER NOT NULL DEFAULT 0) - Tracks consecutive fetch failures; trails with 3+ errors are skipped until counters reset at the start of each cycle
+
+### `migrations/016_add_anza_trail.sql`
+Adds Juan Bautista de Anza National Historic Trail to the catalog.
+
+**Data:**
+- Inserts NHT-ANZA into historic_trail_catalog (NPS, AZ/CA)
