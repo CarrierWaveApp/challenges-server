@@ -167,7 +167,7 @@ pub async fn get_unfetched_trails(
     sqlx::query_as::<_, UnfetchedTrail>(
         r#"
         SELECT c.trail_reference as reference, c.trail_name as name,
-               c.states as location_desc, c.managing_agency
+               c.states as location_desc, c.managing_agency, c.ntir_service
         FROM historic_trail_catalog c
         LEFT JOIN historic_trails t ON c.trail_reference = t.trail_reference
         WHERE t.trail_reference IS NULL
@@ -190,7 +190,7 @@ pub async fn get_stale_trails(
     sqlx::query_as::<_, StaleTrail>(
         r#"
         SELECT t.trail_reference as reference, c.trail_name as name,
-               c.states as location_desc, c.managing_agency
+               c.states as location_desc, c.managing_agency, c.ntir_service
         FROM historic_trails t
         JOIN historic_trail_catalog c ON c.trail_reference = t.trail_reference
         WHERE t.fetched_at < NOW() - make_interval(days => $1::int)
@@ -268,6 +268,7 @@ pub struct UnfetchedTrail {
     pub name: String,
     pub location_desc: Option<String>,
     pub managing_agency: Option<String>,
+    pub ntir_service: Option<String>,
 }
 
 #[derive(Debug, sqlx::FromRow)]
@@ -276,4 +277,5 @@ pub struct StaleTrail {
     pub name: String,
     pub location_desc: Option<String>,
     pub managing_agency: Option<String>,
+    pub ntir_service: Option<String>,
 }

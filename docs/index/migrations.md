@@ -137,3 +137,13 @@ Adds Juan Bautista de Anza National Historic Trail to the catalog.
 
 **Data:**
 - Inserts NHT-ANZA into historic_trail_catalog (NPS, AZ/CA)
+
+### `migrations/017_ntir_trail_sources.sql`
+Adds NTIR (NPS National Trails Intermountain Region) Feature Service names as a secondary data source for trails not in the USGS National Map.
+
+**Columns added:**
+- `ntir_service` (TEXT) on historic_trail_catalog - NTIR Feature Service name for per-trail ArcGIS endpoint
+
+**Data:**
+- Maps 18 existing catalog trails to their NTIR Feature Service names
+- Inserts NHT-BTFD (Butterfield Overland National Historic Trail) with NTIR source

@@ -14,6 +14,10 @@ use super::park_boundaries::merge_geojson_geometries;
 /// current authoritative source for National Historic/Scenic Trail geometries.
 const NPS_TRAILS_URL: &str = "https://carto.nationalmap.gov/arcgis/rest/services/transportation/MapServer/11";
 
+/// NTIR (NPS National Trails Intermountain Region) ArcGIS organization.
+/// Hosts per-trail Feature Services for trails not always in the USGS dataset.
+const NTIR_BASE_URL: &str = "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services";
+
 /// Configuration for the historic trails aggregator.
 pub struct HistoricTrailsConfig {
     pub batch_size: i64,
@@ -110,6 +114,7 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: HistoricTr
                             name: trail.name,
                             location_desc: trail.location_desc,
                             managing_agency: trail.managing_agency,
+                            ntir_service: trail.ntir_service,
                         })
                         .collect();
 
@@ -285,6 +290,30 @@ async fn fetch_trail_inner(
         }
     }
 
+    // Fallback: NTIR per-trail Feature Service (if configured)
+    if let Some(ntir_service) = &trail.ntir_service {
+        match query_ntir_service(client, ntir_service).await {
+            Ok(Some(feature)) => {
+                save_feature(pool, trail, &feature, "ntir").await?;
+                return Ok(Some("ntir".to_string()));
+            }
+            Ok(None) => {
+                tracing::info!(
+                    "Historic trails: {} NTIR service '{}' returned no features",
+                    trail.reference,
+                    ntir_service
+                );
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "Historic trails: {} NTIR query failed: {}",
+                    trail.reference,
+                    e
+                );
+            }
+        }
+    }
+
     Ok(None)
 }
 
@@ -325,6 +354,20 @@ async fn query_by_name(
         "{}/query?where={}&outFields=name,nationaltraildesignation,primarytrailmaintainer,lengthmiles&f=geojson&outSR=4326&resultRecordCount=5000",
         service_url,
         urlencoded(&where_clause)
+    );
+
+    let features = fetch_trail_response(client, &url).await?;
+    Ok(merge_trail_features(features))
+}
+
+/// Query an NTIR per-trail Feature Service — fetches all features and merges them.
+async fn query_ntir_service(
+    client: &reqwest::Client,
+    service_name: &str,
+) -> Result<Option<NpsTrailFeature>, Box<dyn std::error::Error + Send + Sync>> {
+    let url = format!(
+        "{}/{}/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson&outSR=4326&resultRecordCount=5000",
+        NTIR_BASE_URL, service_name
     );
 
     let features = fetch_trail_response(client, &url).await?;

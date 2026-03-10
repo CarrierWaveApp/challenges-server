@@ -56,22 +56,27 @@ Database queries for historic trails.
 
 **Helper types:**
 - `struct TrailStatusRow` - Status statistics from DB
-- `struct UnfetchedTrail` - Trail needing geometry fetch (reference, name, location, agency)
-- `struct StaleTrail` - Stale trail needing refresh
+- `struct UnfetchedTrail` - Trail needing geometry fetch (reference, name, location, agency, ntir_service)
+- `struct StaleTrail` - Stale trail needing refresh (includes ntir_service)
 
 ### `src/aggregators/historic_trails.rs`
-Background aggregator that fetches trail geometries from NPS ArcGIS API.
+Background aggregator that fetches trail geometries from NPS ArcGIS API with NTIR fallback.
 
 **Exports:**
 - `struct HistoricTrailsConfig` - batch_size, cycle_hours, stale_days
 - `async fn poll_loop()` - Main loop: fetch unfetched trails, refresh stale, sleep
 
 **Internal functions:**
-- `async fn fetch_trail()` - Fetch geometry for single trail (name match, then fuzzy fallback)
-- `async fn query_by_name()` - Query NPS Trails by name
+- `async fn fetch_trail()` - Fetch geometry for single trail (USGS name match → fuzzy → NTIR fallback)
+- `async fn query_by_name()` - Query NPS Trails MapServer by name
+- `async fn query_ntir_service()` - Query NTIR per-trail Feature Service (all features, merged)
 - `async fn save_feature()` - Save NPS feature to database
 - `fn normalize_trail_name()` - Strip common suffixes for search
 - `fn urlencoded()` - URL-encode for ArcGIS REST API
+
+**Data sources:**
+- Primary: USGS National Map MapServer layer 11 (`carto.nationalmap.gov`)
+- Fallback: NTIR ArcGIS Feature Services (`services1.arcgis.com/fBc8EJBxQRMcHlei`)
 
 ### `src/handlers/historic_trails.rs`
 HTTP handlers for historic trails API endpoints.
