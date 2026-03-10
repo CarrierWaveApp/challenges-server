@@ -4,6 +4,7 @@ pub mod polish_park_boundaries;
 pub mod pota;
 pub mod pota_stats;
 pub mod sota;
+pub mod state_park_sources;
 
 use sqlx::PgPool;
 

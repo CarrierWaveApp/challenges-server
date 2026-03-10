@@ -76,6 +76,7 @@ pub struct BoundaryStatusResponse {
     pub unfetched: i64,
     pub completion_percentage: i64,
     pub by_country: BoundaryCountryStats,
+    pub by_source: std::collections::HashMap<String, i64>,
     pub exact_matches: i64,
     pub spatial_matches: i64,
     pub manual_matches: i64,

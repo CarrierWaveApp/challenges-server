@@ -144,6 +144,12 @@ pub async fn get_boundary_status(
     State(pool): State<PgPool>,
 ) -> Result<Json<DataResponse<BoundaryStatusResponse>>, AppError> {
     let status = db::get_boundary_status(&pool).await?;
+    let source_counts = db::get_boundary_source_counts(&pool).await?;
+
+    let by_source: std::collections::HashMap<String, i64> = source_counts
+        .into_iter()
+        .map(|sc| (sc.source, sc.count))
+        .collect();
 
     let total_parks = status.total_us_parks + status.total_uk_parks + status.total_it_parks + status.total_pl_parks;
     let total_attempted = status.total_cached + status.no_match_count;
@@ -174,6 +180,7 @@ pub async fn get_boundary_status(
                     total_parks: status.total_pl_parks,
                 },
             },
+            by_source,
             exact_matches: status.exact_matches,
             spatial_matches: status.spatial_matches,
             manual_matches: status.manual_matches,

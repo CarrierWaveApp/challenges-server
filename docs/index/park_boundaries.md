@@ -59,28 +59,38 @@ Database queries for park boundaries.
 - `async fn get_unfetched_polish_parks()` - Get SP- parks without cached boundaries
 - `async fn get_stale_boundaries()` - Get boundaries older than N days for refresh
 - `async fn get_boundary_status()` - Sync stats with per-country park counts
+- `async fn get_boundary_source_counts()` - Boundary counts grouped by source
 
 **Helper types:**
 - `struct UnfetchedPark` - Park needing boundary fetch (reference, name, location, lat/lon)
 - `struct StaleBoundary` - Stale boundary needing refresh
 - `struct BoundaryStatusRow` - Raw status query result with US/UK/IT counts
+- `struct SourceCount` - Source name and boundary count for by_source breakdown
 
 ### `src/aggregators/park_boundaries.rs`
 Background aggregator that fetches park boundaries from multiple data sources.
 
 **Data sources:**
 - PAD-US ArcGIS FeatureServer (US parks)
+- State-specific ArcGIS endpoints (FL, OR, CA, TX — via state_park_sources module)
 - Natural England ArcGIS FeatureServer (UK parks: G-, GM-, GW-, GI- prefixes)
 - WDPA ArcGIS FeatureServer (Italian parks: I- prefix)
+
+**US fetch strategy (in order):**
+1. PAD-US name + state match
+2. State-specific source name match (if state has a registered source)
+3. State-specific source spatial match
+4. PAD-US spatial fallback (point-in-polygon)
 
 **Exports:**
 - `struct ParkBoundariesConfig` - batch_size, cycle_hours, stale_days
 - `async fn poll_loop()` - Main loop: fetch unfetched parks, refresh stale, sleep
+- `fn merge_geojson_geometries()` - Merge multiple GeoJSON geometries into one
 
 **Internal functions:**
 - `fn data_source_for_park()` - Route park to correct data source by reference prefix
 - `async fn fetch_boundary()` - Fetch boundary for single park (dispatches by country)
-- `async fn fetch_boundary_padus()` - US: name+state match, then spatial fallback
+- `async fn fetch_boundary_padus()` - US: PAD-US name → state source → PAD-US spatial
 - `async fn fetch_boundary_uk()` - UK: name match, then spatial fallback (Natural England)
 - `async fn fetch_boundary_wdpa()` - International: name+country match, then spatial (WDPA)
 - `async fn query_padus_by_name()` - Query PAD-US by name + state
@@ -94,6 +104,22 @@ Background aggregator that fetches park boundaries from multiple data sources.
 - `async fn save_feature()` - Save ArcGIS feature to database (source-aware)
 - `fn normalize_park_name()` - Strip common suffixes (US, UK, Italian)
 - `fn state_code_to_abbrev()` - Convert US-XX to state abbreviation
+
+### `src/aggregators/state_park_sources.rs`
+Registry of state-specific ArcGIS endpoints for US state park boundaries.
+
+**Registered sources:**
+- Florida DEP (`fl_dep`) — SITE_NAME field, 175 state parks/trails
+- Oregon OPRD (`or_oprd`) — NAME field, real property boundaries
+- California CSP (`ca_csp`) — UNITNAME field, monthly updates
+- Texas TPWD (`tx_tpwd`) — P_NAME field, state park boundaries
+
+**Exports:**
+- `struct StateDataSource` - State endpoint config (url, name_field, out_fields, source_label)
+- `const STATE_SOURCES` - Registry of all state endpoints
+- `fn source_for_state()` - Look up state source by abbreviation
+- `async fn query_by_name()` - Query state source by park name (LIKE match)
+- `async fn query_by_point()` - Query state source by point intersection
 
 ### `src/aggregators/polish_park_boundaries.rs`
 Background aggregator that fetches Polish park boundaries from GDOŚ WFS.
