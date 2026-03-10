@@ -1,3 +1,4 @@
+use crate::metrics as app_metrics;
 use crate::models::park_boundary::{ArcGisFeature, ArcGisResponse};
 
 /// A state-agency ArcGIS endpoint that can provide park boundary polygons.
@@ -75,6 +76,7 @@ pub async fn query_by_name(
     source: &StateDataSource,
     search_name: &str,
 ) -> Result<Option<ArcGisFeature>, Box<dyn std::error::Error + Send + Sync>> {
+    let start = std::time::Instant::now();
     let escaped = search_name.replace('\'', "''");
     let where_clause = format!("{} LIKE '%{}%'", source.name_field, escaped);
 
@@ -86,7 +88,13 @@ pub async fn query_by_name(
     );
 
     let features = fetch_arcgis_features(client, &url, source.source_label).await?;
-    Ok(merge_features(features))
+    let result = merge_features(features);
+    let result_label = if result.is_some() { "hit" } else { "miss" };
+    metrics::counter!(app_metrics::GIS_FETCH_TOTAL, "source" => source.source_label, "result" => result_label)
+        .increment(1);
+    metrics::histogram!(app_metrics::GIS_FETCH_DURATION_SECONDS, "source" => source.source_label)
+        .record(start.elapsed().as_secs_f64());
+    Ok(result)
 }
 
 /// Query a state-specific ArcGIS endpoint by point intersection.
@@ -96,13 +104,20 @@ pub async fn query_by_point(
     lon: f64,
     lat: f64,
 ) -> Result<Option<ArcGisFeature>, Box<dyn std::error::Error + Send + Sync>> {
+    let start = std::time::Instant::now();
     let url = format!(
         "{}/query?geometry={},{}&geometryType=esriGeometryPoint&spatialRel=esriSpatialRelIntersects&outFields={}&f=geojson&outSR=4326",
         source.url, lon, lat, source.out_fields,
     );
 
     let features = fetch_arcgis_features(client, &url, source.source_label).await?;
-    Ok(merge_features(features))
+    let result = merge_features(features);
+    let result_label = if result.is_some() { "hit" } else { "miss" };
+    metrics::counter!(app_metrics::GIS_FETCH_TOTAL, "source" => source.source_label, "result" => result_label)
+        .increment(1);
+    metrics::histogram!(app_metrics::GIS_FETCH_DURATION_SECONDS, "source" => source.source_label)
+        .record(start.elapsed().as_secs_f64());
+    Ok(result)
 }
 
 /// Fetch features from an ArcGIS REST endpoint.

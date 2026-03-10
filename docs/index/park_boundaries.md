@@ -121,6 +121,66 @@ Registry of state-specific ArcGIS endpoints for US state park boundaries.
 - `async fn query_by_name()` - Query state source by park name (LIKE match)
 - `async fn query_by_point()` - Query state source by point intersection
 
+**Metrics (emitted per query):**
+- `gis_fetch_total{source=<source_label>, result=hit|miss}` — query attempt counter
+- `gis_fetch_duration_seconds{source=<source_label>}` — query latency histogram
+
+## Adding a New State Source
+
+To add a new state's ArcGIS endpoint to the park boundary fetcher:
+
+### 1. Verify the endpoint
+
+Visit the layer's metadata URL to confirm it's usable:
+
+```
+<endpoint_url>?f=pjson
+```
+
+Check for:
+- `geometryType` must be `esriGeometryPolygon`
+- `supportedQueryFormats` must include `geoJSON`
+- Identify the **name field** (usually the `displayField` value)
+- Identify any **acreage/area field** (e.g. `TOTAL_ACRES`, `Shape_Area`, `CALCACRE`)
+- Note any other useful attribute fields
+
+Test a sample query to confirm geojson output works:
+
+```
+<endpoint_url>/query?where=1%3D1&resultRecordCount=1&outFields=*&f=geojson&outSR=4326
+```
+
+### 2. Add the entry to STATE_SOURCES
+
+Edit `src/aggregators/state_park_sources.rs` and append a new `StateDataSource` to the `STATE_SOURCES` array:
+
+```rust
+// <State Agency Name> — <description>
+// Display field: <FIELD_NAME>, Geometry: esriGeometryPolygon
+// Verified: <shortened endpoint URL>?f=pjson
+StateDataSource {
+    state: "XX",                    // two-letter state abbreviation
+    url: "<full endpoint URL>",     // MapServer or FeatureServer layer URL
+    name_field: "<NAME_FIELD>",     // field containing park name
+    out_fields: "<FIELD1>,<FIELD2>", // comma-separated fields to request
+    source_label: "xx_agency",      // unique label for source column and metrics
+},
+```
+
+### 3. No other code changes needed
+
+The fetch chain in `park_boundaries.rs` automatically picks up new states via `source_for_state()`. The `source_label` flows through to:
+- `park_boundaries.source` column in the database
+- `bySource` breakdown in `GET /v1/parks/boundaries/status`
+- `gis_fetch_total` and `gis_fetch_duration_seconds` Prometheus metrics
+
+### 4. Verify after deployment
+
+After deploying, monitor the new source via:
+- `GET /v1/parks/boundaries/status` — check `bySource` for the new label
+- Prometheus: `gis_fetch_total{source="xx_agency"}` for hit/miss ratio
+- Prometheus: `gis_fetch_duration_seconds{source="xx_agency"}` for latency
+
 ### `src/aggregators/polish_park_boundaries.rs`
 Background aggregator that fetches Polish park boundaries from GDOŚ WFS.
 
