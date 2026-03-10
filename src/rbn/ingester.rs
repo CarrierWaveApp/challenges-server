@@ -119,6 +119,18 @@ async fn run_connection(
         match result {
             Ok(Ok(Some(line))) => {
                 if let Some(spot) = parse_spot_line(&line, store) {
+                    metrics::counter!(
+                        app_metrics::RBN_SPOTS_INGESTED_TOTAL,
+                        "mode" => spot.mode.clone(),
+                        "band" => spot.band.to_string()
+                    )
+                    .increment(1);
+                    metrics::histogram!(app_metrics::RBN_SPOT_SNR, "mode" => spot.mode.clone())
+                        .record(spot.snr as f64);
+                    if let Some(wpm) = spot.wpm {
+                        metrics::histogram!(app_metrics::RBN_SPOT_WPM)
+                            .record(wpm as f64);
+                    }
                     batch.push(spot);
                 }
 

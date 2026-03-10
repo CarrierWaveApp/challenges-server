@@ -57,6 +57,9 @@ Prometheus metrics constants, middleware, and background tasks.
 - `DB_POOL_IDLE_CONNECTIONS` - Gauge: idle DB connections
 - `DB_POOL_SIZE` - Gauge: DB pool size
 - `RBN_SPOTS_BUFFERED` - Gauge: RBN spots in buffer
+- `RBN_SPOTS_INGESTED_TOTAL` - Counter: spots ingested from RBN telnet stream (labels: mode, band)
+- `RBN_SPOT_SNR` - Histogram: signal-to-noise ratio distribution (labels: mode)
+- `RBN_SPOT_WPM` - Histogram: CW speed (words per minute) distribution
 
 ### `src/error.rs`
 Application error types with HTTP responses.
