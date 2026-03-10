@@ -59,28 +59,38 @@ Database queries for park boundaries.
 - `async fn get_unfetched_polish_parks()` - Get SP- parks without cached boundaries
 - `async fn get_stale_boundaries()` - Get boundaries older than N days for refresh
 - `async fn get_boundary_status()` - Sync stats with per-country park counts
+- `async fn get_boundary_source_counts()` - Boundary counts grouped by source
 
 **Helper types:**
 - `struct UnfetchedPark` - Park needing boundary fetch (reference, name, location, lat/lon)
 - `struct StaleBoundary` - Stale boundary needing refresh
 - `struct BoundaryStatusRow` - Raw status query result with US/UK/IT counts
+- `struct SourceCount` - Source name and boundary count for by_source breakdown
 
 ### `src/aggregators/park_boundaries.rs`
 Background aggregator that fetches park boundaries from multiple data sources.
 
 **Data sources:**
 - PAD-US ArcGIS FeatureServer (US parks)
+- State-specific ArcGIS endpoints (FL, OR, CA, TX — via state_park_sources module)
 - Natural England ArcGIS FeatureServer (UK parks: G-, GM-, GW-, GI- prefixes)
 - WDPA ArcGIS FeatureServer (Italian parks: I- prefix)
+
+**US fetch strategy (in order):**
+1. PAD-US name + state match
+2. State-specific source name match (if state has a registered source)
+3. State-specific source spatial match
+4. PAD-US spatial fallback (point-in-polygon)
 
 **Exports:**
 - `struct ParkBoundariesConfig` - batch_size, cycle_hours, stale_days
 - `async fn poll_loop()` - Main loop: fetch unfetched parks, refresh stale, sleep
+- `fn merge_geojson_geometries()` - Merge multiple GeoJSON geometries into one
 
 **Internal functions:**
 - `fn data_source_for_park()` - Route park to correct data source by reference prefix
 - `async fn fetch_boundary()` - Fetch boundary for single park (dispatches by country)
-- `async fn fetch_boundary_padus()` - US: name+state match, then spatial fallback
+- `async fn fetch_boundary_padus()` - US: PAD-US name → state source → PAD-US spatial
 - `async fn fetch_boundary_uk()` - UK: name match, then spatial fallback (Natural England)
 - `async fn fetch_boundary_wdpa()` - International: name+country match, then spatial (WDPA)
 - `async fn query_padus_by_name()` - Query PAD-US by name + state
@@ -94,6 +104,82 @@ Background aggregator that fetches park boundaries from multiple data sources.
 - `async fn save_feature()` - Save ArcGIS feature to database (source-aware)
 - `fn normalize_park_name()` - Strip common suffixes (US, UK, Italian)
 - `fn state_code_to_abbrev()` - Convert US-XX to state abbreviation
+
+### `src/aggregators/state_park_sources.rs`
+Registry of state-specific ArcGIS endpoints for US state park boundaries.
+
+**Registered sources:**
+- Florida DEP (`fl_dep`) — SITE_NAME field, 175 state parks/trails
+- Oregon OPRD (`or_oprd`) — NAME field, real property boundaries
+- California CSP (`ca_csp`) — UNITNAME field, monthly updates
+- Texas TPWD (`tx_tpwd`) — P_NAME field, state park boundaries
+
+**Exports:**
+- `struct StateDataSource` - State endpoint config (url, name_field, out_fields, source_label)
+- `const STATE_SOURCES` - Registry of all state endpoints
+- `fn source_for_state()` - Look up state source by abbreviation
+- `async fn query_by_name()` - Query state source by park name (LIKE match)
+- `async fn query_by_point()` - Query state source by point intersection
+
+**Metrics (emitted per query):**
+- `gis_fetch_total{source=<source_label>, result=hit|miss}` — query attempt counter
+- `gis_fetch_duration_seconds{source=<source_label>}` — query latency histogram
+
+## Adding a New State Source
+
+To add a new state's ArcGIS endpoint to the park boundary fetcher:
+
+### 1. Verify the endpoint
+
+Visit the layer's metadata URL to confirm it's usable:
+
+```
+<endpoint_url>?f=pjson
+```
+
+Check for:
+- `geometryType` must be `esriGeometryPolygon`
+- `supportedQueryFormats` must include `geoJSON`
+- Identify the **name field** (usually the `displayField` value)
+- Identify any **acreage/area field** (e.g. `TOTAL_ACRES`, `Shape_Area`, `CALCACRE`)
+- Note any other useful attribute fields
+
+Test a sample query to confirm geojson output works:
+
+```
+<endpoint_url>/query?where=1%3D1&resultRecordCount=1&outFields=*&f=geojson&outSR=4326
+```
+
+### 2. Add the entry to STATE_SOURCES
+
+Edit `src/aggregators/state_park_sources.rs` and append a new `StateDataSource` to the `STATE_SOURCES` array:
+
+```rust
+// <State Agency Name> — <description>
+// Display field: <FIELD_NAME>, Geometry: esriGeometryPolygon
+// Verified: <shortened endpoint URL>?f=pjson
+StateDataSource {
+    state: "XX",                    // two-letter state abbreviation
+    url: "<full endpoint URL>",     // MapServer or FeatureServer layer URL
+    name_field: "<NAME_FIELD>",     // field containing park name
+    out_fields: "<FIELD1>,<FIELD2>", // comma-separated fields to request
+    source_label: "xx_agency",      // unique label for source column and metrics
+},
+```
+
+### 3. No other code changes needed
+
+The fetch chain in `park_boundaries.rs` automatically picks up new states via `source_for_state()`. The `source_label` flows through to:
+- `park_boundaries.source` column in the database
+- `bySource` breakdown in `GET /v1/parks/boundaries/status`
+- `gis_fetch_total` and `gis_fetch_duration_seconds` Prometheus metrics
+
+### 4. Verify after deployment
+
+After deploying, monitor the new source via:
+- `GET /v1/parks/boundaries/status` — check `bySource` for the new label
+- Prometheus: `gis_fetch_total{source="xx_agency"}` for hit/miss ratio
+- Prometheus: `gis_fetch_duration_seconds{source="xx_agency"}` for latency
 
 ### `src/aggregators/polish_park_boundaries.rs`
 Background aggregator that fetches Polish park boundaries from GDOŚ WFS.

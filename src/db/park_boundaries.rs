@@ -284,6 +284,27 @@ pub async fn get_boundary_status(pool: &PgPool) -> Result<BoundaryStatusRow, sql
     .await
 }
 
+/// Get boundary counts grouped by source.
+pub async fn get_boundary_source_counts(pool: &PgPool) -> Result<Vec<SourceCount>, sqlx::Error> {
+    sqlx::query_as::<_, SourceCount>(
+        r#"
+        SELECT source, COUNT(*) as count
+        FROM park_boundaries
+        WHERE match_quality != 'none'
+        GROUP BY source
+        ORDER BY count DESC
+        "#,
+    )
+    .fetch_all(pool)
+    .await
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct SourceCount {
+    pub source: String,
+    pub count: i64,
+}
+
 #[derive(Debug, sqlx::FromRow)]
 pub struct BoundaryStatusRow {
     pub total_cached: i64,

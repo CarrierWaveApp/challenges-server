@@ -3,6 +3,7 @@ use std::sync::Arc;
 use sqlx::PgPool;
 use tokio::sync::Semaphore;
 
+use crate::aggregators::state_park_sources;
 use crate::db::park_boundaries::{self, UnfetchedPark};
 use crate::metrics as app_metrics;
 use crate::models::park_boundary::{ArcGisFeature, ArcGisResponse};
@@ -308,7 +309,49 @@ async fn fetch_boundary_padus(
         );
     }
 
-    // Strategy 2: Spatial query (point-in-polygon)
+    // Strategy 2: State-specific data source (name match)
+    if let Some(state) = &state_abbrev {
+        if let Some(source) = state_park_sources::source_for_state(state) {
+            let search_name = normalize_park_name(&park.name);
+            match state_park_sources::query_by_name(client, source, &search_name).await {
+                Ok(Some(feature)) => {
+                    save_feature(pool, park, &feature, "exact", source.source_label).await?;
+                    return Ok(Some("exact".to_string()));
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    tracing::warn!(
+                        "Park boundaries: {} state source {} name query failed: {}",
+                        park.reference,
+                        source.source_label,
+                        e
+                    );
+                }
+            }
+
+            // Strategy 3: State-specific data source (spatial)
+            if let (Some(lat), Some(lon)) = (park.latitude, park.longitude) {
+                match state_park_sources::query_by_point(client, source, lon, lat).await {
+                    Ok(Some(feature)) => {
+                        save_feature(pool, park, &feature, "spatial", source.source_label)
+                            .await?;
+                        return Ok(Some("spatial".to_string()));
+                    }
+                    Ok(None) => {}
+                    Err(e) => {
+                        tracing::warn!(
+                            "Park boundaries: {} state source {} spatial query failed: {}",
+                            park.reference,
+                            source.source_label,
+                            e
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    // Strategy 4: PAD-US spatial query (point-in-polygon)
     if let (Some(lat), Some(lon)) = (park.latitude, park.longitude) {
         match query_padus_by_point(client, lon, lat).await {
             Ok(Some(feature)) => {
