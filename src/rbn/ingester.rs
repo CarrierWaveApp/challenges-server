@@ -3,6 +3,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 
 use super::store::{freq_to_band, RbnSpot, SpotStore};
+use crate::metrics as app_metrics;
 
 const RBN_HOST: &str = "telnet.reversebeacon.net";
 const RBN_PORT: u16 = 7000;
@@ -37,6 +38,8 @@ async fn ingester_loop(store: SpotStore, callsign: String) {
             }
             Err(e) => {
                 tracing::error!("RBN ingester: connection error: {}", e);
+                metrics::counter!(app_metrics::SYNC_ERRORS_TOTAL, "aggregator" => "rbn_ingester")
+                    .increment(1);
             }
         }
 

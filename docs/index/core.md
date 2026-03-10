@@ -49,6 +49,7 @@ Prometheus metrics constants, middleware, and background tasks.
 - `GIS_TRAILS_CACHED_TOTAL` - Gauge: historic trails cached
 - `GIS_BATCH_DURATION_SECONDS` - Histogram: batch sync duration (labels: aggregator)
 - `SYNC_LAST_COMPLETED_TIMESTAMP` - Gauge: Unix timestamp of last completed sync cycle (labels: aggregator)
+- `SYNC_ERRORS_TOTAL` - Counter: sync errors across all background processes (labels: aggregator)
 - `HTTP_REQUESTS_TOTAL` - Counter: HTTP requests (labels: method, path, status)
 - `HTTP_REQUEST_DURATION_SECONDS` - Histogram: HTTP request latency (labels: method, path, status)
 - `HTTP_REQUESTS_IN_FLIGHT` - Gauge: current in-flight HTTP requests (labels: method, path)

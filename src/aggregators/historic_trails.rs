@@ -90,6 +90,8 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: HistoricTr
             }
             Err(e) => {
                 tracing::error!("Historic trails: get_unfetched_trails failed: {}", e);
+                metrics::counter!(app_metrics::SYNC_ERRORS_TOTAL, "aggregator" => "historic_trails")
+                    .increment(1);
             }
         }
 
@@ -116,6 +118,8 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: HistoricTr
             }
             Err(e) => {
                 tracing::error!("Historic trails: get_stale_trails failed: {}", e);
+                metrics::counter!(app_metrics::SYNC_ERRORS_TOTAL, "aggregator" => "historic_trails")
+                    .increment(1);
             }
         }
 

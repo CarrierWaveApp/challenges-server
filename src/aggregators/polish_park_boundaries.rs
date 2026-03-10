@@ -94,6 +94,8 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: PolishPark
                     "Polish park boundaries: get_unfetched_polish_parks failed: {}",
                     e
                 );
+                metrics::counter!(app_metrics::SYNC_ERRORS_TOTAL, "aggregator" => "polish_park_boundaries")
+                    .increment(1);
             }
         }
 
@@ -127,6 +129,8 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: PolishPark
                     "Polish park boundaries: get_stale_boundaries failed: {}",
                     e
                 );
+                metrics::counter!(app_metrics::SYNC_ERRORS_TOTAL, "aggregator" => "polish_park_boundaries")
+                    .increment(1);
             }
         }
 

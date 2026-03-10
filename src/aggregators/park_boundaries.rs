@@ -92,6 +92,8 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: ParkBounda
             }
             Err(e) => {
                 tracing::error!("Park boundaries: get_unfetched_parks failed: {}", e);
+                metrics::counter!(app_metrics::SYNC_ERRORS_TOTAL, "aggregator" => "park_boundaries")
+                    .increment(1);
             }
         }
 
@@ -121,6 +123,8 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: ParkBounda
             }
             Err(e) => {
                 tracing::error!("Park boundaries: get_stale_boundaries failed: {}", e);
+                metrics::counter!(app_metrics::SYNC_ERRORS_TOTAL, "aggregator" => "park_boundaries")
+                    .increment(1);
             }
         }
 
