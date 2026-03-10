@@ -606,7 +606,7 @@ pub async fn get_park_freshness(
         SELECT
             fs.activations_fetched_at AS oldest_fetch,
             fs.activations_fetched_at AS newest_fetch,
-            CASE WHEN fs.activations_fetched_at IS NULL THEN 1 ELSE 0 END AS parks_pending,
+            CASE WHEN fs.activations_fetched_at IS NULL THEN 1::bigint ELSE 0::bigint END AS parks_pending,
             1::bigint AS total_parks
         FROM pota_fetch_status fs
         WHERE fs.park_reference = $1
