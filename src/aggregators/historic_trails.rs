@@ -295,8 +295,9 @@ async fn query_by_name(
     let escaped_name = search_name.replace('\'', "''");
 
     // Strategy 1: match via nationaltraildesignation (e.g. "NHT - Lewis and Clark")
+    // Use UPPER() for case-insensitive matching (ArcGIS LIKE is case-sensitive)
     let where_clause = format!(
-        "nationaltraildesignation LIKE '%{}%'",
+        "UPPER(nationaltraildesignation) LIKE UPPER('%{}%')",
         escaped_name
     );
 
@@ -312,7 +313,7 @@ async fn query_by_name(
     }
 
     // Strategy 2: match via segment name field
-    let where_clause = format!("name LIKE '%{}%'", escaped_name);
+    let where_clause = format!("UPPER(name) LIKE UPPER('%{}%')", escaped_name);
 
     let url = format!(
         "{}/query?where={}&outFields=name,nationaltraildesignation,primarytrailmaintainer,lengthmiles&f=geojson&outSR=4326&resultRecordCount=5000",
