@@ -285,9 +285,8 @@ async fn fetch_boundary_padus(
     let state_abbrev = park.location_desc.as_deref().and_then(state_code_to_abbrev);
 
     // Strategy 1: Name + state matching
-    let search_name = normalize_park_name(&park.name);
     if let Some(state) = &state_abbrev {
-        match query_padus_by_name(client, &search_name, state).await {
+        match query_padus_by_name(client, &park.name, state).await {
             Ok(Some(feature)) => {
                 save_feature(pool, park, &feature, "exact", "pad_us_4").await?;
                 return Ok(Some("exact".to_string()));
@@ -336,27 +335,87 @@ async fn fetch_boundary_padus(
 }
 
 /// Query PAD-US by name and state.
+///
+/// Tries the full park name first for a precise match. If nothing is returned,
+/// falls back to the normalized (suffix-stripped) name with a designation-type
+/// filter so that e.g. "Huron" doesn't pull in every golf course and metropark
+/// in the state.
 async fn query_padus_by_name(
     client: &reqwest::Client,
-    search_name: &str,
+    full_name: &str,
     state: &str,
 ) -> Result<Option<ArcGisFeature>, Box<dyn std::error::Error + Send + Sync>> {
-    let escaped_name = search_name.replace('\'', "''");
-    let where_clause = format!(
-        "Loc_Nm LIKE '%{}%' AND State_Nm = '{}'",
-        escaped_name, state
-    );
+    let out_fields = "Loc_Nm,Unit_Nm,Mang_Name,Des_Tp,GIS_Acres,FeatClass";
 
-    let url = format!(
-        "{}/query?where={}&outFields=Loc_Nm,Unit_Nm,Mang_Name,Des_Tp,GIS_Acres,FeatClass&f=geojson&outSR=4326",
+    // Strategy A: exact match on full park name
+    let escaped_full = full_name.replace('\'', "''");
+    let where_full = format!(
+        "Loc_Nm = '{}' AND State_Nm = '{}'",
+        escaped_full, state
+    );
+    let url_full = format!(
+        "{}/query?where={}&outFields={}&f=geojson&outSR=4326",
         PADUS_URL,
-        urlencoded(&where_clause)
+        urlencoded(&where_full),
+        out_fields,
     );
+    let features = fetch_arcgis_features(client, &url_full, "PAD-US exact name").await?;
+    if !features.is_empty() {
+        return Ok(merge_padus_features(features));
+    }
 
-    let features = fetch_arcgis_features(client, &url, "PAD-US name").await?;
+    // Strategy B: normalized name + designation filter
+    let normalized = normalize_park_name(full_name);
+    if normalized == full_name {
+        // No suffix was stripped — nothing more to try
+        return Ok(None);
+    }
+
+    let escaped_norm = normalized.replace('\'', "''");
+    let des_filter = designation_filter_for_name(full_name).unwrap_or_default();
+    let where_norm = format!(
+        "Loc_Nm LIKE '%{}%' AND State_Nm = '{}' {}",
+        escaped_norm, state, des_filter,
+    );
+    let url_norm = format!(
+        "{}/query?where={}&outFields={}&f=geojson&outSR=4326",
+        PADUS_URL,
+        urlencoded(&where_norm),
+        out_fields,
+    );
+    let features = fetch_arcgis_features(client, &url_norm, "PAD-US normalized name").await?;
     // Merge all features into one — parks like Don Edwards SF Bay NWR (US-0189)
     // have many parcels that must be combined into a single geometry.
     Ok(merge_padus_features(features))
+}
+
+/// Return an additional WHERE clause fragment that constrains results by
+/// PAD-US designation type or managing agency, based on the park name suffix.
+fn designation_filter_for_name(name: &str) -> Option<&'static str> {
+    let lower = name.to_lowercase();
+    // Order matters — check longer suffixes first
+    let mappings: &[(&str, &str)] = &[
+        ("national wildlife refuge", "AND (Des_Tp IN ('NWR','MPA','WA') OR Mang_Name = 'FWS')"),
+        ("national park and preserve", "AND (Des_Tp IN ('NP','NPRE','WA') OR Mang_Name = 'NPS')"),
+        ("national park", "AND (Des_Tp IN ('NP','NPRE','WA') OR Mang_Name = 'NPS')"),
+        ("national forest", "AND (Des_Tp = 'NF' OR Mang_Name = 'USFS')"),
+        ("national recreation area", "AND (Des_Tp = 'NRA' OR Mang_Name IN ('NPS','USFS','BLM'))"),
+        ("national monument", "AND (Des_Tp IN ('NM','NME') OR Mang_Name IN ('NPS','BLM'))"),
+        ("national seashore", "AND (Des_Tp IN ('NS','NLS') OR Mang_Name = 'NPS')"),
+        ("national lakeshore", "AND (Des_Tp IN ('NL','NLS') OR Mang_Name = 'NPS')"),
+        ("state park", "AND Des_Tp = 'SP'"),
+        ("state forest", "AND Des_Tp = 'SF'"),
+        ("state recreation area", "AND Des_Tp IN ('SRMA','SCA')"),
+        ("wilderness area", "AND Des_Tp = 'WA'"),
+        ("wilderness", "AND Des_Tp IN ('WA','WSA')"),
+        ("wildlife management area", "AND Des_Tp IN ('SCA','WA')"),
+    ];
+    for (suffix, filter) in mappings {
+        if lower.ends_with(suffix) {
+            return Some(filter);
+        }
+    }
+    None
 }
 
 /// Query PAD-US by point intersection.
