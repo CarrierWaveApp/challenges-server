@@ -8,6 +8,7 @@ pub mod sota;
 use sqlx::PgPool;
 
 use crate::config::Config;
+use crate::metrics as app_metrics;
 
 /// Spawn all aggregator background tasks and the TTL cleanup task.
 pub fn spawn_aggregators(pool: PgPool, config: &Config) {
@@ -148,6 +149,8 @@ async fn ttl_cleanup_loop(pool: PgPool) {
             }
             Err(e) => {
                 tracing::error!("TTL cleanup error: {}", e);
+                metrics::counter!(app_metrics::SYNC_ERRORS_TOTAL, "aggregator" => "ttl_cleanup")
+                    .increment(1);
             }
         }
     }

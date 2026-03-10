@@ -3,6 +3,7 @@ use serde::Deserialize;
 use sqlx::PgPool;
 
 use crate::db::upsert_aggregated_spot;
+use crate::metrics as app_metrics;
 use crate::models::spot::{AggregatedSpot, SpotSource};
 
 const SOTA_SPOTS_URL: &str = "https://api2.sota.org.uk/api/spots/-1";
@@ -36,6 +37,8 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client) {
         interval.tick().await;
         if let Err(e) = fetch_and_upsert(&pool, &client).await {
             tracing::error!("SOTA aggregator error: {}", e);
+            metrics::counter!(app_metrics::SYNC_ERRORS_TOTAL, "aggregator" => "sota_spots")
+                .increment(1);
         }
     }
 }

@@ -94,6 +94,8 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: PolishPark
                     "Polish park boundaries: get_unfetched_polish_parks failed: {}",
                     e
                 );
+                metrics::counter!(app_metrics::SYNC_ERRORS_TOTAL, "aggregator" => "polish_park_boundaries")
+                    .increment(1);
             }
         }
 
@@ -127,12 +129,16 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: PolishPark
                     "Polish park boundaries: get_stale_boundaries failed: {}",
                     e
                 );
+                metrics::counter!(app_metrics::SYNC_ERRORS_TOTAL, "aggregator" => "polish_park_boundaries")
+                    .increment(1);
             }
         }
 
         // Record batch metrics
         metrics::histogram!(app_metrics::GIS_BATCH_DURATION_SECONDS, "aggregator" => "polish_park_boundaries")
             .record(batch_start.elapsed().as_secs_f64());
+        metrics::gauge!(app_metrics::SYNC_LAST_COMPLETED_TIMESTAMP, "aggregator" => "polish_park_boundaries")
+            .set(chrono::Utc::now().timestamp() as f64);
 
         tracing::info!(
             "Polish park boundaries: sleeping {}h until next cycle",

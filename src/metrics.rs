@@ -10,6 +10,8 @@ pub const GIS_FETCH_DURATION_SECONDS: &str = "gis_fetch_duration_seconds";
 pub const GIS_BOUNDARIES_CACHED_TOTAL: &str = "gis_boundaries_cached_total";
 pub const GIS_TRAILS_CACHED_TOTAL: &str = "gis_trails_cached_total";
 pub const GIS_BATCH_DURATION_SECONDS: &str = "gis_batch_duration_seconds";
+pub const SYNC_LAST_COMPLETED_TIMESTAMP: &str = "sync_last_completed_timestamp";
+pub const SYNC_ERRORS_TOTAL: &str = "sync_errors_total";
 
 // ─── HTTP metric names ──────────────────────────────────────────────────────
 
@@ -26,6 +28,9 @@ pub const DB_POOL_SIZE: &str = "db_pool_size";
 // ─── RBN metric names ───────────────────────────────────────────────────────
 
 pub const RBN_SPOTS_BUFFERED: &str = "rbn_spots_buffered";
+pub const RBN_SPOTS_INGESTED_TOTAL: &str = "rbn_spots_ingested_total";
+pub const RBN_SPOT_SNR: &str = "rbn_spot_snr";
+pub const RBN_SPOT_WPM: &str = "rbn_spot_wpm";
 
 /// Install the Prometheus metrics exporter and return a handle for rendering.
 pub fn install() -> PrometheusHandle {

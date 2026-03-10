@@ -3,6 +3,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 
 use super::store::{freq_to_band, RbnSpot, SpotStore};
+use crate::metrics as app_metrics;
 
 const RBN_HOST: &str = "telnet.reversebeacon.net";
 const RBN_PORT: u16 = 7000;
@@ -37,6 +38,8 @@ async fn ingester_loop(store: SpotStore, callsign: String) {
             }
             Err(e) => {
                 tracing::error!("RBN ingester: connection error: {}", e);
+                metrics::counter!(app_metrics::SYNC_ERRORS_TOTAL, "aggregator" => "rbn_ingester")
+                    .increment(1);
             }
         }
 
@@ -116,6 +119,18 @@ async fn run_connection(
         match result {
             Ok(Ok(Some(line))) => {
                 if let Some(spot) = parse_spot_line(&line, store) {
+                    metrics::counter!(
+                        app_metrics::RBN_SPOTS_INGESTED_TOTAL,
+                        "mode" => spot.mode.clone(),
+                        "band" => spot.band.to_string()
+                    )
+                    .increment(1);
+                    metrics::histogram!(app_metrics::RBN_SPOT_SNR, "mode" => spot.mode.clone())
+                        .record(spot.snr as f64);
+                    if let Some(wpm) = spot.wpm {
+                        metrics::histogram!(app_metrics::RBN_SPOT_WPM)
+                            .record(wpm as f64);
+                    }
                     batch.push(spot);
                 }
 

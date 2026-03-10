@@ -1,11 +1,12 @@
 use std::io::Cursor;
 use std::sync::Arc;
 
-use chrono::NaiveDate;
+use chrono::{NaiveDate, Utc};
 use sqlx::PgPool;
 use tokio::sync::Semaphore;
 
 use crate::db::pota_stats;
+use crate::metrics as app_metrics;
 use crate::models::pota_stats::{
     PotaApiActivation, PotaApiLeaderboard, PotaApiStats, PotaCsvPark,
 };
@@ -41,6 +42,8 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: PotaStatsC
             }
             Err(e) => {
                 tracing::error!("POTA stats: catalog sync failed: {}, retrying in 60s", e);
+                metrics::counter!(app_metrics::SYNC_ERRORS_TOTAL, "aggregator" => "pota_stats")
+                    .increment(1);
                 tokio::time::sleep(std::time::Duration::from_secs(60)).await;
             }
         }
@@ -50,10 +53,13 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: PotaStatsC
 
     // Phase 2: Continuous batch fetching
     loop {
+        let batch_start = std::time::Instant::now();
         let total_parks = match pota_stats::count_parks(&pool).await {
             Ok(n) => n.max(1),
             Err(e) => {
                 tracing::error!("POTA stats: count_parks failed: {}", e);
+                metrics::counter!(app_metrics::SYNC_ERRORS_TOTAL, "aggregator" => "pota_stats")
+                    .increment(1);
                 tokio::time::sleep(std::time::Duration::from_secs(60)).await;
                 continue;
             }
@@ -75,6 +81,8 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: PotaStatsC
             Ok(rows) => rows,
             Err(e) => {
                 tracing::error!("POTA stats: get_stalest_parks failed: {}", e);
+                metrics::counter!(app_metrics::SYNC_ERRORS_TOTAL, "aggregator" => "pota_stats")
+                    .increment(1);
                 tokio::time::sleep(std::time::Duration::from_secs(60)).await;
                 continue;
             }
@@ -109,10 +117,14 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: PotaStatsC
                 Ok(Ok(())) => succeeded += 1,
                 Ok(Err(e)) => {
                     tracing::warn!("POTA stats: park fetch error: {}", e);
+                    metrics::counter!(app_metrics::SYNC_ERRORS_TOTAL, "aggregator" => "pota_stats")
+                        .increment(1);
                     failed += 1;
                 }
                 Err(e) => {
                     tracing::error!("POTA stats: task join error: {}", e);
+                    metrics::counter!(app_metrics::SYNC_ERRORS_TOTAL, "aggregator" => "pota_stats")
+                        .increment(1);
                     failed += 1;
                 }
             }
@@ -149,6 +161,12 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: PotaStatsC
                 _ => {}
             }
         }
+
+        // Record batch metrics
+        metrics::histogram!(app_metrics::GIS_BATCH_DURATION_SECONDS, "aggregator" => "pota_stats")
+            .record(batch_start.elapsed().as_secs_f64());
+        metrics::gauge!(app_metrics::SYNC_LAST_COMPLETED_TIMESTAMP, "aggregator" => "pota_stats")
+            .set(Utc::now().timestamp() as f64);
 
         // Phase 3: sleep between batches
         tokio::time::sleep(std::time::Duration::from_secs(sleep_secs)).await;

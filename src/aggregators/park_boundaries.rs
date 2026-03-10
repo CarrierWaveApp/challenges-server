@@ -92,6 +92,8 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: ParkBounda
             }
             Err(e) => {
                 tracing::error!("Park boundaries: get_unfetched_parks failed: {}", e);
+                metrics::counter!(app_metrics::SYNC_ERRORS_TOTAL, "aggregator" => "park_boundaries")
+                    .increment(1);
             }
         }
 
@@ -121,6 +123,8 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: ParkBounda
             }
             Err(e) => {
                 tracing::error!("Park boundaries: get_stale_boundaries failed: {}", e);
+                metrics::counter!(app_metrics::SYNC_ERRORS_TOTAL, "aggregator" => "park_boundaries")
+                    .increment(1);
             }
         }
 
@@ -129,6 +133,8 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: ParkBounda
         metrics::gauge!(app_metrics::GIS_BOUNDARIES_CACHED_TOTAL).set(new_total as f64);
         metrics::histogram!(app_metrics::GIS_BATCH_DURATION_SECONDS, "aggregator" => "park_boundaries")
             .record(batch_start.elapsed().as_secs_f64());
+        metrics::gauge!(app_metrics::SYNC_LAST_COMPLETED_TIMESTAMP, "aggregator" => "park_boundaries")
+            .set(chrono::Utc::now().timestamp() as f64);
 
         tracing::info!(
             "Park boundaries: sleeping {}h until next cycle",
