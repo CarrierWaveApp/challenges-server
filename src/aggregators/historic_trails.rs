@@ -12,7 +12,8 @@ use super::park_boundaries::merge_geojson_geometries;
 /// National Trails layer on the USGS National Map (MapServer layer 11).
 /// The old FeatureServer at services.arcgis.com was retired; this is the
 /// current authoritative source for National Historic/Scenic Trail geometries.
-const NPS_TRAILS_URL: &str = "https://carto.nationalmap.gov/arcgis/rest/services/transportation/MapServer/11";
+const NPS_TRAILS_URL: &str =
+    "https://carto.nationalmap.gov/arcgis/rest/services/transportation/MapServer/11";
 
 /// NTIR (NPS National Trails Intermountain Region) ArcGIS organization.
 /// Hosts per-trail Feature Services for trails not always in the USGS dataset.
@@ -62,7 +63,10 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: HistoricTr
                 tracing::info!("Historic trails: reset error counters for {} trails", n);
             }
             Err(e) => {
-                tracing::error!("Historic trails: reset_trail_consecutive_errors failed: {}", e);
+                tracing::error!(
+                    "Historic trails: reset_trail_consecutive_errors failed: {}",
+                    e
+                );
             }
             _ => {}
         }
@@ -103,10 +107,7 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: HistoricTr
         match historic_trails::get_stale_trails(&pool, config.stale_days, config.batch_size).await {
             Ok(stale) => {
                 if !stale.is_empty() {
-                    tracing::info!(
-                        "Historic trails: refreshing {} stale trails",
-                        stale.len()
-                    );
+                    tracing::info!("Historic trails: refreshing {} stale trails", stale.len());
                     let unfetched: Vec<UnfetchedTrail> = stale
                         .into_iter()
                         .map(|trail| UnfetchedTrail {
@@ -192,11 +193,7 @@ async fn fetch_batch(
                 cached += 1;
             }
             Ok((reference, name, FetchResult::NoMatch)) => {
-                tracing::info!(
-                    "Historic trails: {} '{}' -> no match",
-                    reference,
-                    name
-                );
+                tracing::info!("Historic trails: {} '{}' -> no match", reference, name);
                 if let Err(e) = historic_trails::increment_trail_errors(pool, &reference).await {
                     tracing::error!(
                         "Historic trails: failed to increment errors for {}: {}",
@@ -207,12 +204,7 @@ async fn fetch_batch(
                 no_match += 1;
             }
             Ok((reference, name, FetchResult::Error(e))) => {
-                tracing::warn!(
-                    "Historic trails: {} '{}' -> error: {}",
-                    reference,
-                    name,
-                    e
-                );
+                tracing::warn!("Historic trails: {} '{}' -> error: {}", reference, name, e);
                 if let Err(e2) = historic_trails::increment_trail_errors(pool, &reference).await {
                     tracing::error!(
                         "Historic trails: failed to increment errors for {}: {}",
@@ -412,10 +404,8 @@ fn merge_trail_features(features: Vec<NpsTrailFeature>) -> Option<NpsTrailFeatur
         return features.into_iter().next();
     }
 
-    let geometries: Vec<serde_json::Value> = features
-        .iter()
-        .filter_map(|f| f.geometry.clone())
-        .collect();
+    let geometries: Vec<serde_json::Value> =
+        features.iter().filter_map(|f| f.geometry.clone()).collect();
 
     if geometries.is_empty() {
         return None;

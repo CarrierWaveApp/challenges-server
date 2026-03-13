@@ -128,11 +128,10 @@ impl Config {
             .parse()
             .unwrap_or(false);
 
-        let polish_park_boundaries_batch_size: i64 =
-            env::var("POLISH_PARK_BOUNDARIES_BATCH_SIZE")
-                .unwrap_or_else(|_| "20".to_string())
-                .parse()
-                .unwrap_or(20);
+        let polish_park_boundaries_batch_size: i64 = env::var("POLISH_PARK_BOUNDARIES_BATCH_SIZE")
+            .unwrap_or_else(|_| "20".to_string())
+            .parse()
+            .unwrap_or(20);
 
         let polish_park_boundaries_cycle_hours: u64 =
             env::var("POLISH_PARK_BOUNDARIES_CYCLE_HOURS")
@@ -140,11 +139,10 @@ impl Config {
                 .parse()
                 .unwrap_or(24);
 
-        let polish_park_boundaries_stale_days: i64 =
-            env::var("POLISH_PARK_BOUNDARIES_STALE_DAYS")
-                .unwrap_or_else(|_| "90".to_string())
-                .parse()
-                .unwrap_or(90);
+        let polish_park_boundaries_stale_days: i64 = env::var("POLISH_PARK_BOUNDARIES_STALE_DAYS")
+            .unwrap_or_else(|_| "90".to_string())
+            .parse()
+            .unwrap_or(90);
 
         let polish_park_boundaries_concurrency: usize =
             env::var("POLISH_PARK_BOUNDARIES_CONCURRENCY")

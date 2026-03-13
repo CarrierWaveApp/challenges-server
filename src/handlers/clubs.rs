@@ -9,8 +9,8 @@ use crate::auth::AuthContext;
 use crate::db;
 use crate::error::AppError;
 use crate::models::club::{
-    ClubDetailResponse, ClubMemberResponse, ClubResponse, MemberOnlineStatus,
-    MemberStatusResponse, SpotInfo, UpdateClubNotesRequest,
+    ClubDetailResponse, ClubMemberResponse, ClubResponse, MemberOnlineStatus, MemberStatusResponse,
+    SpotInfo, UpdateClubNotesRequest,
 };
 
 use super::DataResponse;
@@ -203,10 +203,7 @@ pub async fn get_club_status(
                     spotted_at: spot.spotted_at,
                 }),
             )
-        } else if member
-            .last_seen_at
-            .is_some_and(|seen| seen > active_cutoff)
-        {
+        } else if member.last_seen_at.is_some_and(|seen| seen > active_cutoff) {
             (MemberOnlineStatus::RecentlyActive, None)
         } else {
             (MemberOnlineStatus::Inactive, None)

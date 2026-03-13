@@ -205,11 +205,7 @@ pub async fn add_members(
 }
 
 /// Remove a member from a club. Returns true if a row was deleted.
-pub async fn remove_member(
-    pool: &PgPool,
-    club_id: Uuid,
-    callsign: &str,
-) -> Result<bool, AppError> {
+pub async fn remove_member(pool: &PgPool, club_id: Uuid, callsign: &str) -> Result<bool, AppError> {
     let result = sqlx::query(
         r#"
         DELETE FROM club_members
@@ -296,10 +292,7 @@ pub async fn get_clubs_for_callsign(
 }
 
 /// Get a single club by ID.
-pub async fn get_club_detail(
-    pool: &PgPool,
-    club_id: Uuid,
-) -> Result<Option<Club>, AppError> {
+pub async fn get_club_detail(pool: &PgPool, club_id: Uuid) -> Result<Option<Club>, AppError> {
     let club = sqlx::query_as::<_, Club>(
         r#"
         SELECT id, name, callsign, description, notes_url, notes_title,

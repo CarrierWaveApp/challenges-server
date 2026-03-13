@@ -77,9 +77,7 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: PolishPark
                     let (cached, no_match, errors) =
                         fetch_batch(&pool, &client, &semaphore, parks).await;
 
-                    let new_total = park_boundaries::count_boundaries(&pool)
-                        .await
-                        .unwrap_or(0);
+                    let new_total = park_boundaries::count_boundaries(&pool).await.unwrap_or(0);
                     tracing::info!(
                         "Polish park boundaries: batch done — {} cached, {} no match, {} errors ({} total cached)",
                         cached,
@@ -125,10 +123,7 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: PolishPark
                 }
             }
             Err(e) => {
-                tracing::error!(
-                    "Polish park boundaries: get_stale_boundaries failed: {}",
-                    e
-                );
+                tracing::error!("Polish park boundaries: get_stale_boundaries failed: {}", e);
                 metrics::counter!(app_metrics::SYNC_ERRORS_TOTAL, "aggregator" => "polish_park_boundaries")
                     .increment(1);
             }
@@ -528,9 +523,6 @@ mod tests {
             "Some Reserve"
         );
         // Name without a recognized suffix stays unchanged
-        assert_eq!(
-            normalize_polish_park_name("Kampinoski"),
-            "Kampinoski"
-        );
+        assert_eq!(normalize_polish_park_name("Kampinoski"), "Kampinoski");
     }
 }

@@ -6,8 +6,8 @@ use crate::error::AppError;
 use crate::extractors::{Json, Path};
 use crate::models::pota_stats::{
     ActivatorRankingEntry, ActivatorRankingsResponse, ActivatorStatsQuery, ActivatorStatsResponse,
-    FreshnessInfo, HunterStatsQuery, HunterStatsResponse, ParkStatsResponse, PotaSyncStatusResponse,
-    QsosByMode, RankedCallsignResponse, RankingsQuery, StateStatsResponse,
+    FreshnessInfo, HunterStatsQuery, HunterStatsResponse, ParkStatsResponse,
+    PotaSyncStatusResponse, QsosByMode, RankedCallsignResponse, RankingsQuery, StateStatsResponse,
 };
 
 use super::DataResponse;
@@ -19,8 +19,9 @@ pub async fn get_activator_stats(
 ) -> Result<Json<DataResponse<ActivatorStatsResponse>>, AppError> {
     let callsign = params.callsign.to_uppercase();
 
-    let freshness: FreshnessInfo =
-        db::get_activator_freshness(&pool, params.state.as_deref()).await?.into();
+    let freshness: FreshnessInfo = db::get_activator_freshness(&pool, params.state.as_deref())
+        .await?
+        .into();
 
     // If mode filter is specified, rank by that mode
     if let Some(ref mode) = params.mode {
@@ -35,13 +36,9 @@ pub async fn get_activator_stats(
             }
         };
 
-        let row = db::get_activator_stats_by_mode(
-            &pool,
-            &callsign,
-            mode_column,
-            params.state.as_deref(),
-        )
-        .await?;
+        let row =
+            db::get_activator_stats_by_mode(&pool, &callsign, mode_column, params.state.as_deref())
+                .await?;
 
         match row {
             Some(r) => Ok(Json(DataResponse {
@@ -50,9 +47,21 @@ pub async fn get_activator_stats(
                     activation_count: 0,
                     total_qsos: r.mode_qsos,
                     qsos_by_mode: QsosByMode {
-                        cw: if mode_column == "qsos_cw" { r.mode_qsos } else { 0 },
-                        data: if mode_column == "qsos_data" { r.mode_qsos } else { 0 },
-                        phone: if mode_column == "qsos_phone" { r.mode_qsos } else { 0 },
+                        cw: if mode_column == "qsos_cw" {
+                            r.mode_qsos
+                        } else {
+                            0
+                        },
+                        data: if mode_column == "qsos_data" {
+                            r.mode_qsos
+                        } else {
+                            0
+                        },
+                        phone: if mode_column == "qsos_phone" {
+                            r.mode_qsos
+                        } else {
+                            0
+                        },
                     },
                     rank: r.rank,
                     total_ranked: r.total_ranked,
@@ -80,8 +89,7 @@ pub async fn get_activator_stats(
             })),
         }
     } else {
-        let row =
-            db::get_activator_stats(&pool, &callsign, params.state.as_deref()).await?;
+        let row = db::get_activator_stats(&pool, &callsign, params.state.as_deref()).await?;
 
         match row {
             Some(r) => Ok(Json(DataResponse {
@@ -129,8 +137,9 @@ pub async fn get_hunter_stats(
 ) -> Result<Json<DataResponse<HunterStatsResponse>>, AppError> {
     let callsign = params.callsign.to_uppercase();
 
-    let freshness: FreshnessInfo =
-        db::get_activator_freshness(&pool, params.state.as_deref()).await?.into();
+    let freshness: FreshnessInfo = db::get_activator_freshness(&pool, params.state.as_deref())
+        .await?
+        .into();
 
     let row = db::get_hunter_stats(&pool, &callsign, params.state.as_deref()).await?;
 
@@ -181,12 +190,11 @@ pub async fn get_state_stats(
             .map(Into::into)
             .collect();
 
-    let top_hunters: Vec<RankedCallsignResponse> =
-        db::get_state_top_hunters(&pool, &state, 10)
-            .await?
-            .into_iter()
-            .map(Into::into)
-            .collect();
+    let top_hunters: Vec<RankedCallsignResponse> = db::get_state_top_hunters(&pool, &state, 10)
+        .await?
+        .into_iter()
+        .map(Into::into)
+        .collect();
 
     Ok(Json(DataResponse {
         data: StateStatsResponse {
@@ -223,12 +231,11 @@ pub async fn get_park_stats(
             .map(Into::into)
             .collect();
 
-    let top_hunters: Vec<RankedCallsignResponse> =
-        db::get_park_top_hunters(&pool, &reference, 10)
-            .await?
-            .into_iter()
-            .map(Into::into)
-            .collect();
+    let top_hunters: Vec<RankedCallsignResponse> = db::get_park_top_hunters(&pool, &reference, 10)
+        .await?
+        .into_iter()
+        .map(Into::into)
+        .collect();
 
     Ok(Json(DataResponse {
         data: ParkStatsResponse {
@@ -258,8 +265,9 @@ pub async fn get_activator_rankings(
     let limit = params.limit.unwrap_or(25).clamp(1, 100);
     let offset = params.offset.unwrap_or(0).max(0);
 
-    let freshness: FreshnessInfo =
-        db::get_activator_freshness(&pool, params.state.as_deref()).await?.into();
+    let freshness: FreshnessInfo = db::get_activator_freshness(&pool, params.state.as_deref())
+        .await?
+        .into();
 
     let (rows, total_ranked) =
         db::get_activator_rankings(&pool, params.state.as_deref(), limit, offset).await?;
@@ -293,8 +301,7 @@ pub async fn get_activator_rankings(
 pub async fn get_sync_status(
     State(pool): State<PgPool>,
 ) -> Result<Json<DataResponse<PotaSyncStatusResponse>>, AppError> {
-    let freshness: FreshnessInfo =
-        db::get_activator_freshness(&pool, None).await?.into();
+    let freshness: FreshnessInfo = db::get_activator_freshness(&pool, None).await?.into();
 
     let parks_fetched = freshness.total_parks - freshness.parks_pending;
     let completion_percentage = if freshness.total_parks > 0 {

@@ -191,13 +191,14 @@ impl SpotStore {
 
         for spot in store.iter() {
             if spot.timestamp >= cutoff {
-                let entry = skimmer_data
-                    .entry(spot.spotter.clone())
-                    .or_insert_with(|| SkimmerAccum {
-                        spot_count: 0,
-                        last_spot: spot.timestamp,
-                        bands: Vec::new(),
-                    });
+                let entry =
+                    skimmer_data
+                        .entry(spot.spotter.clone())
+                        .or_insert_with(|| SkimmerAccum {
+                            spot_count: 0,
+                            last_spot: spot.timestamp,
+                            bands: Vec::new(),
+                        });
                 entry.spot_count += 1;
                 if spot.timestamp > entry.last_spot {
                     entry.last_spot = spot.timestamp;
@@ -302,7 +303,14 @@ mod tests {
     use super::*;
     use chrono::Duration;
 
-    fn make_spot(store: &SpotStore, callsign: &str, freq: f64, mode: &str, spotter: &str, age_secs: i64) -> RbnSpot {
+    fn make_spot(
+        store: &SpotStore,
+        callsign: &str,
+        freq: f64,
+        mode: &str,
+        spotter: &str,
+        age_secs: i64,
+    ) -> RbnSpot {
         RbnSpot {
             id: store.next_id(),
             callsign: callsign.to_string(),
@@ -371,8 +379,14 @@ mod tests {
         assert_eq!(store.len(), 1, "Old spot should have been evicted");
 
         let (total, spots) = store.query(&SpotFilter {
-            call: None, spotter: None, modes: None, band: None,
-            min_freq: None, max_freq: None, since: None, limit: None,
+            call: None,
+            spotter: None,
+            modes: None,
+            band: None,
+            min_freq: None,
+            max_freq: None,
+            since: None,
+            limit: None,
         });
         assert_eq!(total, 1);
         assert_eq!(spots[0].callsign, "N5XX");
@@ -424,7 +438,9 @@ mod tests {
         // Push old batch first, then a trigger batch
         store.push_batch(old_batch);
         // Old spots were added but next push will evict them
-        store.push_batch(vec![make_spot(&store, "TRIGGER", 14074.0, "FT8", "KM3T", 1)]);
+        store.push_batch(vec![make_spot(
+            &store, "TRIGGER", 14074.0, "FT8", "KM3T", 1,
+        )]);
         // Old spots from 2h ago should be evicted
         assert!(store.len() <= 10_101, "Store should not grow unbounded");
     }
@@ -442,8 +458,13 @@ mod tests {
 
         let (total, spots) = store.query(&SpotFilter {
             call: Some("w1aw".to_string()), // case insensitive
-            spotter: None, modes: None, band: None,
-            min_freq: None, max_freq: None, since: None, limit: None,
+            spotter: None,
+            modes: None,
+            band: None,
+            min_freq: None,
+            max_freq: None,
+            since: None,
+            limit: None,
         });
         assert_eq!(total, 2);
         assert!(spots.iter().all(|s| s.callsign == "W1AW"));
@@ -459,9 +480,14 @@ mod tests {
         ]);
 
         let (total, _) = store.query(&SpotFilter {
-            call: None, spotter: None,
+            call: None,
+            spotter: None,
             modes: Some(vec!["CW".to_string()]),
-            band: None, min_freq: None, max_freq: None, since: None, limit: None,
+            band: None,
+            min_freq: None,
+            max_freq: None,
+            since: None,
+            limit: None,
         });
         assert_eq!(total, 1);
     }
@@ -475,9 +501,14 @@ mod tests {
         ]);
 
         let (total, spots) = store.query(&SpotFilter {
-            call: None, spotter: None, modes: None,
+            call: None,
+            spotter: None,
+            modes: None,
             band: Some("20m".to_string()),
-            min_freq: None, max_freq: None, since: None, limit: None,
+            min_freq: None,
+            max_freq: None,
+            since: None,
+            limit: None,
         });
         assert_eq!(total, 1);
         assert_eq!(spots[0].band, "20m");
@@ -493,9 +524,14 @@ mod tests {
         ]);
 
         let (total, _) = store.query(&SpotFilter {
-            call: None, spotter: None, modes: None, band: None,
-            min_freq: Some(14000.0), max_freq: Some(14100.0),
-            since: None, limit: None,
+            call: None,
+            spotter: None,
+            modes: None,
+            band: None,
+            min_freq: Some(14000.0),
+            max_freq: Some(14100.0),
+            since: None,
+            limit: None,
         });
         assert_eq!(total, 2);
     }
@@ -505,13 +541,25 @@ mod tests {
         let store = SpotStore::new();
         let mut spots = Vec::new();
         for i in 0..50 {
-            spots.push(make_spot(&store, &format!("CALL{}", i), 14074.0, "FT8", "KM3T-#", 10));
+            spots.push(make_spot(
+                &store,
+                &format!("CALL{}", i),
+                14074.0,
+                "FT8",
+                "KM3T-#",
+                10,
+            ));
         }
         store.push_batch(spots);
 
         let (total, limited) = store.query(&SpotFilter {
-            call: None, spotter: None, modes: None, band: None,
-            min_freq: None, max_freq: None, since: None,
+            call: None,
+            spotter: None,
+            modes: None,
+            band: None,
+            min_freq: None,
+            max_freq: None,
+            since: None,
             limit: Some(10),
         });
         assert_eq!(total, 50);
@@ -588,8 +636,14 @@ mod tests {
             let mut queries = 0;
             for _ in 0..1000 {
                 let _ = store_reader.query(&SpotFilter {
-                    call: None, spotter: None, modes: None, band: None,
-                    min_freq: None, max_freq: None, since: None, limit: Some(10),
+                    call: None,
+                    spotter: None,
+                    modes: None,
+                    band: None,
+                    min_freq: None,
+                    max_freq: None,
+                    since: None,
+                    limit: Some(10),
                 });
                 queries += 1;
             }
@@ -598,7 +652,10 @@ mod tests {
 
         writer.join().unwrap();
         let queries = reader.join().unwrap();
-        assert_eq!(queries, 1000, "All queries should complete without deadlock");
+        assert_eq!(
+            queries, 1000,
+            "All queries should complete without deadlock"
+        );
     }
 
     // ── Connection status ───────────────────────────────────────────────────
@@ -620,7 +677,9 @@ mod tests {
         assert_eq!(len, 0);
         assert!(oldest.is_none());
 
-        store.push_batch(vec![make_spot(&store, "W1AW", 14074.0, "FT8", "KM3T-#", 100)]);
+        store.push_batch(vec![make_spot(
+            &store, "W1AW", 14074.0, "FT8", "KM3T-#", 100,
+        )]);
         let (len, oldest) = store.health_info();
         assert_eq!(len, 1);
         assert!(oldest.is_some());

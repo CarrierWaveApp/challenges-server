@@ -5,9 +5,8 @@ use crate::db::park_boundaries as db;
 use crate::error::AppError;
 use crate::extractors::{Json, Path};
 use crate::models::park_boundary::{
-    BoundariesMeta, BoundariesQuery, BoundariesResponse, BoundaryCountryStat,
-    BoundaryCountryStats, BoundaryFeature, BoundaryProperties, BoundaryStatusResponse,
-    ParkBoundaryRow,
+    BoundariesMeta, BoundariesQuery, BoundariesResponse, BoundaryCountryStat, BoundaryCountryStats,
+    BoundaryFeature, BoundaryProperties, BoundaryStatusResponse, ParkBoundaryRow,
 };
 
 use super::DataResponse;
@@ -151,7 +150,10 @@ pub async fn get_boundary_status(
         .map(|sc| (sc.source, sc.count))
         .collect();
 
-    let total_parks = status.total_us_parks + status.total_uk_parks + status.total_it_parks + status.total_pl_parks;
+    let total_parks = status.total_us_parks
+        + status.total_uk_parks
+        + status.total_it_parks
+        + status.total_pl_parks;
     let total_attempted = status.total_cached + status.no_match_count;
     let unfetched = total_parks - total_attempted;
     let completion_percentage = if total_parks > 0 {

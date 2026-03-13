@@ -46,7 +46,6 @@ pub fn spawn_aggregators(pool: PgPool, config: &Config) {
         });
         tracing::info!("SOTA aggregator started");
     }
-
 }
 
 /// Spawn the historic trails aggregator.

@@ -60,8 +60,7 @@ pub async fn http_metrics(req: Request<axum::body::Body>, next: Next) -> impl In
         .increment(1);
     metrics::histogram!(HTTP_REQUEST_DURATION_SECONDS, "method" => method.clone(), "path" => path.clone(), "status" => status)
         .record(elapsed);
-    metrics::gauge!(HTTP_REQUESTS_IN_FLIGHT, "method" => method, "path" => path)
-        .decrement(1.0);
+    metrics::gauge!(HTTP_REQUESTS_IN_FLIGHT, "method" => method, "path" => path).decrement(1.0);
 
     response
 }
@@ -73,7 +72,8 @@ pub fn spawn_pool_metrics(pool: sqlx::PgPool) {
         loop {
             interval.tick().await;
             metrics::gauge!(DB_POOL_SIZE).set(pool.size() as f64);
-            metrics::gauge!(DB_POOL_CONNECTIONS).set(pool.num_idle() as f64 + (pool.size() as f64 - pool.num_idle() as f64));
+            metrics::gauge!(DB_POOL_CONNECTIONS)
+                .set(pool.num_idle() as f64 + (pool.size() as f64 - pool.num_idle() as f64));
             metrics::gauge!(DB_POOL_IDLE_CONNECTIONS).set(pool.num_idle() as f64);
         }
     });

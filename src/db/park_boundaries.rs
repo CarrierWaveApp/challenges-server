@@ -184,11 +184,10 @@ pub async fn upsert_no_match(
 
 /// Count total cached boundaries (excludes no-match sentinel rows).
 pub async fn count_boundaries(pool: &PgPool) -> Result<i64, sqlx::Error> {
-    let row: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM park_boundaries WHERE match_quality != 'none'",
-    )
-    .fetch_one(pool)
-    .await?;
+    let row: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM park_boundaries WHERE match_quality != 'none'")
+            .fetch_one(pool)
+            .await?;
     Ok(row.0)
 }
 

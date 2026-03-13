@@ -7,9 +7,7 @@ use tokio::sync::Semaphore;
 
 use crate::db::pota_stats;
 use crate::metrics as app_metrics;
-use crate::models::pota_stats::{
-    PotaApiActivation, PotaApiLeaderboard, PotaApiStats, PotaCsvPark,
-};
+use crate::models::pota_stats::{PotaApiActivation, PotaApiLeaderboard, PotaApiStats, PotaCsvPark};
 
 const ALL_PARKS_CSV_URL: &str = "https://pota.app/all_parks_ext.csv";
 const POTA_API_BASE: &str = "https://api.pota.app";
@@ -256,11 +254,7 @@ async fn fetch_park_data(
             .await?;
         }
         Err(e) => {
-            tracing::warn!(
-                "POTA stats: /park/stats/{} failed: {}",
-                park_reference,
-                e
-            );
+            tracing::warn!("POTA stats: /park/stats/{} failed: {}", park_reference, e);
         }
     }
 
@@ -307,7 +301,11 @@ async fn fetch_park_data(
         }
         Err(e) => {
             let err_msg = format!("activations fetch failed: {}", e);
-            tracing::warn!("POTA stats: /park/activations/{}: {}", park_reference, err_msg);
+            tracing::warn!(
+                "POTA stats: /park/activations/{}: {}",
+                park_reference,
+                err_msg
+            );
             pota_stats::record_fetch_error(pool, park_reference, &err_msg).await?;
             false
         }
@@ -338,7 +336,11 @@ async fn fetch_park_data(
         }
         Err(e) => {
             let err_msg = format!("leaderboard fetch failed: {}", e);
-            tracing::warn!("POTA stats: /park/leaderboard/{}: {}", park_reference, err_msg);
+            tracing::warn!(
+                "POTA stats: /park/leaderboard/{}: {}",
+                park_reference,
+                err_msg
+            );
             if activations_ok {
                 // Only record error if activations succeeded (otherwise already recorded)
                 pota_stats::record_fetch_error(pool, park_reference, &err_msg).await?;

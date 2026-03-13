@@ -89,7 +89,8 @@ async fn run_connection(
                 "Connection closed during login (received {} bytes: {:?})",
                 login_received.len(),
                 &received[..received.len().min(100)]
-            ).into());
+            )
+            .into());
         }
 
         login_received.extend_from_slice(&login_buf[..n]);
@@ -128,8 +129,7 @@ async fn run_connection(
                     metrics::histogram!(app_metrics::RBN_SPOT_SNR, "mode" => spot.mode.clone())
                         .record(spot.snr as f64);
                     if let Some(wpm) = spot.wpm {
-                        metrics::histogram!(app_metrics::RBN_SPOT_WPM)
-                            .record(wpm as f64);
+                        metrics::histogram!(app_metrics::RBN_SPOT_WPM).record(wpm as f64);
                     }
                     batch.push(spot);
                 }
@@ -158,8 +158,8 @@ async fn run_connection(
                 if !batch.is_empty() {
                     store.push_batch(std::mem::take(&mut batch));
                 }
-                flush_deadline = tokio::time::Instant::now()
-                    + std::time::Duration::from_millis(BATCH_FLUSH_MS);
+                flush_deadline =
+                    tokio::time::Instant::now() + std::time::Duration::from_millis(BATCH_FLUSH_MS);
             }
         }
     }
@@ -216,10 +216,7 @@ fn parse_spot_line(line: &str, store: &SpotStore) -> Option<RbnSpot> {
         } else if fields[i].ends_with('Z') && fields[i].len() == 5 {
             time_str = Some(fields[i]);
             i += 1;
-        } else if matches!(
-            fields[i],
-            "CQ" | "DX" | "BEACON" | "NCDXF" | "DE" | "DXPED"
-        ) {
+        } else if matches!(fields[i], "CQ" | "DX" | "BEACON" | "NCDXF" | "DE" | "DXPED") {
             spot_type = Some(fields[i]);
             i += 1;
         } else {
@@ -240,10 +237,7 @@ fn parse_spot_line(line: &str, store: &SpotStore) -> Option<RbnSpot> {
     let timestamp = if let Some(ts) = time_str {
         let hhmm = &ts[..4];
         if let Ok(time) = NaiveTime::parse_from_str(hhmm, "%H%M") {
-            Utc::now()
-                .date_naive()
-                .and_time(time)
-                .and_utc()
+            Utc::now().date_naive().and_time(time).and_utc()
         } else {
             Utc::now()
         }
@@ -297,8 +291,7 @@ mod tests {
     #[test]
     fn test_parse_beacon_filtered() {
         let store = SpotStore::new();
-        let line =
-            "DX de KM3T-#:     14100.0  4U1UN          CW    30 dB  BEACON  1832Z";
+        let line = "DX de KM3T-#:     14100.0  4U1UN          CW    30 dB  BEACON  1832Z";
         let spot = parse_spot_line(line, &store);
         assert!(spot.is_none(), "BEACON spots should be filtered out");
     }
@@ -386,8 +379,8 @@ mod tests {
             let mut buf_reader = BufReader::new(reader);
 
             // Replicate the login logic from run_connection
-            let login_deadline = tokio::time::Instant::now()
-                + std::time::Duration::from_secs(LOGIN_TIMEOUT_SECS);
+            let login_deadline =
+                tokio::time::Instant::now() + std::time::Duration::from_secs(LOGIN_TIMEOUT_SECS);
 
             let mut login_buf = [0u8; 256];
             let mut login_received = Vec::new();

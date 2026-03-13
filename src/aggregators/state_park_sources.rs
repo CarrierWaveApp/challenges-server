@@ -159,10 +159,8 @@ fn merge_features(features: Vec<ArcGisFeature>) -> Option<ArcGisFeature> {
         return features.into_iter().next();
     }
 
-    let geometries: Vec<serde_json::Value> = features
-        .iter()
-        .filter_map(|f| f.geometry.clone())
-        .collect();
+    let geometries: Vec<serde_json::Value> =
+        features.iter().filter_map(|f| f.geometry.clone()).collect();
 
     if geometries.is_empty() {
         return None;

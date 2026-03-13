@@ -505,10 +505,7 @@ pub async fn get_state_top_hunters(
 }
 
 /// Get freshness info for a state scope.
-pub async fn get_state_freshness(
-    pool: &PgPool,
-    state: &str,
-) -> Result<FreshnessRow, AppError> {
+pub async fn get_state_freshness(pool: &PgPool, state: &str) -> Result<FreshnessRow, AppError> {
     let row = sqlx::query_as::<_, FreshnessRow>(
         r#"
         SELECT

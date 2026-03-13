@@ -40,10 +40,7 @@ pub enum AppError {
     ClubNotFound { club_id: Uuid },
 
     #[error("Club member not found")]
-    ClubMemberNotFound {
-        club_id: Uuid,
-        callsign: String,
-    },
+    ClubMemberNotFound { club_id: Uuid, callsign: String },
 
     #[error("Park not found")]
     ParkNotFound { reference: String },

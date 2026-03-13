@@ -1,14 +1,14 @@
 pub mod activities;
 pub mod badges;
-pub mod pota_stats;
 pub mod challenges;
 pub mod clubs;
 pub mod friend_invites;
 pub mod friend_requests;
-pub mod invites;
 pub mod historic_trails;
+pub mod invites;
 pub mod park_boundaries;
 pub mod participants;
+pub mod pota_stats;
 pub mod programs;
 pub mod progress;
 pub mod spots;

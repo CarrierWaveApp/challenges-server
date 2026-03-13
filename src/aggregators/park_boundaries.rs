@@ -14,7 +14,8 @@ const PADUS_URL: &str = "https://services.arcgis.com/v01gqwM5QqNysAAi/arcgis/res
 const NATURAL_ENGLAND_URL: &str = "https://services.arcgis.com/JJzESW51TqeY9uat/ArcGIS/rest/services/National_Parks_England/FeatureServer/0";
 
 /// WDPA (World Database on Protected Areas) ArcGIS FeatureServer for international parks.
-const WDPA_URL: &str = "https://services5.arcgis.com/Mj0hjvkNtV7NRhA7/arcgis/rest/services/WDPA_v0/FeatureServer/0";
+const WDPA_URL: &str =
+    "https://services5.arcgis.com/Mj0hjvkNtV7NRhA7/arcgis/rest/services/WDPA_v0/FeatureServer/0";
 
 /// Which data source to use for a given park.
 enum DataSource {
@@ -79,9 +80,7 @@ pub async fn poll_loop(pool: PgPool, client: reqwest::Client, config: ParkBounda
                     let (cached, no_match, errors) =
                         fetch_batch(&pool, &client, &semaphore, parks).await;
 
-                    let new_total = park_boundaries::count_boundaries(&pool)
-                        .await
-                        .unwrap_or(0);
+                    let new_total = park_boundaries::count_boundaries(&pool).await.unwrap_or(0);
                     tracing::info!(
                         "Park boundaries: batch done — {} cached, {} no match, {} errors ({} total cached)",
                         cached,
@@ -171,9 +170,13 @@ async fn fetch_batch(
 
             // Record no-match sentinel so the park doesn't block the queue
             if matches!(result, FetchResult::NoMatch) {
-                if let Err(e) =
-                    park_boundaries::upsert_no_match(&pool, &park.reference, &park.name, source_label)
-                        .await
+                if let Err(e) = park_boundaries::upsert_no_match(
+                    &pool,
+                    &park.reference,
+                    &park.name,
+                    source_label,
+                )
+                .await
                 {
                     tracing::error!(
                         "Park boundaries: {} failed to record no-match: {}",
@@ -222,12 +225,7 @@ async fn fetch_batch(
                 no_match += 1;
             }
             Ok((reference, name, _location_desc, FetchResult::Error(e))) => {
-                tracing::warn!(
-                    "Park boundaries: {} '{}' -> error: {}",
-                    reference,
-                    name,
-                    e
-                );
+                tracing::warn!("Park boundaries: {} '{}' -> error: {}", reference, name, e);
                 errors += 1;
             }
             Err(e) => {
@@ -333,8 +331,7 @@ async fn fetch_boundary_padus(
             if let (Some(lat), Some(lon)) = (park.latitude, park.longitude) {
                 match state_park_sources::query_by_point(client, source, lon, lat).await {
                     Ok(Some(feature)) => {
-                        save_feature(pool, park, &feature, "spatial", source.source_label)
-                            .await?;
+                        save_feature(pool, park, &feature, "spatial", source.source_label).await?;
                         return Ok(Some("spatial".to_string()));
                     }
                     Ok(None) => {}
@@ -392,10 +389,7 @@ async fn query_padus_by_name(
 
     // Strategy A: exact match on full park name
     let escaped_full = full_name.replace('\'', "''");
-    let where_full = format!(
-        "Loc_Nm = '{}' AND State_Nm = '{}'",
-        escaped_full, state
-    );
+    let where_full = format!("Loc_Nm = '{}' AND State_Nm = '{}'", escaped_full, state);
     let url_full = format!(
         "{}/query?where={}&outFields={}&f=geojson&outSR=4326",
         PADUS_URL,
@@ -438,14 +432,38 @@ fn designation_filter_for_name(name: &str) -> Option<&'static str> {
     let lower = name.to_lowercase();
     // Order matters — check longer suffixes first
     let mappings: &[(&str, &str)] = &[
-        ("national wildlife refuge", "AND (Des_Tp IN ('NWR','MPA','WA') OR Mang_Name = 'FWS')"),
-        ("national park and preserve", "AND (Des_Tp IN ('NP','NPRE','WA') OR Mang_Name = 'NPS')"),
-        ("national park", "AND (Des_Tp IN ('NP','NPRE','WA') OR Mang_Name = 'NPS')"),
-        ("national forest", "AND (Des_Tp = 'NF' OR Mang_Name = 'USFS')"),
-        ("national recreation area", "AND (Des_Tp = 'NRA' OR Mang_Name IN ('NPS','USFS','BLM'))"),
-        ("national monument", "AND (Des_Tp IN ('NM','NME') OR Mang_Name IN ('NPS','BLM'))"),
-        ("national seashore", "AND (Des_Tp IN ('NS','NLS') OR Mang_Name = 'NPS')"),
-        ("national lakeshore", "AND (Des_Tp IN ('NL','NLS') OR Mang_Name = 'NPS')"),
+        (
+            "national wildlife refuge",
+            "AND (Des_Tp IN ('NWR','MPA','WA') OR Mang_Name = 'FWS')",
+        ),
+        (
+            "national park and preserve",
+            "AND (Des_Tp IN ('NP','NPRE','WA') OR Mang_Name = 'NPS')",
+        ),
+        (
+            "national park",
+            "AND (Des_Tp IN ('NP','NPRE','WA') OR Mang_Name = 'NPS')",
+        ),
+        (
+            "national forest",
+            "AND (Des_Tp = 'NF' OR Mang_Name = 'USFS')",
+        ),
+        (
+            "national recreation area",
+            "AND (Des_Tp = 'NRA' OR Mang_Name IN ('NPS','USFS','BLM'))",
+        ),
+        (
+            "national monument",
+            "AND (Des_Tp IN ('NM','NME') OR Mang_Name IN ('NPS','BLM'))",
+        ),
+        (
+            "national seashore",
+            "AND (Des_Tp IN ('NS','NLS') OR Mang_Name = 'NPS')",
+        ),
+        (
+            "national lakeshore",
+            "AND (Des_Tp IN ('NL','NLS') OR Mang_Name = 'NPS')",
+        ),
         ("state park", "AND Des_Tp = 'SP'"),
         ("state forest", "AND Des_Tp = 'SF'"),
         ("state recreation area", "AND Des_Tp IN ('SRMA','SCA')"),
@@ -611,10 +629,7 @@ async fn query_wdpa_by_name(
     iso3: &str,
 ) -> Result<Option<ArcGisFeature>, Box<dyn std::error::Error + Send + Sync>> {
     let escaped_name = search_name.replace('\'', "''");
-    let where_clause = format!(
-        "NAME LIKE '%{}%' AND ISO3 = '{}'",
-        escaped_name, iso3
-    );
+    let where_clause = format!("NAME LIKE '%{}%' AND ISO3 = '{}'", escaped_name, iso3);
 
     let url = format!(
         "{}/query?where={}&outFields=NAME,DESIG_ENG,DESIG,IUCN_CAT,REP_AREA,ISO3&f=geojson&outSR=4326",
@@ -730,10 +745,8 @@ fn merge_arcgis_features(features: Vec<ArcGisFeature>) -> Option<ArcGisFeature> 
         return features.into_iter().next();
     }
 
-    let geometries: Vec<serde_json::Value> = features
-        .iter()
-        .filter_map(|f| f.geometry.clone())
-        .collect();
+    let geometries: Vec<serde_json::Value> =
+        features.iter().filter_map(|f| f.geometry.clone()).collect();
 
     if geometries.is_empty() {
         return None;
@@ -889,7 +902,10 @@ mod tests {
 
     #[test]
     fn test_normalize_park_name_us_suffixes() {
-        assert_eq!(normalize_park_name("Yellowstone National Park"), "Yellowstone");
+        assert_eq!(
+            normalize_park_name("Yellowstone National Park"),
+            "Yellowstone"
+        );
         assert_eq!(
             normalize_park_name("Denali National Park and Preserve"),
             "Denali"
@@ -915,7 +931,10 @@ mod tests {
             normalize_park_name("Bob Marshall Wilderness Area"),
             "Bob Marshall"
         );
-        assert_eq!(normalize_park_name("Bob Marshall Wilderness"), "Bob Marshall");
+        assert_eq!(
+            normalize_park_name("Bob Marshall Wilderness"),
+            "Bob Marshall"
+        );
     }
 
     #[test]
@@ -1157,30 +1176,51 @@ mod tests {
             ArcGisFeature {
                 properties: Some(ArcGisAttributes {
                     loc_nm: Some("Test NWR".to_string()),
-                    unit_nm: None, mang_name: Some("FWS".to_string()),
-                    des_tp: Some("NWR".to_string()), gis_acres: Some(1000.0),
+                    unit_nm: None,
+                    mang_name: Some("FWS".to_string()),
+                    des_tp: Some("NWR".to_string()),
+                    gis_acres: Some(1000.0),
                     feat_class: Some("Designation".to_string()),
-                    name: None, area_ha: None, desig_eng: None, desig: None,
-                    iucn_cat: None, rep_area: None, iso3: None,
+                    name: None,
+                    area_ha: None,
+                    desig_eng: None,
+                    desig: None,
+                    iucn_cat: None,
+                    rep_area: None,
+                    iso3: None,
                 }),
-                geometry: Some(serde_json::json!({"type": "Polygon", "coordinates": [[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 0.0]]]})),
+                geometry: Some(
+                    serde_json::json!({"type": "Polygon", "coordinates": [[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 0.0]]]}),
+                ),
             },
             ArcGisFeature {
                 properties: Some(ArcGisAttributes {
                     loc_nm: Some("Test NWR".to_string()),
-                    unit_nm: None, mang_name: Some("FWS".to_string()),
-                    des_tp: Some("NWR".to_string()), gis_acres: Some(500.0),
+                    unit_nm: None,
+                    mang_name: Some("FWS".to_string()),
+                    des_tp: Some("NWR".to_string()),
+                    gis_acres: Some(500.0),
                     feat_class: Some("Fee".to_string()),
-                    name: None, area_ha: None, desig_eng: None, desig: None,
-                    iucn_cat: None, rep_area: None, iso3: None,
+                    name: None,
+                    area_ha: None,
+                    desig_eng: None,
+                    desig: None,
+                    iucn_cat: None,
+                    rep_area: None,
+                    iso3: None,
                 }),
-                geometry: Some(serde_json::json!({"type": "Polygon", "coordinates": [[[2.0, 2.0], [3.0, 2.0], [3.0, 3.0], [2.0, 2.0]]]})),
+                geometry: Some(
+                    serde_json::json!({"type": "Polygon", "coordinates": [[[2.0, 2.0], [3.0, 2.0], [3.0, 3.0], [2.0, 2.0]]]}),
+                ),
             },
         ];
 
         let merged = merge_padus_features(features).unwrap();
         assert_eq!(merged.properties.as_ref().unwrap().gis_acres, Some(1500.0));
-        assert_eq!(merged.geometry.as_ref().unwrap()["type"], "GeometryCollection");
+        assert_eq!(
+            merged.geometry.as_ref().unwrap()["type"],
+            "GeometryCollection"
+        );
     }
 
     #[test]
@@ -1193,12 +1233,22 @@ mod tests {
         let feature = ArcGisFeature {
             properties: Some(ArcGisAttributes {
                 loc_nm: Some("Test".to_string()),
-                unit_nm: None, mang_name: None, des_tp: None,
-                gis_acres: Some(100.0), feat_class: None,
-                name: None, area_ha: None, desig_eng: None, desig: None,
-                iucn_cat: None, rep_area: None, iso3: None,
+                unit_nm: None,
+                mang_name: None,
+                des_tp: None,
+                gis_acres: Some(100.0),
+                feat_class: None,
+                name: None,
+                area_ha: None,
+                desig_eng: None,
+                desig: None,
+                iucn_cat: None,
+                rep_area: None,
+                iso3: None,
             }),
-            geometry: Some(serde_json::json!({"type": "Polygon", "coordinates": [[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 0.0]]]})),
+            geometry: Some(
+                serde_json::json!({"type": "Polygon", "coordinates": [[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 0.0]]]}),
+            ),
         };
         let merged = merge_padus_features(vec![feature]).unwrap();
         // Single feature returned as-is, not wrapped in GeometryCollection

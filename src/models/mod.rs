@@ -4,14 +4,14 @@ pub mod challenge;
 pub mod club;
 pub mod friend_invite;
 pub mod friend_request;
+pub mod historic_trail;
 pub mod invite;
+pub mod park_boundary;
 pub mod participant;
+pub mod pota_stats;
 pub mod program;
 pub mod progress;
 pub mod spot;
-pub mod historic_trail;
-pub mod park_boundary;
-pub mod pota_stats;
 pub mod user;
 
 pub use activity::*;

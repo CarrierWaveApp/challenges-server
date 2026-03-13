@@ -281,7 +281,10 @@ pub async fn import_notes_members(
         .filter_map(|line| {
             let trimmed = line.trim();
             // First token is the callsign
-            trimmed.split_whitespace().next().map(|cs| cs.to_uppercase())
+            trimmed
+                .split_whitespace()
+                .next()
+                .map(|cs| cs.to_uppercase())
         })
         .collect();
 

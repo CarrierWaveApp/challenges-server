@@ -132,16 +132,10 @@ fn create_router(
         .route("/health", get(handlers::health_check))
         .route("/users/search", get(handlers::search_users))
         .route("/register", post(handlers::register))
-        .route(
-            "/pota/stats/activator",
-            get(handlers::get_activator_stats),
-        )
+        .route("/pota/stats/activator", get(handlers::get_activator_stats))
         .route("/pota/stats/hunter", get(handlers::get_hunter_stats))
         .route("/pota/stats/state/:state", get(handlers::get_state_stats))
-        .route(
-            "/pota/stats/park/:reference",
-            get(handlers::get_park_stats),
-        )
+        .route("/pota/stats/park/:reference", get(handlers::get_park_stats))
         .route(
             "/pota/stats/rankings/activators",
             get(handlers::get_activator_rankings),
@@ -152,10 +146,7 @@ fn create_router(
             "/parks/boundaries/status",
             get(handlers::get_boundary_status),
         )
-        .route(
-            "/parks/boundaries/:reference",
-            get(handlers::get_boundary),
-        )
+        .route("/parks/boundaries/:reference", get(handlers::get_boundary))
         .route("/trails", get(handlers::get_trails))
         .route("/trails/status", get(handlers::get_trail_status))
         .route("/trails/:reference", get(handlers::get_trail))
@@ -264,10 +255,7 @@ fn create_router(
             delete(handlers::remove_club_member).put(handlers::update_club_member_role),
         )
         .route("/admin/spots/:id", delete(handlers::admin_delete_spot))
-        .route(
-            "/admin/trails/status",
-            get(handlers::get_trail_status),
-        )
+        .route("/admin/trails/status", get(handlers::get_trail_status))
         .layer(middleware::from_fn_with_state(
             config.admin_token,
             auth::require_admin,
