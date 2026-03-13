@@ -1,0 +1,83 @@
+name: Deploy
+
+on:
+  release:
+    types: [published]
+
+  # Allow manual trigger for rollbacks or re-deploys
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release tag to deploy (e.g. v0.4.39)"
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "tag=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout Ansible repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.ANSIBLE_REPO }}  # e.g. CarrierWaveApp/infrastructure
+          ssh-key: ${{ secrets.ANSIBLE_REPO_DEPLOY_KEY }}
+          path: ansible
+
+      - name: Install Ansible
+        run: pip install ansible
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Run Ansible playbook
+        working-directory: ansible
+        run: |
+          ansible-playbook playbook.yml \
+            -i inventory/production.ini \
+            --extra-vars "release_version=${{ steps.version.outputs.tag }}" \
+            --extra-vars "github_repo=${{ github.repository }}"
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "false"
+
+      - name: Smoke test
+        run: |
+          for i in $(seq 1 15); do
+            if curl -sf "${{ vars.PRODUCTION_URL }}/v1/health" > /dev/null 2>&1; then
+              echo "Health check passed"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Health check failed after 30s"
+          exit 1
+
+      - name: Annotate Grafana deploy
+        if: success()
+        run: |
+          curl -sf -X POST "${{ secrets.GRAFANA_URL }}/api/annotations" \
+            -H "Authorization: Bearer ${{ secrets.GRAFANA_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"text\": \"Deploy ${{ steps.version.outputs.tag }}\",
+              \"tags\": [\"deploy\", \"challenges-server\"]
+            }"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Deployment of ${{ steps.version.outputs.tag }} failed!"
+          # Add Slack/Discord webhook notification here if desired
