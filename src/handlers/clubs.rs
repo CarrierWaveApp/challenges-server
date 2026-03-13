@@ -126,7 +126,7 @@ pub async fn get_club_activity(
         return Err(AppError::Forbidden);
     }
 
-    let limit = params.limit.unwrap_or(20).min(100).max(1);
+    let limit = params.limit.unwrap_or(20).clamp(1, 100);
 
     // Parse cursor (ISO 8601 timestamp)
     let cursor = params.cursor.as_deref().and_then(|s| {

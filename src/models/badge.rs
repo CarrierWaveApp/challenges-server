@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, FromRow)]
 pub struct Badge {
     pub id: Uuid,
@@ -14,6 +15,7 @@ pub struct Badge {
     pub created_at: DateTime<Utc>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, FromRow)]
 pub struct BadgeMetadata {
     pub id: Uuid,
@@ -48,6 +50,7 @@ impl BadgeMetadata {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateBadgeFields {

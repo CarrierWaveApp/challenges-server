@@ -1,6 +1,7 @@
 // src/config.rs
 use std::env;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Config {
     pub database_url: String,

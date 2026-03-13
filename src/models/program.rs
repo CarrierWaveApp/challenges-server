@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
 /// Database row for the programs table.
+#[allow(dead_code)]
 #[derive(Debug, Clone, FromRow)]
 pub struct ProgramRow {
     pub slug: String,

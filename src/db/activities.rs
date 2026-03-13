@@ -65,7 +65,7 @@ pub async fn get_feed_for_user(
     limit: i64,
     before: Option<DateTime<Utc>>,
 ) -> Result<Vec<FeedItemRow>, AppError> {
-    let limit = limit.min(100).max(1);
+    let limit = limit.clamp(1, 100);
 
     let rows = if let Some(cursor) = before {
         sqlx::query_as::<_, FeedItemRow>(

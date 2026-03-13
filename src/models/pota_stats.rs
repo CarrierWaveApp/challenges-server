@@ -7,6 +7,7 @@ use sqlx::FromRow;
 // ---------------------------------------------------------------------------
 
 /// Response from GET /park/stats/{ref}
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct PotaApiStats {
     pub reference: String,
@@ -46,6 +47,7 @@ pub struct PotaApiLeaderboard {
 }
 
 /// Single row from the all_parks_ext.csv
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct PotaCsvPark {
     pub reference: String,
@@ -68,6 +70,7 @@ pub struct PotaCsvPark {
 // Database row types
 // ---------------------------------------------------------------------------
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, FromRow)]
 pub struct PotaParkRow {
     pub reference: String,
@@ -86,6 +89,7 @@ pub struct PotaParkRow {
     pub updated_at: DateTime<Utc>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, FromRow)]
 pub struct PotaActivationRow {
     pub id: i64,
@@ -99,6 +103,7 @@ pub struct PotaActivationRow {
     pub state: Option<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, FromRow)]
 pub struct PotaHunterQsoRow {
     pub id: i64,

@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, FromRow)]
 pub struct Participant {
     pub id: Uuid,
@@ -13,6 +14,7 @@ pub struct Participant {
     pub last_seen_at: DateTime<Utc>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, FromRow)]
 pub struct ChallengeParticipant {
     pub id: Uuid,

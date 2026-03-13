@@ -8,6 +8,7 @@ use uuid::Uuid;
 // ---------------------------------------------------------------------------
 
 /// Database row for the clubs table.
+#[allow(dead_code)]
 #[derive(Debug, Clone, FromRow)]
 pub struct Club {
     pub id: Uuid,
@@ -21,6 +22,7 @@ pub struct Club {
 }
 
 /// Database row for the club_members table.
+#[allow(dead_code)]
 #[derive(Debug, Clone, FromRow)]
 pub struct ClubMember {
     pub id: Uuid,

@@ -48,6 +48,7 @@ pub async fn get_or_create_participant(
     Ok((participant, true))
 }
 
+#[allow(dead_code)]
 pub async fn get_participant_by_token(
     pool: &PgPool,
     token: &str,
@@ -171,6 +172,7 @@ pub async fn leave_challenge(
     Ok(result.rows_affected() > 0)
 }
 
+#[allow(dead_code)]
 pub async fn revoke_tokens(pool: &PgPool, callsign: &str) -> Result<u64, AppError> {
     let callsign_upper = callsign.to_uppercase();
 

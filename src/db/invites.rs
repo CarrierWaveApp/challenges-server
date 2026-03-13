@@ -62,6 +62,7 @@ pub async fn list_invites(pool: &PgPool, challenge_id: Uuid) -> Result<Vec<Invit
     Ok(invites)
 }
 
+#[allow(dead_code)]
 pub async fn get_invite(pool: &PgPool, token: &str) -> Result<Option<InviteToken>, AppError> {
     let invite = sqlx::query_as::<_, InviteToken>(
         r#"

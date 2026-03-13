@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::NaiveDate;
 use sqlx::PgPool;
 
 use crate::error::AppError;
@@ -12,6 +12,7 @@ use crate::models::pota_stats::{
 // ---------------------------------------------------------------------------
 
 /// Upsert a park from the CSV catalog.
+#[allow(clippy::too_many_arguments)]
 pub async fn upsert_park(
     pool: &PgPool,
     reference: &str,
@@ -140,6 +141,7 @@ pub async fn update_park_stats(
 }
 
 /// Upsert a single activation record.
+#[allow(clippy::too_many_arguments)]
 pub async fn upsert_activation(
     pool: &PgPool,
     park_reference: &str,

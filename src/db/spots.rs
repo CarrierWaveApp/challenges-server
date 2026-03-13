@@ -122,6 +122,7 @@ pub async fn insert_self_spot(
 }
 
 /// Get a single spot by ID.
+#[allow(dead_code)]
 pub async fn get_spot(pool: &PgPool, spot_id: Uuid) -> Result<Option<SpotRow>, AppError> {
     let row = sqlx::query_as::<_, SpotRow>(
         r#"

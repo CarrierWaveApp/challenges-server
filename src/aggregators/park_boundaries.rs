@@ -206,7 +206,7 @@ async fn fetch_batch(
 
     for handle in handles {
         match handle.await {
-            Ok((reference, name, location_desc, FetchResult::Cached(quality))) => {
+            Ok((reference, name, _location_desc, FetchResult::Cached(quality))) => {
                 tracing::info!(
                     "Park boundaries: {} '{}' -> cached ({})",
                     reference,

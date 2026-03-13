@@ -101,6 +101,7 @@ pub async fn get_trails_by_bbox_simplified(
 }
 
 /// Upsert a historic trail from NPS data.
+#[allow(clippy::too_many_arguments)]
 pub async fn upsert_trail(
     pool: &PgPool,
     trail_reference: &str,
@@ -262,6 +263,7 @@ pub struct TrailStatusRow {
     pub newest_fetch: Option<chrono::DateTime<chrono::Utc>>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, sqlx::FromRow)]
 pub struct UnfetchedTrail {
     pub reference: String,
@@ -271,6 +273,7 @@ pub struct UnfetchedTrail {
     pub ntir_service: Option<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, sqlx::FromRow)]
 pub struct StaleTrail {
     pub reference: String,

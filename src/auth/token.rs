@@ -15,6 +15,7 @@ pub fn generate_device_token() -> String {
     format!("{}{}", TOKEN_PREFIX, token)
 }
 
+#[allow(dead_code)]
 pub fn is_valid_token_format(token: &str) -> bool {
     if !token.starts_with(TOKEN_PREFIX) {
         return false;

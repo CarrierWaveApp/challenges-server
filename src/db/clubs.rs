@@ -10,6 +10,7 @@ use crate::models::club::{Club, ClubMember};
 // ---------------------------------------------------------------------------
 
 /// Club row with member count for list views.
+#[allow(dead_code)]
 #[derive(Debug, Clone, FromRow)]
 pub struct ClubWithCount {
     pub id: Uuid,
@@ -35,6 +36,7 @@ pub struct EnrichedClubMember {
 }
 
 /// Activity row with the originating callsign (for club activity feeds).
+#[allow(dead_code)]
 #[derive(Debug, Clone, FromRow)]
 pub struct ActivityWithCallsign {
     pub id: Uuid,
@@ -342,7 +344,7 @@ pub async fn get_club_activity(
     cursor: Option<DateTime<Utc>>,
     limit: i64,
 ) -> Result<Vec<ActivityWithCallsign>, AppError> {
-    let limit = limit.min(100).max(1);
+    let limit = limit.clamp(1, 100);
 
     let rows = if let Some(before) = cursor {
         sqlx::query_as::<_, ActivityWithCallsign>(

@@ -18,6 +18,7 @@ pub enum SpotSource {
 }
 
 /// Database row for the spots table.
+#[allow(dead_code)]
 #[derive(Debug, Clone, FromRow)]
 pub struct SpotRow {
     pub id: Uuid,

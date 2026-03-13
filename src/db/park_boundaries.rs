@@ -103,6 +103,7 @@ pub async fn get_boundaries_by_bbox_simplified(
 }
 
 /// Upsert a park boundary from ArcGIS data.
+#[allow(clippy::too_many_arguments)]
 pub async fn upsert_boundary(
     pool: &PgPool,
     pota_reference: &str,

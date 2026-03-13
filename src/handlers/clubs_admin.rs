@@ -308,7 +308,7 @@ pub async fn import_notes_members(
         .filter(|cs| !existing_callsigns.contains(cs))
         .collect();
 
-    let skipped = existing_callsigns.len().saturating_sub(0); // existing that overlap
+    let _skipped = existing_callsigns.len().saturating_sub(0); // existing that overlap
     let imported = new_callsigns.len();
 
     if !new_callsigns.is_empty() {

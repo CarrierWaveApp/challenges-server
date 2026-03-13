@@ -48,6 +48,7 @@ pub async fn delete_activity(
     Ok(StatusCode::NO_CONTENT)
 }
 
+#[allow(dead_code)]
 #[derive(serde::Deserialize)]
 pub struct FeedQuery {
     pub limit: Option<i64>,
@@ -78,7 +79,7 @@ pub async fn get_feed(
 ) -> Result<Json<DataResponse<FeedResponse>>, AppError> {
     let user = db::get_or_create_user(&pool, &auth.callsign).await?;
 
-    let limit = params.limit.unwrap_or(50).min(100).max(1);
+    let limit = params.limit.unwrap_or(50).clamp(1, 100);
 
     // Parse cursor (ISO 8601 timestamp)
     let before = params.before.as_deref().and_then(|s| {

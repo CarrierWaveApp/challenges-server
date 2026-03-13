@@ -14,15 +14,12 @@ pub mod progress;
 pub mod spot;
 pub mod user;
 
-pub use activity::*;
 pub use badge::*;
 pub use challenge::*;
-pub use club::*;
 pub use friend_invite::*;
 pub use friend_request::*;
 pub use invite::*;
 pub use participant::*;
 pub use program::*;
 pub use progress::*;
-pub use spot::*;
 pub use user::*;

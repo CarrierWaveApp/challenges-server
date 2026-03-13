@@ -98,8 +98,7 @@ impl SpotStore {
             .iter()
             .rev() // newest first
             .filter(|s| s.timestamp >= cutoff)
-            .cloned()
-            .filter(|s| {
+            .filter(|&s| {
                 if let Some(ref call) = filter.call {
                     s.callsign.eq_ignore_ascii_case(call)
                 } else {
@@ -141,6 +140,7 @@ impl SpotStore {
                     true
                 }
             })
+            .cloned()
             .collect();
 
         let total = matching.len();

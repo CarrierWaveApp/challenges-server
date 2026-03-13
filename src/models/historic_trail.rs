@@ -99,6 +99,7 @@ pub struct NpsTrailFeature {
     pub geometry: Option<serde_json::Value>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct NpsTrailAttributes {
     #[serde(

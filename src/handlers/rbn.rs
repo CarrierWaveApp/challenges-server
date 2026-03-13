@@ -58,7 +58,7 @@ pub async fn rbn_stats(
     Extension(store): Extension<SpotStore>,
     Query(q): Query<StatsQuery>,
 ) -> Result<Json<crate::rbn::store::StatsResult>, AppError> {
-    let minutes = q.minutes.unwrap_or(60).min(60).max(1);
+    let minutes = q.minutes.unwrap_or(60).clamp(1, 60);
     Ok(Json(store.stats(minutes)))
 }
 
@@ -72,7 +72,7 @@ pub async fn rbn_skimmers(
     Extension(store): Extension<SpotStore>,
     Query(q): Query<SkimmersQuery>,
 ) -> Result<Json<crate::rbn::store::SkimmersResult>, AppError> {
-    let minutes = q.minutes.unwrap_or(60).min(60).max(1);
+    let minutes = q.minutes.unwrap_or(60).clamp(1, 60);
     let limit = q.limit.unwrap_or(100);
     Ok(Json(store.skimmers(minutes, limit)))
 }

@@ -4,6 +4,7 @@ use uuid::Uuid;
 use crate::error::AppError;
 use crate::models::User;
 
+#[allow(dead_code)]
 pub async fn get_user_by_callsign(pool: &PgPool, callsign: &str) -> Result<Option<User>, AppError> {
     let user = sqlx::query_as::<_, User>(
         r#"

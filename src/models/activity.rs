@@ -4,6 +4,7 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 /// Database row for an activity.
+#[allow(dead_code)]
 #[derive(Debug, Clone, FromRow)]
 pub struct Activity {
     pub id: Uuid,

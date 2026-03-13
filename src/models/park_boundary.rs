@@ -113,6 +113,7 @@ pub struct WfsFeature {
     pub geometry: Option<serde_json::Value>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct WfsProperties {
     /// Name of the protected area
@@ -140,6 +141,7 @@ pub struct ArcGisFeature {
     pub geometry: Option<serde_json::Value>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ArcGisAttributes {

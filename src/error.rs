@@ -7,6 +7,7 @@ use axum::{
 use serde::Serialize;
 use uuid::Uuid;
 
+#[allow(dead_code)]
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
     #[error("Challenge not found")]

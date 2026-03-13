@@ -103,6 +103,7 @@ pub async fn mark_invite_used(
     Ok(invite)
 }
 
+#[allow(dead_code)]
 pub async fn cleanup_expired_invites(pool: &PgPool) -> Result<u64, AppError> {
     let result = sqlx::query(
         r#"

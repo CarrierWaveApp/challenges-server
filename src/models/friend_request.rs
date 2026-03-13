@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, FromRow)]
 pub struct FriendRequest {
     pub id: Uuid,
@@ -13,6 +14,7 @@ pub struct FriendRequest {
     pub responded_at: Option<DateTime<Utc>>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, FromRow)]
 pub struct FriendRequestWithCallsigns {
     pub id: Uuid,
@@ -60,6 +62,7 @@ pub struct CreateFriendRequestBody {
     pub invite_token: Option<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, FromRow)]
 pub struct Friendship {
     pub id: Uuid,
