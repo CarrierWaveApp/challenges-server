@@ -147,3 +147,46 @@ jobs:
         env:
           BASE_URL: http://localhost:8080
           ADMIN_TOKEN: e2e-admin-token
+
+  # Report pipeline metrics to Grafana Cloud after all jobs complete
+  report-metrics:
+    runs-on: ubuntu-latest
+    needs: [lint, test, e2e]
+    if: always()
+    steps:
+      - name: Report CI metrics to Grafana Cloud
+        if: vars.GRAFANA_METRICS_URL != ''
+        run: |
+          TIMESTAMP=$(date +%s)
+          BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          RESULT="success"
+          if [ "${{ needs.lint.result }}" != "success" ] || \
+             [ "${{ needs.test.result }}" != "success" ] || \
+             [ "${{ needs.e2e.result }}" != "success" ]; then
+            RESULT="failure"
+          fi
+
+          # Push metrics via Prometheus remote write (Influx line protocol)
+          # These appear in Grafana Cloud under the ci_* metric namespace
+          curl -sf -X POST "${{ vars.GRAFANA_METRICS_URL }}/api/v1/push/influx/write" \
+            -H "Authorization: Bearer ${{ secrets.GRAFANA_METRICS_TOKEN }}" \
+            -H "Content-Type: text/plain" \
+            --data-binary "$(cat <<METRICS
+          ci_pipeline_duration_seconds,repo=${{ github.repository }},branch=${BRANCH},result=${RESULT},event=${{ github.event_name }} value=${{ github.run_number }} ${TIMESTAMP}
+          ci_pipeline_runs_total,repo=${{ github.repository }},branch=${BRANCH},result=${RESULT},event=${{ github.event_name }} value=1 ${TIMESTAMP}
+          ci_lint_result,repo=${{ github.repository }},branch=${BRANCH} value=$([ "${{ needs.lint.result }}" = "success" ] && echo 1 || echo 0) ${TIMESTAMP}
+          ci_test_result,repo=${{ github.repository }},branch=${BRANCH} value=$([ "${{ needs.test.result }}" = "success" ] && echo 1 || echo 0) ${TIMESTAMP}
+          ci_e2e_result,repo=${{ github.repository }},branch=${BRANCH} value=$([ "${{ needs.e2e.result }}" = "success" ] && echo 1 || echo 0) ${TIMESTAMP}
+          METRICS
+          )" || echo "Warning: Failed to push CI metrics to Grafana (non-fatal)"
+
+      - name: Annotate Grafana on main branch failure
+        if: failure() && github.ref == 'refs/heads/main' && vars.GRAFANA_URL != ''
+        run: |
+          curl -sf -X POST "${{ vars.GRAFANA_URL }}/api/annotations" \
+            -H "Authorization: Bearer ${{ secrets.GRAFANA_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"text\": \"CI failure on main: ${{ github.run_id }}\",
+              \"tags\": [\"ci\", \"failure\", \"challenges-server\"]
+            }" || echo "Warning: Failed to post Grafana annotation (non-fatal)"

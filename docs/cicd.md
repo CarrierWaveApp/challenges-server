@@ -113,10 +113,31 @@ Your existing playbook should accept these extra vars and handle:
 
 ### Grafana integration
 
-The server already exports Prometheus metrics on `/metrics`. Two integration points:
+The server already exports Prometheus metrics on `/metrics`. Three integration points:
 
-1. **Metrics scraping** — Configure Grafana Cloud (or Grafana Alloy/Agent running on your server) to scrape `/metrics`. This is a one-time setup outside the pipeline.
-2. **Deploy annotations** — The deploy workflow posts an annotation to Grafana on each successful deploy, marking the timestamp on your dashboards. Requires `GRAFANA_URL` and `GRAFANA_API_KEY` secrets.
+1. **Runtime metrics scraping** — Configure Grafana Cloud (or Grafana Alloy/Agent running on your server) to scrape `/metrics`. This is a one-time setup outside the pipeline.
+2. **Deploy annotations** — The deploy workflow posts an annotation to Grafana on each successful deploy, marking the timestamp on your dashboards.
+3. **CI pipeline metrics** — The CI workflow pushes pipeline stats to Grafana Cloud after every run via the Influx line protocol endpoint.
+
+### CI pipeline metrics sent to Grafana
+
+The `report-metrics` job in the CI workflow pushes the following metrics after every pipeline run:
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `ci_pipeline_runs_total` | Counter | repo, branch, result, event | Pipeline run count (success/failure) |
+| `ci_pipeline_duration_seconds` | Gauge | repo, branch, result, event | Pipeline run number (for correlation) |
+| `ci_lint_result` | Gauge | repo, branch | 1 = pass, 0 = fail |
+| `ci_test_result` | Gauge | repo, branch | 1 = pass, 0 = fail |
+| `ci_e2e_result` | Gauge | repo, branch | 1 = pass, 0 = fail |
+
+On main branch failures, it also posts a Grafana annotation tagged `ci, failure` so failures appear on your dashboards.
+
+**Suggested Grafana dashboard panels:**
+- Pipeline success rate over time (from `ci_pipeline_runs_total`)
+- Per-stage pass/fail breakdown (lint/test/e2e)
+- Deploy frequency and annotations overlay
+- CI failure alerts (triggered by `ci_*_result == 0` on main)
 
 ## Required Secrets
 
@@ -125,8 +146,8 @@ The server already exports Prometheus metrics on `/metrics`. Two integration poi
 | `DEPLOY_SSH_KEY` | Deploy workflow | SSH key for Ansible to reach production server |
 | `DEPLOY_HOST` | Deploy workflow | Target server hostname/IP (for SSH keyscan + smoke test) |
 | `ANSIBLE_REPO_DEPLOY_KEY` | Deploy workflow | SSH deploy key to clone the Ansible repo |
-| `GRAFANA_API_KEY` | Deploy workflow | Post deploy annotations to Grafana Cloud |
-| `GRAFANA_URL` | Deploy workflow | Grafana Cloud instance URL |
+| `GRAFANA_API_KEY` | Deploy + CI | Post deploy/failure annotations to Grafana Cloud |
+| `GRAFANA_METRICS_TOKEN` | CI workflow | Push pipeline metrics to Grafana Cloud |
 | `ADMIN_TOKEN` | E2E tests | Admin endpoint testing (hardcoded in CI env) |
 
 ### Required Repository Variables
@@ -135,6 +156,8 @@ The server already exports Prometheus metrics on `/metrics`. Two integration poi
 |----------|---------|---------|
 | `ANSIBLE_REPO` | Deploy workflow | Ansible repo (e.g. `CarrierWaveApp/infrastructure`) |
 | `PRODUCTION_URL` | Deploy workflow | Production base URL for smoke test |
+| `GRAFANA_URL` | Deploy + CI | Grafana Cloud instance URL (for annotations) |
+| `GRAFANA_METRICS_URL` | CI workflow | Grafana Cloud metrics push endpoint |
 
 ## File inventory
 

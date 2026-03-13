@@ -54,6 +54,32 @@ delete() {
     "${@:2}"
 }
 
+put() {
+  local path="$1"
+  shift
+  curl -s -o /dev/null -w "%{http_code}" -X PUT "$BASE_URL$path" \
+    -H "Content-Type: application/json" "$@"
+}
+
+put_json() {
+  local path="$1"
+  shift
+  curl -sf -X PUT "$BASE_URL$path" \
+    -H "Content-Type: application/json" "$@"
+}
+
+get_auth() {
+  local path="$1"
+  shift
+  curl -s -o /dev/null -w "%{http_code}" "$BASE_URL$path" "$@"
+}
+
+get_auth_json() {
+  local path="$1"
+  shift
+  curl -sf "$BASE_URL$path" "$@"
+}
+
 admin_header=(-H "Authorization: Bearer $ADMIN_TOKEN")
 
 # ── Health ───────────────────────────────────────────────────────────────────
@@ -159,6 +185,176 @@ assert_status "DELETE /v1/admin/challenges/$challenge_id (admin)" 200 "$admin_de
 # Verify deleted
 assert_status "GET /v1/challenges/$challenge_id (after delete)" 404 \
   "$(get "/v1/challenges/$challenge_id")"
+
+# ── Club CRUD lifecycle ──────────────────────────────────────────────────────
+
+echo "=== Club lifecycle ==="
+
+# Create a club
+club_response=$(post_json /v1/admin/clubs \
+  "${admin_header[@]}" \
+  -d '{
+    "name": "E2E Test Club",
+    "description": "Created by e2e tests"
+  }')
+
+club_id=$(echo "$club_response" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+if [ -n "$club_id" ]; then
+  echo "  PASS: Created club $club_id"
+  PASS=$((PASS + 1))
+else
+  echo "  FAIL: Could not create club"
+  FAIL=$((FAIL + 1))
+fi
+
+# List clubs
+assert_status "GET /v1/admin/clubs" 200 \
+  "$(get_auth /v1/admin/clubs "${admin_header[@]}")"
+
+# Update club
+if [ -n "$club_id" ]; then
+  update_status=$(put "/v1/admin/clubs/$club_id" \
+    "${admin_header[@]}" \
+    -d '{"name": "E2E Updated Club", "description": "Updated"}')
+  assert_status "PUT /v1/admin/clubs/$club_id" 200 "$update_status"
+
+  # Add members to the club
+  add_members_status=$(post "/v1/admin/clubs/$club_id/members" \
+    "${admin_header[@]}" \
+    -d '{"callsigns": ["W1AW", "N5XX", "K1ABC"]}')
+  assert_status "POST /v1/admin/clubs/$club_id/members" 200 "$add_members_status"
+
+  # List club members
+  assert_status "GET /v1/admin/clubs/$club_id/members" 200 \
+    "$(get_auth "/v1/admin/clubs/$club_id/members" "${admin_header[@]}")"
+
+  # Update member role
+  role_status=$(put "/v1/admin/clubs/$club_id/members/W1AW" \
+    "${admin_header[@]}" \
+    -d '{"role": "admin"}')
+  assert_status "PUT /v1/admin/clubs/$club_id/members/W1AW (role)" 200 "$role_status"
+
+  # Remove a member
+  remove_member_status=$(delete "/v1/admin/clubs/$club_id/members/K1ABC" "${admin_header[@]}")
+  assert_status "DELETE /v1/admin/clubs/$club_id/members/K1ABC" 200 "$remove_member_status"
+
+  # Delete club
+  delete_club_status=$(delete "/v1/admin/clubs/$club_id" "${admin_header[@]}")
+  assert_status "DELETE /v1/admin/clubs/$club_id" 200 "$delete_club_status"
+fi
+
+# Club admin auth (no token)
+assert_status "GET /v1/admin/clubs (no auth)" 401 "$(get /v1/admin/clubs)"
+
+# ── Social / Friends lifecycle ──────────────────────────────────────────────
+
+echo "=== Social / Friends ==="
+
+# Create two users by joining a challenge, so we have device tokens
+# First, create a challenge for this test
+social_challenge=$(post_json /v1/admin/challenges \
+  "${admin_header[@]}" \
+  -d '{
+    "name": "Social Test Challenge",
+    "description": "For friend tests",
+    "challenge_type": "dxcc_entities",
+    "target_count": 5,
+    "start_date": "2025-01-01T00:00:00Z",
+    "end_date": "2026-12-31T23:59:59Z"
+  }')
+social_challenge_id=$(echo "$social_challenge" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+if [ -n "$social_challenge_id" ]; then
+  # User A joins
+  join_a=$(post_json "/v1/challenges/$social_challenge_id/join" \
+    -d '{"callsign": "E2EUSER1"}')
+  token_a=$(echo "$join_a" | grep -o '"device_token":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+  # User B joins
+  join_b=$(post_json "/v1/challenges/$social_challenge_id/join" \
+    -d '{"callsign": "E2EUSER2"}')
+  token_b=$(echo "$join_b" | grep -o '"device_token":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+  if [ -n "$token_a" ] && [ -n "$token_b" ]; then
+    auth_a=(-H "Authorization: Bearer $token_a")
+    auth_b=(-H "Authorization: Bearer $token_b")
+
+    # Get invite link for User A
+    invite_link_status=$(get_auth /v1/friends/invite-link "${auth_a[@]}")
+    assert_status "GET /v1/friends/invite-link (User A)" 200 "$invite_link_status"
+
+    invite_response=$(get_auth_json /v1/friends/invite-link "${auth_a[@]}")
+    invite_token=$(echo "$invite_response" | grep -o '"token":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+    if [ -n "$invite_token" ]; then
+      echo "  PASS: Got invite token for User A"
+      PASS=$((PASS + 1))
+
+      # User B creates friend request via invite token
+      friend_req_status=$(post "/v1/friends/requests" \
+        "${auth_b[@]}" \
+        -d "{\"inviteToken\": \"$invite_token\"}")
+      assert_status "POST /v1/friends/requests (User B via invite)" 200 "$friend_req_status"
+    else
+      echo "  FAIL: No invite token returned"
+      FAIL=$((FAIL + 1))
+    fi
+
+    # List pending requests for User A
+    pending_status=$(get_auth /v1/friends/requests/pending "${auth_a[@]}")
+    assert_status "GET /v1/friends/requests/pending (User A)" 200 "$pending_status"
+
+    # List friends (should be empty or have the new friend if auto-accepted)
+    friends_status=$(get_auth /v1/friends "${auth_a[@]}")
+    assert_status "GET /v1/friends (User A)" 200 "$friends_status"
+  else
+    echo "  FAIL: Could not create test users for social tests"
+    FAIL=$((FAIL + 1))
+  fi
+
+  # Cleanup: delete social test challenge
+  delete "/v1/admin/challenges/$social_challenge_id" "${admin_header[@]}" > /dev/null 2>&1
+fi
+
+# Friends endpoints require auth
+assert_status "GET /v1/friends/invite-link (no auth)" 401 "$(get /v1/friends/invite-link)"
+assert_status "GET /v1/friends (no auth)" 401 "$(get /v1/friends)"
+
+# ── RBN endpoints ───────────────────────────────────────────────────────────
+
+echo "=== RBN endpoints ==="
+assert_status "GET /v1/rbn/spots" 200 "$(get /v1/rbn/spots)"
+assert_status "GET /v1/rbn/stats" 200 "$(get /v1/rbn/stats)"
+assert_status "GET /v1/rbn/skimmers" 200 "$(get /v1/rbn/skimmers)"
+
+# Verify RBN spots response shape
+rbn_spots=$(get_json /v1/rbn/spots)
+if echo "$rbn_spots" | grep -q '"spots"'; then
+  echo "  PASS: RBN spots response has 'spots' field"
+  PASS=$((PASS + 1))
+else
+  echo "  FAIL: RBN spots response missing 'spots' field"
+  FAIL=$((FAIL + 1))
+fi
+
+rbn_stats=$(get_json /v1/rbn/stats)
+if echo "$rbn_stats" | grep -q '"total_spots"'; then
+  echo "  PASS: RBN stats response has 'total_spots' field"
+  PASS=$((PASS + 1))
+else
+  echo "  FAIL: RBN stats response missing 'total_spots' field"
+  FAIL=$((FAIL + 1))
+fi
+
+# ── GIS endpoints ───────────────────────────────────────────────────────────
+
+echo "=== GIS endpoints ==="
+assert_status "GET /v1/parks/boundaries (no params)" 200 \
+  "$(get '/v1/parks/boundaries?refs=US-0001')"
+assert_status "GET /v1/trails (no params)" 200 \
+  "$(get '/v1/trails?refs=NHT-LC')"
+assert_status "GET /v1/trails/status" 200 "$(get /v1/trails/status)"
 
 # ── Results ──────────────────────────────────────────────────────────────────
 

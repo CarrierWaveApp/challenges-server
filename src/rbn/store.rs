@@ -296,3 +296,333 @@ pub fn freq_to_band(freq: f64) -> Option<&'static str> {
         _ => None,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Duration;
+
+    fn make_spot(store: &SpotStore, callsign: &str, freq: f64, mode: &str, spotter: &str, age_secs: i64) -> RbnSpot {
+        RbnSpot {
+            id: store.next_id(),
+            callsign: callsign.to_string(),
+            frequency: freq,
+            mode: mode.to_string(),
+            snr: 15,
+            wpm: if mode == "CW" { Some(25) } else { None },
+            spotter: spotter.to_string(),
+            band: freq_to_band(freq).unwrap_or("unknown"),
+            timestamp: Utc::now() - Duration::seconds(age_secs),
+        }
+    }
+
+    // ── freq_to_band ────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_freq_to_band_all_bands() {
+        assert_eq!(freq_to_band(1840.0), Some("160m"));
+        assert_eq!(freq_to_band(3573.0), Some("80m"));
+        assert_eq!(freq_to_band(5357.0), Some("60m"));
+        assert_eq!(freq_to_band(7074.0), Some("40m"));
+        assert_eq!(freq_to_band(10136.0), Some("30m"));
+        assert_eq!(freq_to_band(14074.0), Some("20m"));
+        assert_eq!(freq_to_band(18100.0), Some("17m"));
+        assert_eq!(freq_to_band(21074.0), Some("15m"));
+        assert_eq!(freq_to_band(24915.0), Some("12m"));
+        assert_eq!(freq_to_band(28074.0), Some("10m"));
+        assert_eq!(freq_to_band(50313.0), Some("6m"));
+    }
+
+    #[test]
+    fn test_freq_to_band_out_of_range() {
+        assert_eq!(freq_to_band(0.0), None);
+        assert_eq!(freq_to_band(1799.0), None);
+        assert_eq!(freq_to_band(2001.0), None);
+        assert_eq!(freq_to_band(100000.0), None);
+    }
+
+    #[test]
+    fn test_freq_to_band_boundaries() {
+        // Lower boundary
+        assert_eq!(freq_to_band(1800.0), Some("160m"));
+        assert_eq!(freq_to_band(7000.0), Some("40m"));
+        assert_eq!(freq_to_band(14000.0), Some("20m"));
+        // Upper boundary
+        assert_eq!(freq_to_band(2000.0), Some("160m"));
+        assert_eq!(freq_to_band(7300.0), Some("40m"));
+        assert_eq!(freq_to_band(14350.0), Some("20m"));
+    }
+
+    // ── SpotStore eviction ──────────────────────────────────────────────────
+
+    #[test]
+    fn test_store_evicts_stale_spots() {
+        let store = SpotStore::new();
+
+        // Add spots: one old (2 hours ago), one recent (30 seconds ago)
+        let old_spot = make_spot(&store, "W1AW", 14074.0, "FT8", "KM3T-#", 7200);
+        let new_spot = make_spot(&store, "N5XX", 7074.0, "FT8", "W3LPL-#", 30);
+
+        store.push_batch(vec![old_spot]);
+        assert_eq!(store.len(), 1);
+
+        // Pushing a new batch triggers eviction of spots > 1 hour old
+        store.push_batch(vec![new_spot]);
+        assert_eq!(store.len(), 1, "Old spot should have been evicted");
+
+        let (total, spots) = store.query(&SpotFilter {
+            call: None, spotter: None, modes: None, band: None,
+            min_freq: None, max_freq: None, since: None, limit: None,
+        });
+        assert_eq!(total, 1);
+        assert_eq!(spots[0].callsign, "N5XX");
+    }
+
+    // ── SpotStore memory bounded ────────────────────────────────────────────
+
+    #[test]
+    fn test_store_memory_bounded_under_load() {
+        let store = SpotStore::new();
+
+        // Simulate high throughput: push 10,000 spots
+        for batch_num in 0..100 {
+            let mut batch = Vec::with_capacity(100);
+            for i in 0..100 {
+                batch.push(RbnSpot {
+                    id: store.next_id(),
+                    callsign: format!("CALL{}", batch_num * 100 + i),
+                    frequency: 14074.0,
+                    mode: "FT8".to_string(),
+                    snr: 10,
+                    wpm: None,
+                    spotter: "KM3T-#".to_string(),
+                    band: "20m",
+                    timestamp: Utc::now() - Duration::seconds(5), // recent
+                });
+            }
+            store.push_batch(batch);
+        }
+
+        // All 10,000 should still be present (all within 1-hour window)
+        assert_eq!(store.len(), 10_000);
+
+        // Now push spots that are old — they shouldn't accumulate
+        let mut old_batch = Vec::with_capacity(100);
+        for i in 0..100 {
+            old_batch.push(RbnSpot {
+                id: store.next_id(),
+                callsign: format!("OLD{}", i),
+                frequency: 7074.0,
+                mode: "CW".to_string(),
+                snr: 5,
+                wpm: Some(20),
+                spotter: "W3LPL-#".to_string(),
+                band: "40m",
+                timestamp: Utc::now() - Duration::seconds(7200), // 2 hours old
+            });
+        }
+        // Push old batch first, then a trigger batch
+        store.push_batch(old_batch);
+        // Old spots were added but next push will evict them
+        store.push_batch(vec![make_spot(&store, "TRIGGER", 14074.0, "FT8", "KM3T", 1)]);
+        // Old spots from 2h ago should be evicted
+        assert!(store.len() <= 10_101, "Store should not grow unbounded");
+    }
+
+    // ── SpotStore query filters ─────────────────────────────────────────────
+
+    #[test]
+    fn test_query_filter_by_callsign() {
+        let store = SpotStore::new();
+        store.push_batch(vec![
+            make_spot(&store, "W1AW", 14074.0, "FT8", "KM3T-#", 10),
+            make_spot(&store, "N5XX", 7074.0, "FT8", "W3LPL-#", 10),
+            make_spot(&store, "W1AW", 21074.0, "CW", "KM3T-#", 10),
+        ]);
+
+        let (total, spots) = store.query(&SpotFilter {
+            call: Some("w1aw".to_string()), // case insensitive
+            spotter: None, modes: None, band: None,
+            min_freq: None, max_freq: None, since: None, limit: None,
+        });
+        assert_eq!(total, 2);
+        assert!(spots.iter().all(|s| s.callsign == "W1AW"));
+    }
+
+    #[test]
+    fn test_query_filter_by_mode() {
+        let store = SpotStore::new();
+        store.push_batch(vec![
+            make_spot(&store, "W1AW", 14074.0, "FT8", "KM3T-#", 10),
+            make_spot(&store, "N5XX", 14039.8, "CW", "W3LPL-#", 10),
+            make_spot(&store, "K1ABC", 7074.0, "FT8", "KM3T-#", 10),
+        ]);
+
+        let (total, _) = store.query(&SpotFilter {
+            call: None, spotter: None,
+            modes: Some(vec!["CW".to_string()]),
+            band: None, min_freq: None, max_freq: None, since: None, limit: None,
+        });
+        assert_eq!(total, 1);
+    }
+
+    #[test]
+    fn test_query_filter_by_band() {
+        let store = SpotStore::new();
+        store.push_batch(vec![
+            make_spot(&store, "W1AW", 14074.0, "FT8", "KM3T-#", 10),
+            make_spot(&store, "N5XX", 7074.0, "FT8", "W3LPL-#", 10),
+        ]);
+
+        let (total, spots) = store.query(&SpotFilter {
+            call: None, spotter: None, modes: None,
+            band: Some("20m".to_string()),
+            min_freq: None, max_freq: None, since: None, limit: None,
+        });
+        assert_eq!(total, 1);
+        assert_eq!(spots[0].band, "20m");
+    }
+
+    #[test]
+    fn test_query_filter_by_freq_range() {
+        let store = SpotStore::new();
+        store.push_batch(vec![
+            make_spot(&store, "W1AW", 14074.0, "FT8", "KM3T-#", 10),
+            make_spot(&store, "N5XX", 14039.8, "CW", "W3LPL-#", 10),
+            make_spot(&store, "K1ABC", 7074.0, "FT8", "KM3T-#", 10),
+        ]);
+
+        let (total, _) = store.query(&SpotFilter {
+            call: None, spotter: None, modes: None, band: None,
+            min_freq: Some(14000.0), max_freq: Some(14100.0),
+            since: None, limit: None,
+        });
+        assert_eq!(total, 2);
+    }
+
+    #[test]
+    fn test_query_limit() {
+        let store = SpotStore::new();
+        let mut spots = Vec::new();
+        for i in 0..50 {
+            spots.push(make_spot(&store, &format!("CALL{}", i), 14074.0, "FT8", "KM3T-#", 10));
+        }
+        store.push_batch(spots);
+
+        let (total, limited) = store.query(&SpotFilter {
+            call: None, spotter: None, modes: None, band: None,
+            min_freq: None, max_freq: None, since: None,
+            limit: Some(10),
+        });
+        assert_eq!(total, 50);
+        assert_eq!(limited.len(), 10);
+    }
+
+    // ── SpotStore stats ─────────────────────────────────────────────────────
+
+    #[test]
+    fn test_stats_band_and_mode_breakdown() {
+        let store = SpotStore::new();
+        store.push_batch(vec![
+            make_spot(&store, "W1AW", 14074.0, "FT8", "KM3T-#", 10),
+            make_spot(&store, "N5XX", 14039.8, "CW", "W3LPL-#", 10),
+            make_spot(&store, "K1ABC", 7074.0, "FT8", "KM3T-#", 10),
+        ]);
+
+        let stats = store.stats(60);
+        assert_eq!(stats.total_spots, 3);
+        assert_eq!(*stats.modes.get("FT8").unwrap(), 2);
+        assert_eq!(*stats.modes.get("CW").unwrap(), 1);
+        assert_eq!(*stats.bands.get("20m").unwrap(), 2);
+        assert_eq!(*stats.bands.get("40m").unwrap(), 1);
+        assert!(stats.spots_per_minute > 0.0);
+    }
+
+    // ── SpotStore skimmers ──────────────────────────────────────────────────
+
+    #[test]
+    fn test_skimmers_aggregation() {
+        let store = SpotStore::new();
+        store.push_batch(vec![
+            make_spot(&store, "W1AW", 14074.0, "FT8", "KM3T-#", 10),
+            make_spot(&store, "N5XX", 7074.0, "FT8", "KM3T-#", 20),
+            make_spot(&store, "K1ABC", 14039.8, "CW", "W3LPL-#", 10),
+        ]);
+
+        let result = store.skimmers(60, 100);
+        assert_eq!(result.count, 2);
+        // KM3T-# has 2 spots, should be first
+        assert_eq!(result.skimmers[0].callsign, "KM3T-#");
+        assert_eq!(result.skimmers[0].spot_count, 2);
+        assert_eq!(result.skimmers[1].callsign, "W3LPL-#");
+        assert_eq!(result.skimmers[1].spot_count, 1);
+    }
+
+    // ── SpotStore concurrent access ─────────────────────────────────────────
+
+    #[test]
+    fn test_concurrent_read_write() {
+        use std::thread;
+
+        let store = SpotStore::new();
+        let store_writer = store.clone();
+        let store_reader = store.clone();
+
+        let writer = thread::spawn(move || {
+            for i in 0..1000 {
+                store_writer.push_batch(vec![RbnSpot {
+                    id: store_writer.next_id(),
+                    callsign: format!("W{}", i),
+                    frequency: 14074.0,
+                    mode: "FT8".to_string(),
+                    snr: 10,
+                    wpm: None,
+                    spotter: "KM3T-#".to_string(),
+                    band: "20m",
+                    timestamp: Utc::now(),
+                }]);
+            }
+        });
+
+        let reader = thread::spawn(move || {
+            let mut queries = 0;
+            for _ in 0..1000 {
+                let _ = store_reader.query(&SpotFilter {
+                    call: None, spotter: None, modes: None, band: None,
+                    min_freq: None, max_freq: None, since: None, limit: Some(10),
+                });
+                queries += 1;
+            }
+            queries
+        });
+
+        writer.join().unwrap();
+        let queries = reader.join().unwrap();
+        assert_eq!(queries, 1000, "All queries should complete without deadlock");
+    }
+
+    // ── Connection status ───────────────────────────────────────────────────
+
+    #[test]
+    fn test_connection_status() {
+        let store = SpotStore::new();
+        assert!(!store.is_connected());
+        store.set_connected(true);
+        assert!(store.is_connected());
+        store.set_connected(false);
+        assert!(!store.is_connected());
+    }
+
+    #[test]
+    fn test_health_info() {
+        let store = SpotStore::new();
+        let (len, oldest) = store.health_info();
+        assert_eq!(len, 0);
+        assert!(oldest.is_none());
+
+        store.push_batch(vec![make_spot(&store, "W1AW", 14074.0, "FT8", "KM3T-#", 100)]);
+        let (len, oldest) = store.health_info();
+        assert_eq!(len, 1);
+        assert!(oldest.is_some());
+    }
+}

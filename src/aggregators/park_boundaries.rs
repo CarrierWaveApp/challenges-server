@@ -859,3 +859,415 @@ fn state_code_to_abbrev(code: &str) -> Option<&str> {
     }
     code.strip_prefix("US-")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::park_boundary::{
+        ArcGisAttributes, ArcGisFeature, ArcGisResponse, WfsFeatureCollection,
+    };
+
+    // ── data_source_for_park ────────────────────────────────────────────────
+
+    #[test]
+    fn test_data_source_routing() {
+        assert!(matches!(data_source_for_park("US-0189"), DataSource::PadUs));
+        assert!(matches!(data_source_for_park("US-1234"), DataSource::PadUs));
+        assert!(matches!(
+            data_source_for_park("GB-0001"),
+            DataSource::NaturalEngland
+        ));
+        assert!(matches!(
+            data_source_for_park("IT-0001"),
+            DataSource::Wdpa { iso3: "ITA" }
+        ));
+        // PL- parks go through PadUs routing (handled by separate aggregator)
+        assert!(matches!(data_source_for_park("PL-0001"), DataSource::PadUs));
+    }
+
+    // ── normalize_park_name ─────────────────────────────────────────────────
+
+    #[test]
+    fn test_normalize_park_name_us_suffixes() {
+        assert_eq!(normalize_park_name("Yellowstone National Park"), "Yellowstone");
+        assert_eq!(
+            normalize_park_name("Denali National Park and Preserve"),
+            "Denali"
+        );
+        assert_eq!(
+            normalize_park_name("White Mountain National Forest"),
+            "White Mountain"
+        );
+        assert_eq!(
+            normalize_park_name("Don Edwards San Francisco Bay National Wildlife Refuge"),
+            "Don Edwards San Francisco Bay"
+        );
+        assert_eq!(
+            normalize_park_name("Cape Cod National Seashore"),
+            "Cape Cod"
+        );
+        assert_eq!(
+            normalize_park_name("Pictured Rocks National Lakeshore"),
+            "Pictured Rocks"
+        );
+        assert_eq!(normalize_park_name("Baxter State Park"), "Baxter");
+        assert_eq!(
+            normalize_park_name("Bob Marshall Wilderness Area"),
+            "Bob Marshall"
+        );
+        assert_eq!(normalize_park_name("Bob Marshall Wilderness"), "Bob Marshall");
+    }
+
+    #[test]
+    fn test_normalize_park_name_italian_suffixes() {
+        assert_eq!(
+            normalize_park_name("Gran Paradiso Parco Nazionale"),
+            "Gran Paradiso"
+        );
+        assert_eq!(
+            normalize_park_name("Appennino Lucano Parco Regionale"),
+            "Appennino Lucano"
+        );
+    }
+
+    #[test]
+    fn test_normalize_park_name_no_match() {
+        assert_eq!(normalize_park_name("Just A Place"), "Just A Place");
+        assert_eq!(normalize_park_name(""), "");
+    }
+
+    // ── state_code_to_abbrev ────────────────────────────────────────────────
+
+    #[test]
+    fn test_state_code_single() {
+        assert_eq!(state_code_to_abbrev("US-ME"), Some("ME"));
+        assert_eq!(state_code_to_abbrev("US-CA"), Some("CA"));
+        assert_eq!(state_code_to_abbrev("US-TX"), Some("TX"));
+    }
+
+    #[test]
+    fn test_state_code_multi_state() {
+        assert_eq!(state_code_to_abbrev("US-DC,US-MD,US-WV"), None);
+    }
+
+    #[test]
+    fn test_state_code_non_us() {
+        assert_eq!(state_code_to_abbrev("GB-ENG"), None);
+        assert_eq!(state_code_to_abbrev("IT-LOM"), None);
+    }
+
+    // ── designation_filter_for_name ─────────────────────────────────────────
+
+    #[test]
+    fn test_designation_filter() {
+        assert!(designation_filter_for_name("Yellowstone National Park").is_some());
+        assert!(designation_filter_for_name("White Mountain National Forest").is_some());
+        assert!(designation_filter_for_name("Baxter State Park").is_some());
+        assert!(designation_filter_for_name("Some Random Place").is_none());
+    }
+
+    #[test]
+    fn test_designation_filter_longer_suffix_first() {
+        // "National Park and Preserve" should match before "National Park"
+        let filter = designation_filter_for_name("Denali National Park and Preserve").unwrap();
+        assert!(filter.contains("NPRE"));
+    }
+
+    // ── urlencoded ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_urlencoded() {
+        assert_eq!(urlencoded("hello world"), "hello%20world");
+        assert_eq!(urlencoded("a=b&c=d"), "a%3Db%26c%3Dd");
+        assert_eq!(urlencoded("it's"), "it%27s");
+        assert_eq!(urlencoded("100%"), "100%25");
+    }
+
+    // ── ArcGIS response parsing ─────────────────────────────────────────────
+
+    #[test]
+    fn test_parse_arcgis_padus_response() {
+        let json = r#"{
+            "features": [{
+                "properties": {
+                    "Loc_Nm": "Yellowstone",
+                    "Unit_Nm": "Yellowstone NP",
+                    "Mang_Name": "NPS",
+                    "Des_Tp": "NP",
+                    "GIS_Acres": 2219791.0,
+                    "FeatClass": "Designation"
+                },
+                "geometry": {
+                    "type": "MultiPolygon",
+                    "coordinates": [[[[-110.0, 44.0], [-110.5, 44.5], [-110.0, 44.5], [-110.0, 44.0]]]]
+                }
+            }]
+        }"#;
+
+        let resp: ArcGisResponse = serde_json::from_str(json).unwrap();
+        let features = resp.features.unwrap();
+        assert_eq!(features.len(), 1);
+
+        let attrs = features[0].properties.as_ref().unwrap();
+        assert_eq!(attrs.loc_nm.as_deref(), Some("Yellowstone"));
+        assert_eq!(attrs.mang_name.as_deref(), Some("NPS"));
+        assert_eq!(attrs.des_tp.as_deref(), Some("NP"));
+        assert_eq!(attrs.gis_acres, Some(2219791.0));
+        assert!(features[0].geometry.is_some());
+    }
+
+    #[test]
+    fn test_parse_arcgis_natural_england_response() {
+        let json = r#"{
+            "features": [{
+                "properties": {
+                    "NAME": "Lake District",
+                    "AREA_HA": 236300.0
+                },
+                "geometry": {
+                    "type": "MultiPolygon",
+                    "coordinates": [[[[-3.0, 54.4], [-3.1, 54.5], [-3.0, 54.5], [-3.0, 54.4]]]]
+                }
+            }]
+        }"#;
+
+        let resp: ArcGisResponse = serde_json::from_str(json).unwrap();
+        let features = resp.features.unwrap();
+        let attrs = features[0].properties.as_ref().unwrap();
+        assert_eq!(attrs.name.as_deref(), Some("Lake District"));
+        assert_eq!(attrs.area_ha, Some(236300.0));
+    }
+
+    #[test]
+    fn test_parse_arcgis_wdpa_response() {
+        let json = r#"{
+            "features": [{
+                "properties": {
+                    "NAME": "Gran Paradiso",
+                    "DESIG_ENG": "National Park",
+                    "DESIG": "Parco Nazionale",
+                    "IUCN_CAT": "II",
+                    "REP_AREA": 710.43,
+                    "ISO3": "ITA"
+                },
+                "geometry": {
+                    "type": "MultiPolygon",
+                    "coordinates": [[[[7.3, 45.5], [7.4, 45.6], [7.3, 45.6], [7.3, 45.5]]]]
+                }
+            }]
+        }"#;
+
+        let resp: ArcGisResponse = serde_json::from_str(json).unwrap();
+        let features = resp.features.unwrap();
+        let attrs = features[0].properties.as_ref().unwrap();
+        assert_eq!(attrs.name.as_deref(), Some("Gran Paradiso"));
+        assert_eq!(attrs.desig_eng.as_deref(), Some("National Park"));
+        assert_eq!(attrs.iso3.as_deref(), Some("ITA"));
+        assert_eq!(attrs.rep_area, Some(710.43));
+    }
+
+    #[test]
+    fn test_parse_arcgis_empty_features() {
+        let json = r#"{"features": []}"#;
+        let resp: ArcGisResponse = serde_json::from_str(json).unwrap();
+        assert!(resp.features.unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_parse_arcgis_null_features() {
+        let json = r#"{}"#;
+        let resp: ArcGisResponse = serde_json::from_str(json).unwrap();
+        assert!(resp.features.is_none());
+    }
+
+    // ── WFS response parsing (Polish parks) ─────────────────────────────────
+
+    #[test]
+    fn test_parse_wfs_feature_collection() {
+        let json = r#"{
+            "features": [{
+                "properties": {
+                    "nazwa": "Białowieski Park Narodowy",
+                    "pow_ha": 10517.0,
+                    "id_iip": "PL.ZIPOP.1393.PN.1"
+                },
+                "geometry": {
+                    "type": "MultiPolygon",
+                    "coordinates": [[[[23.7, 52.7], [23.8, 52.8], [23.7, 52.8], [23.7, 52.7]]]]
+                }
+            }]
+        }"#;
+
+        let collection: WfsFeatureCollection = serde_json::from_str(json).unwrap();
+        let features = collection.features.unwrap();
+        assert_eq!(features.len(), 1);
+
+        let props = features[0].properties.as_ref().unwrap();
+        assert_eq!(props.nazwa.as_deref(), Some("Białowieski Park Narodowy"));
+        assert_eq!(props.area_ha, Some(10517.0));
+        assert!(features[0].geometry.is_some());
+    }
+
+    #[test]
+    fn test_parse_wfs_alternative_field_names() {
+        // Test the "powierzchnia" alias for area_ha
+        let json = r#"{
+            "features": [{
+                "properties": {
+                    "nazwa": "Test Park",
+                    "powierzchnia": 500.0,
+                    "inspireid": "PL.ZIPOP.TEST"
+                },
+                "geometry": {"type": "Point", "coordinates": [20.0, 50.0]}
+            }]
+        }"#;
+
+        let collection: WfsFeatureCollection = serde_json::from_str(json).unwrap();
+        let features = collection.features.unwrap();
+        let props = features[0].properties.as_ref().unwrap();
+        assert_eq!(props.area_ha, Some(500.0));
+        assert_eq!(props.inspire_id.as_deref(), Some("PL.ZIPOP.TEST"));
+    }
+
+    // ── Geometry merging ────────────────────────────────────────────────────
+
+    #[test]
+    fn test_merge_single_geometry() {
+        let geom = serde_json::json!({
+            "type": "Polygon",
+            "coordinates": [[[-110.0, 44.0], [-110.5, 44.5], [-110.0, 44.5], [-110.0, 44.0]]]
+        });
+        let merged = merge_geojson_geometries(vec![geom.clone()]);
+        assert_eq!(merged, geom);
+    }
+
+    #[test]
+    fn test_merge_multiple_geometries() {
+        let geom1 = serde_json::json!({"type": "Polygon", "coordinates": [[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 0.0]]]});
+        let geom2 = serde_json::json!({"type": "Polygon", "coordinates": [[[2.0, 2.0], [3.0, 2.0], [3.0, 3.0], [2.0, 2.0]]]});
+
+        let merged = merge_geojson_geometries(vec![geom1, geom2]);
+        assert_eq!(merged["type"], "GeometryCollection");
+        assert_eq!(merged["geometries"].as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_merge_padus_features_sums_acreage() {
+        let features = vec![
+            ArcGisFeature {
+                properties: Some(ArcGisAttributes {
+                    loc_nm: Some("Test NWR".to_string()),
+                    unit_nm: None, mang_name: Some("FWS".to_string()),
+                    des_tp: Some("NWR".to_string()), gis_acres: Some(1000.0),
+                    feat_class: Some("Designation".to_string()),
+                    name: None, area_ha: None, desig_eng: None, desig: None,
+                    iucn_cat: None, rep_area: None, iso3: None,
+                }),
+                geometry: Some(serde_json::json!({"type": "Polygon", "coordinates": [[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 0.0]]]})),
+            },
+            ArcGisFeature {
+                properties: Some(ArcGisAttributes {
+                    loc_nm: Some("Test NWR".to_string()),
+                    unit_nm: None, mang_name: Some("FWS".to_string()),
+                    des_tp: Some("NWR".to_string()), gis_acres: Some(500.0),
+                    feat_class: Some("Fee".to_string()),
+                    name: None, area_ha: None, desig_eng: None, desig: None,
+                    iucn_cat: None, rep_area: None, iso3: None,
+                }),
+                geometry: Some(serde_json::json!({"type": "Polygon", "coordinates": [[[2.0, 2.0], [3.0, 2.0], [3.0, 3.0], [2.0, 2.0]]]})),
+            },
+        ];
+
+        let merged = merge_padus_features(features).unwrap();
+        assert_eq!(merged.properties.as_ref().unwrap().gis_acres, Some(1500.0));
+        assert_eq!(merged.geometry.as_ref().unwrap()["type"], "GeometryCollection");
+    }
+
+    #[test]
+    fn test_merge_padus_features_empty() {
+        assert!(merge_padus_features(vec![]).is_none());
+    }
+
+    #[test]
+    fn test_merge_padus_features_single() {
+        let feature = ArcGisFeature {
+            properties: Some(ArcGisAttributes {
+                loc_nm: Some("Test".to_string()),
+                unit_nm: None, mang_name: None, des_tp: None,
+                gis_acres: Some(100.0), feat_class: None,
+                name: None, area_ha: None, desig_eng: None, desig: None,
+                iucn_cat: None, rep_area: None, iso3: None,
+            }),
+            geometry: Some(serde_json::json!({"type": "Polygon", "coordinates": [[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 0.0]]]})),
+        };
+        let merged = merge_padus_features(vec![feature]).unwrap();
+        // Single feature returned as-is, not wrapped in GeometryCollection
+        assert_eq!(merged.geometry.as_ref().unwrap()["type"], "Polygon");
+    }
+
+    // ── NPS trail response parsing ──────────────────────────────────────────
+
+    #[test]
+    fn test_parse_nps_trail_response() {
+        use crate::models::historic_trail::NpsTrailResponse;
+
+        let json = r#"{
+            "features": [{
+                "attributes": {
+                    "Trail_Name": "Lewis and Clark National Historic Trail",
+                    "Mang_Agency": "NPS",
+                    "Designation": "NHT - Lewis and Clark",
+                    "Length_MI": 4900.0,
+                    "State": "ID,IL,IA,KS,MO,MT,NE,ND,OR,SD,WA"
+                },
+                "geometry": {
+                    "type": "MultiLineString",
+                    "coordinates": [[[-116.0, 46.0], [-115.0, 47.0]]]
+                }
+            }]
+        }"#;
+
+        let resp: NpsTrailResponse = serde_json::from_str(json).unwrap();
+        let features = resp.features.unwrap();
+        assert_eq!(features.len(), 1);
+
+        let attrs = features[0].properties.as_ref().unwrap();
+        assert_eq!(
+            attrs.trail_name.as_deref(),
+            Some("Lewis and Clark National Historic Trail")
+        );
+        assert_eq!(attrs.managing_agency.as_deref(), Some("NPS"));
+        assert_eq!(attrs.designation.as_deref(), Some("NHT - Lewis and Clark"));
+        assert_eq!(attrs.length_miles, Some(4900.0));
+        assert!(features[0].geometry.is_some());
+    }
+
+    #[test]
+    fn test_parse_nps_trail_alternative_field_names() {
+        use crate::models::historic_trail::NpsTrailResponse;
+
+        // Test lowercase/alternative field aliases
+        let json = r#"{
+            "features": [{
+                "attributes": {
+                    "name": "Oregon Trail",
+                    "primarytrailmaintainer": "BLM",
+                    "nationaltraildesignation": "NHT - Oregon",
+                    "lengthmiles": 2170.0
+                },
+                "geometry": {
+                    "type": "MultiLineString",
+                    "coordinates": [[[-100.0, 40.0], [-120.0, 45.0]]]
+                }
+            }]
+        }"#;
+
+        let resp: NpsTrailResponse = serde_json::from_str(json).unwrap();
+        let features = resp.features.unwrap();
+        let attrs = features[0].properties.as_ref().unwrap();
+        assert_eq!(attrs.trail_name.as_deref(), Some("Oregon Trail"));
+        assert_eq!(attrs.managing_agency.as_deref(), Some("BLM"));
+        assert_eq!(attrs.designation.as_deref(), Some("NHT - Oregon"));
+        assert_eq!(attrs.length_miles, Some(2170.0));
+    }
+}
