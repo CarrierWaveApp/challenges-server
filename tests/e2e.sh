@@ -120,15 +120,14 @@ challenge_response=$(post_json /v1/admin/challenges \
   -d '{
     "name": "E2E Test Challenge",
     "description": "Created by e2e tests",
-    "challenge_type": "dxcc_entities",
-    "target_count": 10,
-    "start_date": "2025-01-01T00:00:00Z",
-    "end_date": "2026-12-31T23:59:59Z"
+    "category": "dxcc",
+    "type": "dxcc_entities",
+    "configuration": {"target_count": 10}
   }')
 
-challenge_id=$(echo "$challenge_response" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+challenge_id=$(echo "$challenge_response" | jq -r '.data.id')
 
-if [ -n "$challenge_id" ]; then
+if [ -n "$challenge_id" ] && [ "$challenge_id" != "null" ]; then
   echo "  PASS: Created challenge $challenge_id"
   PASS=$((PASS + 1))
 else
@@ -150,9 +149,9 @@ assert_status "GET /v1/challenges/$challenge_id/leaderboard" 200 \
 # Join the challenge (get a device token first)
 join_response=$(post_json "/v1/challenges/$challenge_id/join" \
   -d '{"callsign": "E2ETEST"}')
-device_token=$(echo "$join_response" | grep -o '"device_token":"[^"]*"' | head -1 | cut -d'"' -f4)
+device_token=$(echo "$join_response" | jq -r '.data.deviceToken')
 
-if [ -n "$device_token" ]; then
+if [ -n "$device_token" ] && [ "$device_token" != "null" ]; then
   echo "  PASS: Joined challenge, got device token"
   PASS=$((PASS + 1))
 else
@@ -161,12 +160,12 @@ else
 fi
 
 # Report progress (auth required)
-if [ -n "$device_token" ]; then
+if [ -n "$device_token" ] && [ "$device_token" != "null" ]; then
   auth_header=(-H "Authorization: Bearer $device_token")
 
   progress_status=$(post "/v1/challenges/$challenge_id/progress" \
     "${auth_header[@]}" \
-    -d '{"entry": "K1ABC", "band": "20m", "mode": "SSB"}')
+    -d '{"completedGoals": ["K1ABC"], "currentValue": 1, "qualifyingQsoCount": 1}')
   assert_status "POST progress (authenticated)" 200 "$progress_status"
 
   # Get own progress
@@ -198,9 +197,9 @@ club_response=$(post_json /v1/admin/clubs \
     "description": "Created by e2e tests"
   }')
 
-club_id=$(echo "$club_response" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+club_id=$(echo "$club_response" | jq -r '.data.id')
 
-if [ -n "$club_id" ]; then
+if [ -n "$club_id" ] && [ "$club_id" != "null" ]; then
   echo "  PASS: Created club $club_id"
   PASS=$((PASS + 1))
 else
@@ -213,7 +212,7 @@ assert_status "GET /v1/admin/clubs" 200 \
   "$(get_auth /v1/admin/clubs "${admin_header[@]}")"
 
 # Update club
-if [ -n "$club_id" ]; then
+if [ -n "$club_id" ] && [ "$club_id" != "null" ]; then
   update_status=$(put "/v1/admin/clubs/$club_id" \
     "${admin_header[@]}" \
     -d '{"name": "E2E Updated Club", "description": "Updated"}')
@@ -258,25 +257,24 @@ social_challenge=$(post_json /v1/admin/challenges \
   -d '{
     "name": "Social Test Challenge",
     "description": "For friend tests",
-    "challenge_type": "dxcc_entities",
-    "target_count": 5,
-    "start_date": "2025-01-01T00:00:00Z",
-    "end_date": "2026-12-31T23:59:59Z"
+    "category": "dxcc",
+    "type": "dxcc_entities",
+    "configuration": {"target_count": 5}
   }')
-social_challenge_id=$(echo "$social_challenge" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+social_challenge_id=$(echo "$social_challenge" | jq -r '.data.id')
 
-if [ -n "$social_challenge_id" ]; then
+if [ -n "$social_challenge_id" ] && [ "$social_challenge_id" != "null" ]; then
   # User A joins
   join_a=$(post_json "/v1/challenges/$social_challenge_id/join" \
     -d '{"callsign": "E2EUSER1"}')
-  token_a=$(echo "$join_a" | grep -o '"device_token":"[^"]*"' | head -1 | cut -d'"' -f4)
+  token_a=$(echo "$join_a" | jq -r '.data.deviceToken')
 
   # User B joins
   join_b=$(post_json "/v1/challenges/$social_challenge_id/join" \
     -d '{"callsign": "E2EUSER2"}')
-  token_b=$(echo "$join_b" | grep -o '"device_token":"[^"]*"' | head -1 | cut -d'"' -f4)
+  token_b=$(echo "$join_b" | jq -r '.data.deviceToken')
 
-  if [ -n "$token_a" ] && [ -n "$token_b" ]; then
+  if [ -n "$token_a" ] && [ "$token_a" != "null" ] && [ -n "$token_b" ] && [ "$token_b" != "null" ]; then
     auth_a=(-H "Authorization: Bearer $token_a")
     auth_b=(-H "Authorization: Bearer $token_b")
 
@@ -285,9 +283,9 @@ if [ -n "$social_challenge_id" ]; then
     assert_status "GET /v1/friends/invite-link (User A)" 200 "$invite_link_status"
 
     invite_response=$(get_auth_json /v1/friends/invite-link "${auth_a[@]}")
-    invite_token=$(echo "$invite_response" | grep -o '"token":"[^"]*"' | head -1 | cut -d'"' -f4)
+    invite_token=$(echo "$invite_response" | jq -r '.data.token')
 
-    if [ -n "$invite_token" ]; then
+    if [ -n "$invite_token" ] && [ "$invite_token" != "null" ]; then
       echo "  PASS: Got invite token for User A"
       PASS=$((PASS + 1))
 
