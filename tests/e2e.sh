@@ -120,8 +120,8 @@ challenge_response=$(post_json /v1/admin/challenges \
   -d '{
     "name": "E2E Test Challenge",
     "description": "Created by e2e tests",
-    "category": "dxcc",
-    "type": "dxcc_entities",
+    "category": "award",
+    "type": "collection",
     "configuration": {"target_count": 10}
   }')
 
@@ -174,12 +174,12 @@ if [ -n "$device_token" ] && [ "$device_token" != "null" ]; then
 
   # Leave challenge
   leave_status=$(delete "/v1/challenges/$challenge_id/leave" "${auth_header[@]}")
-  assert_status "DELETE /v1/challenges/$challenge_id/leave" 200 "$leave_status"
+  assert_status "DELETE /v1/challenges/$challenge_id/leave" 204 "$leave_status"
 fi
 
 # Admin delete
 admin_delete_status=$(delete "/v1/admin/challenges/$challenge_id" "${admin_header[@]}")
-assert_status "DELETE /v1/admin/challenges/$challenge_id (admin)" 200 "$admin_delete_status"
+assert_status "DELETE /v1/admin/challenges/$challenge_id (admin)" 204 "$admin_delete_status"
 
 # Verify deleted
 assert_status "GET /v1/challenges/$challenge_id (after delete)" 404 \
@@ -221,8 +221,8 @@ if [ -n "$club_id" ] && [ "$club_id" != "null" ]; then
   # Add members to the club
   add_members_status=$(post "/v1/admin/clubs/$club_id/members" \
     "${admin_header[@]}" \
-    -d '{"callsigns": ["W1AW", "N5XX", "K1ABC"]}')
-  assert_status "POST /v1/admin/clubs/$club_id/members" 200 "$add_members_status"
+    -d '{"members": [{"callsign": "W1AW"}, {"callsign": "N5XX"}, {"callsign": "K1ABC"}]}')
+  assert_status "POST /v1/admin/clubs/$club_id/members" 201 "$add_members_status"
 
   # List club members
   assert_status "GET /v1/admin/clubs/$club_id/members" 200 \
@@ -236,11 +236,11 @@ if [ -n "$club_id" ] && [ "$club_id" != "null" ]; then
 
   # Remove a member
   remove_member_status=$(delete "/v1/admin/clubs/$club_id/members/K1ABC" "${admin_header[@]}")
-  assert_status "DELETE /v1/admin/clubs/$club_id/members/K1ABC" 200 "$remove_member_status"
+  assert_status "DELETE /v1/admin/clubs/$club_id/members/K1ABC" 204 "$remove_member_status"
 
   # Delete club
   delete_club_status=$(delete "/v1/admin/clubs/$club_id" "${admin_header[@]}")
-  assert_status "DELETE /v1/admin/clubs/$club_id" 200 "$delete_club_status"
+  assert_status "DELETE /v1/admin/clubs/$club_id" 204 "$delete_club_status"
 fi
 
 # Club admin auth (no token)
@@ -257,8 +257,8 @@ social_challenge=$(post_json /v1/admin/challenges \
   -d '{
     "name": "Social Test Challenge",
     "description": "For friend tests",
-    "category": "dxcc",
-    "type": "dxcc_entities",
+    "category": "award",
+    "type": "collection",
     "configuration": {"target_count": 5}
   }')
 social_challenge_id=$(echo "$social_challenge" | jq -r '.data.id')
@@ -293,7 +293,7 @@ if [ -n "$social_challenge_id" ] && [ "$social_challenge_id" != "null" ]; then
       friend_req_status=$(post "/v1/friends/requests" \
         "${auth_b[@]}" \
         -d "{\"inviteToken\": \"$invite_token\"}")
-      assert_status "POST /v1/friends/requests (User B via invite)" 200 "$friend_req_status"
+      assert_status "POST /v1/friends/requests (User B via invite)" 201 "$friend_req_status"
     else
       echo "  FAIL: No invite token returned"
       FAIL=$((FAIL + 1))
