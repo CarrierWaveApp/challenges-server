@@ -1,8 +1,13 @@
 name: Deploy
 
 on:
-  release:
-    types: [published]
+  # Called by the release workflow after Ansible config is updated
+  workflow_call:
+    inputs:
+      version:
+        description: "Release tag (e.g. v0.4.40)"
+        required: true
+        type: string
 
   # Allow manual trigger for rollbacks or re-deploys
   workflow_dispatch:
@@ -19,17 +24,12 @@ jobs:
     steps:
       - name: Determine version
         id: version
-        run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            echo "tag=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
-          fi
+        run: echo "tag=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
 
       - name: Checkout Ansible repo
         uses: actions/checkout@v4
         with:
-          repository: ${{ vars.ANSIBLE_REPO }}  # e.g. CarrierWaveApp/infrastructure
+          repository: ${{ vars.ANSIBLE_REPO }}
           ssh-key: ${{ secrets.ANSIBLE_REPO_DEPLOY_KEY }}
           path: ansible
 
