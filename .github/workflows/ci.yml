@@ -127,7 +127,7 @@ jobs:
 
       - name: Start server
         run: |
-          cargo run &
+          ./target/debug/activities-server &
           # Wait for server to be ready
           for i in $(seq 1 30); do
             if curl -sf http://localhost:8080/v1/health > /dev/null 2>&1; then

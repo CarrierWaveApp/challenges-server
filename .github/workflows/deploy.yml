@@ -46,10 +46,14 @@ jobs:
       - name: Run Ansible playbook
         working-directory: ansible
         run: |
-          ansible-playbook playbook.yml \
-            -i inventory/production.ini \
-            --extra-vars "release_version=${{ steps.version.outputs.tag }}" \
-            --extra-vars "github_repo=${{ github.repository }}"
+          VERSION="${{ steps.version.outputs.tag }}"
+          VERSION="${VERSION#v}"  # Strip v prefix
+          ansible-playbook site.yml \
+            -i inventory/hosts.yml \
+            --tags activities-server \
+            --extra-vars "activities_server_version=${VERSION}" \
+            --extra-vars "activities_server_checksum=" \
+            --extra-vars "activities_server_github_repo=${{ github.repository }}"
         env:
           ANSIBLE_HOST_KEY_CHECKING: "false"
 
@@ -68,7 +72,7 @@ jobs:
       - name: Annotate Grafana deploy
         if: success()
         run: |
-          curl -sf -X POST "${{ secrets.GRAFANA_URL }}/api/annotations" \
+          curl -sf -X POST "${{ vars.GRAFANA_URL }}/api/annotations" \
             -H "Authorization: Bearer ${{ secrets.GRAFANA_API_KEY }}" \
             -H "Content-Type: application/json" \
             -d "{
