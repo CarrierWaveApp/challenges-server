@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgis/postgis:16-3.4-alpine
         env:
           POSTGRES_USER: challenges
           POSTGRES_PASSWORD: challenges
@@ -81,7 +81,7 @@ jobs:
     needs: [lint, test]
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgis/postgis:16-3.4-alpine
         env:
           POSTGRES_USER: challenges
           POSTGRES_PASSWORD: challenges
