@@ -1,0 +1,192 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-lint-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-lint-
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+        env:
+          SQLX_OFFLINE: true
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: challenges
+          POSTGRES_PASSWORD: challenges
+          POSTGRES_DB: challenges
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U challenges"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-test-${{ hashFiles('Cargo.lock', 'migrations/*.sql') }}
+          restore-keys: ${{ runner.os }}-cargo-test-
+
+      - name: Run tests
+        run: cargo test 2>&1 | tail -20
+        env:
+          DATABASE_URL: postgres://challenges:challenges@localhost:5432/challenges
+          ADMIN_TOKEN: test-admin-token
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: challenges
+          POSTGRES_PASSWORD: challenges
+          POSTGRES_DB: challenges
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U challenges"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build frontend
+        run: cd web && npm ci && npm run build
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-e2e-${{ hashFiles('Cargo.lock', 'migrations/*.sql') }}
+          restore-keys: ${{ runner.os }}-cargo-e2e-
+
+      - name: Build server
+        run: cargo build 2>&1 | tail -5
+        env:
+          SQLX_OFFLINE: true
+
+      - name: Start server
+        run: |
+          cargo run &
+          # Wait for server to be ready
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/v1/health > /dev/null 2>&1; then
+              echo "Server is ready"
+              break
+            fi
+            sleep 1
+          done
+        env:
+          DATABASE_URL: postgres://challenges:challenges@localhost:5432/challenges
+          ADMIN_TOKEN: e2e-admin-token
+          PORT: 8080
+          RUST_LOG: info
+
+      - name: Run E2E tests
+        run: bash tests/e2e.sh
+        env:
+          BASE_URL: http://localhost:8080
+          ADMIN_TOKEN: e2e-admin-token
+
+  # Report pipeline metrics to Grafana Cloud after all jobs complete
+  report-metrics:
+    runs-on: ubuntu-latest
+    needs: [lint, test, e2e]
+    if: always()
+    steps:
+      - name: Report CI metrics to Grafana Cloud
+        if: vars.GRAFANA_METRICS_URL != ''
+        run: |
+          TIMESTAMP=$(date +%s)
+          BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          RESULT="success"
+          if [ "${{ needs.lint.result }}" != "success" ] || \
+             [ "${{ needs.test.result }}" != "success" ] || \
+             [ "${{ needs.e2e.result }}" != "success" ]; then
+            RESULT="failure"
+          fi
+
+          # Push metrics via Prometheus remote write (Influx line protocol)
+          # These appear in Grafana Cloud under the ci_* metric namespace
+          curl -sf -X POST "${{ vars.GRAFANA_METRICS_URL }}/api/v1/push/influx/write" \
+            -H "Authorization: Bearer ${{ secrets.GRAFANA_METRICS_TOKEN }}" \
+            -H "Content-Type: text/plain" \
+            --data-binary "$(cat <<METRICS
+          ci_pipeline_duration_seconds,repo=${{ github.repository }},branch=${BRANCH},result=${RESULT},event=${{ github.event_name }} value=${{ github.run_number }} ${TIMESTAMP}
+          ci_pipeline_runs_total,repo=${{ github.repository }},branch=${BRANCH},result=${RESULT},event=${{ github.event_name }} value=1 ${TIMESTAMP}
+          ci_lint_result,repo=${{ github.repository }},branch=${BRANCH} value=$([ "${{ needs.lint.result }}" = "success" ] && echo 1 || echo 0) ${TIMESTAMP}
+          ci_test_result,repo=${{ github.repository }},branch=${BRANCH} value=$([ "${{ needs.test.result }}" = "success" ] && echo 1 || echo 0) ${TIMESTAMP}
+          ci_e2e_result,repo=${{ github.repository }},branch=${BRANCH} value=$([ "${{ needs.e2e.result }}" = "success" ] && echo 1 || echo 0) ${TIMESTAMP}
+          METRICS
+          )" || echo "Warning: Failed to push CI metrics to Grafana (non-fatal)"
+
+      - name: Annotate Grafana on main branch failure
+        if: failure() && github.ref == 'refs/heads/main' && vars.GRAFANA_URL != ''
+        run: |
+          curl -sf -X POST "${{ vars.GRAFANA_URL }}/api/annotations" \
+            -H "Authorization: Bearer ${{ secrets.GRAFANA_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"text\": \"CI failure on main: ${{ github.run_id }}\",
+              \"tags\": [\"ci\", \"failure\", \"challenges-server\"]
+            }" || echo "Warning: Failed to post Grafana annotation (non-fatal)"
