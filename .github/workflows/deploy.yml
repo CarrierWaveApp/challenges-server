@@ -46,14 +46,9 @@ jobs:
       - name: Run Ansible playbook
         working-directory: ansible
         run: |
-          VERSION="${{ steps.version.outputs.tag }}"
-          VERSION="${VERSION#v}"  # Strip v prefix
           ansible-playbook site.yml \
             -i inventory/hosts.yml \
-            --tags activities-server \
-            --extra-vars "activities_server_version=${VERSION}" \
-            --extra-vars "activities_server_checksum=" \
-            --extra-vars "activities_server_github_repo=${{ github.repository }}"
+            --tags activities-server
         env:
           ANSIBLE_HOST_KEY_CHECKING: "false"
 
