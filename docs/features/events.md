@@ -2,7 +2,15 @@
 
 ## Summary
 
-Community-submitted ham radio events (club meetings, swap meets, hamfests, etc.) with admin moderation and proximity-based discovery. Users submit events through the iOS app, admins review and approve/reject via the admin app, and approved events appear to nearby users on a map + list view.
+Community-submitted ham radio events (club meetings, swap meets, hamfests, etc.) with admin moderation and proximity-based discovery. Users submit events and browse nearby events in the **CarrierWave iOS app** (separate repo). Admins review and approve/reject events via the **iOS admin app** (`ios-admin/` in this repo). The **server** (this repo) provides the API endpoints for both clients.
+
+## Repo Scope
+
+| Component | Repo | What's built |
+|-----------|------|--------------|
+| Server API endpoints | **This repo** (`challenges-server`) | Migration, models, db layer, handlers, router |
+| Admin app moderation UI | **This repo** (`ios-admin/`) | Pending events list, review screen, submitter history |
+| User event submission & discovery | **CarrierWave app** (separate repo) | Submit form, map + list view, my events, push notifications |
 
 ## Data Model
 
@@ -58,9 +66,14 @@ PostGIS `geography` column (`location`) + GIST index for proximity queries.
 - `PUT /v1/admin/events/{id}/review` — Approve or reject: `{ "action": "approve"|"reject", "reason": "..." }`
 - `DELETE /v1/admin/events/{id}` — Hard delete any event
 
-## iOS App: Event Discovery
+---
 
-### Map + List Hybrid View
+## CarrierWave App Requirements (Separate Repo)
+
+> The following sections describe requirements for the **CarrierWave iOS app** (separate repo).
+> They are documented here for completeness — this repo does NOT implement these screens.
+
+### Event Discovery: Map + List Hybrid View
 
 - Upper portion: MapKit map with pins for nearby approved events.
 - Lower portion: Scrollable list sorted by date.
@@ -79,9 +92,7 @@ Tap a pin or list row to see:
 - External link button (if URL set)
 - Submitter callsign
 
-## iOS App: Event Submission
-
-### Submit Event Flow
+### Event Submission Flow
 
 1. **"Submit Event" button** — accessible from the events view (floating action button or nav bar).
 2. **Form fields** (single scrollable form):
@@ -111,12 +122,14 @@ Tap a pin or list row to see:
 - Edit opens the same form pre-filled. Submitting shows a note if key-field edits will reset approval.
 - Delete shows a destructive confirmation alert.
 
-### Notifications
+### Push Notifications
 
 - **Push on approval**: "Your event '[name]' has been approved and is now visible to nearby operators."
 - **Push on rejection**: "Your event '[name]' was not approved. Reason: [reason]." Deep-links to the event detail so user can edit and resubmit.
 
-## iOS Admin App: Event Moderation
+---
+
+## iOS Admin App: Event Moderation (This Repo — `ios-admin/`)
 
 ### Pending Events List
 

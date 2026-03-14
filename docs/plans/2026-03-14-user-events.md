@@ -7,7 +7,16 @@
 
 ## Overview
 
-Add user-submitted events with admin moderation and proximity-based discovery. This requires a new migration, models, db module, handlers, error variants, and router wiring — following the same patterns as existing features.
+Add user-submitted events with admin moderation and proximity-based discovery.
+
+### Scope (this repo)
+
+- **Server**: Migration, models, db layer, handlers, router wiring — all API endpoints (public, authenticated, admin)
+- **iOS Admin App** (`ios-admin/`): Event moderation UI — pending events list, review screen, submitter history
+
+### Out of scope (separate repo)
+
+- **CarrierWave iOS App**: Event submission form, map + list discovery view, "My Events" screen, push notifications on approval/rejection. See [PRD](../features/events.md) for full CarrierWave app requirements.
 
 ---
 
