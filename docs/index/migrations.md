@@ -153,3 +153,15 @@ Forces re-fetch of US park boundaries matched by name after fixing over-broad LI
 
 **Operations:**
 - Sets `fetched_at` to epoch for all `match_quality = 'exact'` / `source = 'pad_us_4'` rows, triggering stale-boundary refresh with the new exact-match-first query logic
+
+### `migrations/019_events.sql`
+User-submitted events with admin moderation and proximity-based discovery.
+
+**Tables:**
+- `events` - User-submitted event definitions with location
+  - Columns: id (UUID), name, description, event_type, start_date, end_date, timezone, venue_name, address, city, state, country, latitude, longitude, location (geography Point), cost, url, submitted_by, status, reviewed_by, reviewed_at, rejection_reason, created_at, updated_at
+  - Constraints: event_type IN (club_meeting, swap_meet, field_day, special_event, hamfest, net, other), status IN (pending, approved, rejected), length checks on name/description/venue_name/cost
+  - Indexes: GIST on location (proximity), (status, start_date), submitted_by
+
+**Functions/Triggers:**
+- `events_set_location()` - Trigger function that auto-populates the geography column from lat/lon on insert or update

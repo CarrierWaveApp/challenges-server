@@ -2,6 +2,7 @@ pub mod activities;
 pub mod badges;
 pub mod challenges;
 pub mod clubs;
+pub mod events;
 pub mod friend_invites;
 pub mod friend_requests;
 pub mod historic_trails;

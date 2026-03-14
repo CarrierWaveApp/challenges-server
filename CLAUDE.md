@@ -129,11 +129,22 @@ RBN_PROXY_CALLSIGN=W6JSV                                      # Optional, defaul
 - `GET /v1/rbn/stats` - RBN aggregate statistics (band/mode breakdown, rate)
 - `GET /v1/rbn/skimmers` - Active RBN skimmers with spot counts
 - `GET /v1/health` - Health check (includes RBN status when enabled)
+- `GET /v1/events` - List approved events near a location
+- `GET /v1/events/{id}` - Get single approved event
+- `POST /v1/events` - Submit a new event (auth required)
+- `PUT /v1/events/{id}` - Edit own event (auth required)
+- `DELETE /v1/events/{id}` - Delete own event (auth required)
+- `GET /v1/events/mine` - List own submitted events (auth required)
 - `POST /v1/admin/challenges` - Create challenge (admin)
 - `PUT /v1/admin/challenges/{id}` - Update challenge (admin)
 - `DELETE /v1/admin/challenges/{id}` - Delete challenge (admin)
 - `POST /v1/admin/clubs/{id}/import-notes` - Import members from callsign notes URL (admin)
 - `GET /v1/admin/trails/status` - Historic trails sync status (admin)
+- `GET /v1/admin/events` - List events with status filter (admin)
+- `PUT /v1/admin/events/{id}` - Edit any event (admin)
+- `PUT /v1/admin/events/{id}/review` - Approve or reject event (admin)
+- `DELETE /v1/admin/events/{id}` - Delete any event (admin)
+- `GET /v1/admin/events/submitter/{callsign}` - Get submitter history (admin)
 
 ### Not Yet Implemented
 - Badge upload/retrieval

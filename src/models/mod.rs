@@ -1,6 +1,7 @@
 pub mod activity;
 pub mod badge;
 pub mod challenge;
+pub mod event;
 pub mod club;
 pub mod friend_invite;
 pub mod friend_request;

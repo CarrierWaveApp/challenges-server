@@ -477,9 +477,223 @@ GET /v1/health
 
 ---
 
+## Event Endpoints
+
+### List Events (Proximity)
+
+```
+GET /v1/events
+```
+
+Returns approved upcoming events near a location.
+
+**Query Parameters (required):**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `lat` | float | Latitude (-90 to 90) |
+| `lon` | float | Longitude (-180 to 180) |
+| `radiusKm` | float | Search radius in km (1 to 500) |
+
+**Query Parameters (optional):**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `eventType` | string | Filter by type |
+| `fromDate` | datetime | Events starting on or after |
+| `toDate` | datetime | Events starting on or before |
+| `includePast` | bool | Include past events (default false) |
+| `limit` | int | Max results (default 50, max 100) |
+| `offset` | int | Pagination offset |
+
+**Response:**
+
+```json
+{
+  "data": {
+    "events": [
+      {
+        "id": "uuid",
+        "name": "Monthly Club Meeting",
+        "eventType": "club_meeting",
+        "startDate": "2026-04-01T19:00:00Z",
+        "endDate": "2026-04-01T21:00:00Z",
+        "timezone": "America/New_York",
+        "venueName": "VFW Hall",
+        "city": "Springfield",
+        "state": "MA",
+        "country": "US",
+        "latitude": 42.1015,
+        "longitude": -72.5898,
+        "cost": "Free",
+        "submittedBy": "W1ABC",
+        "status": "approved",
+        "createdAt": "2026-03-14T12:00:00Z",
+        "distanceMeters": 1234.56
+      }
+    ],
+    "total": 5,
+    "limit": 50,
+    "offset": 0
+  }
+}
+```
+
+### Get Event
+
+```
+GET /v1/events/{id}
+```
+
+Returns a single approved event with full details.
+
+### Submit Event
+
+```
+POST /v1/events
+Authorization: Bearer fd_xxx
+```
+
+Submit a new event for admin review. Max 10 pending events per callsign.
+
+**Request:**
+
+```json
+{
+  "name": "Monthly Club Meeting",
+  "eventType": "club_meeting",
+  "startDate": "2026-04-01T19:00:00Z",
+  "endDate": "2026-04-01T21:00:00Z",
+  "timezone": "America/New_York",
+  "venueName": "VFW Hall",
+  "address": "123 Main St",
+  "city": "Springfield",
+  "state": "MA",
+  "country": "US",
+  "latitude": 42.1015,
+  "longitude": -72.5898,
+  "cost": "Free",
+  "url": "https://example.com/meeting",
+  "description": "Monthly meeting of the Springfield ARC"
+}
+```
+
+**Response:** 201 Created with the event (status = "pending").
+
+**Errors:**
+
+| Code | HTTP | Description |
+|------|------|-------------|
+| `MAX_PENDING_EVENTS` | 429 | Already have 10 pending events |
+| `VALIDATION_ERROR` | 400 | Invalid fields |
+
+### Update Own Event
+
+```
+PUT /v1/events/{id}
+Authorization: Bearer fd_xxx
+```
+
+Edit own event. Partial update — only provided fields change. If the event was approved and key fields (name, description, address, venueName, latitude, longitude) change, status resets to "pending".
+
+### Delete Own Event
+
+```
+DELETE /v1/events/{id}
+Authorization: Bearer fd_xxx
+```
+
+**Response:** 204 No Content
+
+### List My Events
+
+```
+GET /v1/events/mine
+Authorization: Bearer fd_xxx
+```
+
+Returns all events submitted by the authenticated callsign, across all statuses.
+
+---
+
 ## Admin Endpoints
 
 All require `Authorization: Bearer {ADMIN_TOKEN}`.
+
+### List Events (Admin)
+
+```
+GET /v1/admin/events
+```
+
+**Query Parameters:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `status` | string | Filter by status (pending, approved, rejected) |
+| `limit` | int | Max results (default 50, max 100) |
+| `offset` | int | Pagination offset |
+
+### Edit Event (Admin)
+
+```
+PUT /v1/admin/events/{id}
+```
+
+Admin can edit any event fields (fix typos, adjust coordinates before approving).
+
+### Review Event
+
+```
+PUT /v1/admin/events/{id}/review
+```
+
+**Request:**
+
+```json
+{
+  "action": "approve",
+  "reason": null
+}
+```
+
+or
+
+```json
+{
+  "action": "reject",
+  "reason": "Not ham radio related"
+}
+```
+
+Reason is required when rejecting.
+
+### Delete Event (Admin)
+
+```
+DELETE /v1/admin/events/{id}
+```
+
+Hard deletes the event.
+
+### Get Submitter History
+
+```
+GET /v1/admin/events/submitter/{callsign}
+```
+
+Returns submission stats for a callsign.
+
+```json
+{
+  "data": {
+    "totalSubmitted": 12,
+    "totalApproved": 9,
+    "totalRejected": 2,
+    "totalPending": 1
+  }
+}
+```
 
 ### Create Challenge
 
@@ -654,5 +868,9 @@ Permanently deletes a program. Use `PUT` with `{"isActive": false}` for soft-dea
 | `INVALID_TOKEN` | 401 | Bad or revoked token |
 | `FORBIDDEN` | 403 | Access denied (e.g., callsign mismatch) |
 | `RATE_LIMITED` | 429 | Too many requests |
+| `EVENT_NOT_FOUND` | 404 | Event doesn't exist or not approved |
+| `EVENT_NOT_OWNED` | 403 | Cannot modify another user's event |
+| `MAX_PENDING_EVENTS` | 429 | Already have 10 pending events |
+| `INVALID_EVENT_REVIEW` | 400 | Invalid review action |
 | `VALIDATION_ERROR` | 400 | Invalid request body |
 | `INTERNAL_ERROR` | 500 | Server error |

@@ -100,3 +100,19 @@ Friend invite link data structures.
 - `struct FriendInvite` - Database row for friend_invites table (FromRow)
 - `struct FriendInviteResponse` - API response for friend invite (Serialize)
 - `impl FriendInvite::into_response()` - Convert to API response with URL
+
+### `src/models/event.rs`
+Event data structures for user-submitted events.
+
+**Exports:**
+- `struct EventRow` - Database row for events table (FromRow)
+- `struct EventResponse` - API response for single event (Serialize, camelCase)
+- `struct EventListItem` - List item with optional distance_meters (FromRow, Serialize, camelCase)
+- `struct CreateEventRequest` - API request for creating event (Deserialize, camelCase)
+- `struct UpdateEventRequest` - API request for updating event, all fields optional (Deserialize, camelCase)
+- `struct ReviewEventRequest` - API request for admin review with action + reason (Deserialize, camelCase)
+- `struct ListEventsQuery` - Query params for proximity search (Deserialize, camelCase)
+- `struct AdminListEventsQuery` - Query params for admin list (Deserialize, camelCase)
+- `struct MyEventsQuery` - Query params for own events (Deserialize, camelCase)
+- `struct SubmitterStats` - Submitter history stats (FromRow, Serialize, camelCase)
+- `impl From<EventRow> for EventResponse` - Conversion for API response

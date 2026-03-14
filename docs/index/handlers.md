@@ -123,3 +123,24 @@ Admin CRUD for clubs and members.
 - `async fn remove_club_member()` - DELETE /v1/admin/clubs/:id/members/:callsign - Remove member
 - `async fn update_club_member_role()` - PUT /v1/admin/clubs/:id/members/:callsign - Update role
 - `async fn import_notes_members()` - POST /v1/admin/clubs/:id/import-notes - Import members from callsign notes URL
+
+### `src/handlers/events.rs`
+Public and authenticated event endpoints.
+
+**Exports:**
+- `async fn list_events()` - GET /v1/events - List approved events near a location (proximity search)
+- `async fn get_event()` - GET /v1/events/:id - Get single approved event
+- `async fn create_event()` - POST /v1/events - Submit a new event (auth required, status=pending)
+- `async fn update_event()` - PUT /v1/events/:id - Edit own event (auth required, key-field edits reset approval)
+- `async fn delete_event()` - DELETE /v1/events/:id - Delete own event (auth required)
+- `async fn list_my_events()` - GET /v1/events/mine - List own submitted events, all statuses (auth required)
+
+### `src/handlers/events_admin.rs`
+Admin event moderation endpoints.
+
+**Exports:**
+- `async fn list_events_admin()` - GET /v1/admin/events - List events with optional status filter
+- `async fn admin_update_event()` - PUT /v1/admin/events/:id - Edit any event fields
+- `async fn review_event()` - PUT /v1/admin/events/:id/review - Approve or reject an event
+- `async fn admin_delete_event()` - DELETE /v1/admin/events/:id - Hard delete any event
+- `async fn get_submitter_history()` - GET /v1/admin/events/submitter/:callsign - Get submitter stats

@@ -107,3 +107,20 @@ Friend invite link management.
 - `async fn get_valid_friend_invite()` - Get valid (not expired, not used) invite, returns `Option<FriendInvite>`
 - `async fn mark_invite_used()` - Mark invite as used, returns `Option<FriendInvite>`
 - `async fn cleanup_expired_invites()` - Delete old expired/used invites, returns `u64`
+
+### `src/db/events.rs`
+Event CRUD and proximity queries.
+
+**Exports:**
+- `async fn list_events_near()` - List approved events near a location with PostGIS proximity search, returns `(Vec<EventListItem>, i64)`
+- `async fn get_event()` - Get event by ID, returns `Option<EventRow>`
+- `async fn create_event()` - Create event with pending status, returns `EventRow`
+- `async fn update_own_event()` - Update own event (key-field changes reset approval), returns `Option<EventRow>`
+- `async fn delete_own_event()` - Delete own event, returns `bool`
+- `async fn list_my_events()` - List events by callsign (all statuses), returns `Vec<EventListItem>`
+- `async fn count_pending_events()` - Count pending events for a callsign, returns `i64`
+- `async fn list_events_admin()` - Admin list with status filter, returns `(Vec<EventListItem>, i64)`
+- `async fn admin_update_event()` - Admin update any event, returns `Option<EventRow>`
+- `async fn review_event()` - Approve or reject an event, returns `Option<EventRow>`
+- `async fn admin_delete_event()` - Hard delete any event, returns `bool`
+- `async fn get_submitter_history()` - Get submitter stats, returns `SubmitterStats`

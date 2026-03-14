@@ -150,6 +150,8 @@ fn create_router(
         .route("/trails", get(handlers::get_trails))
         .route("/trails/status", get(handlers::get_trail_status))
         .route("/trails/:reference", get(handlers::get_trail))
+        .route("/events", get(handlers::list_events))
+        .route("/events/:id", get(handlers::get_event))
         .route("/rbn/spots", get(handlers::rbn_spots))
         .route("/rbn/stats", get(handlers::rbn_stats))
         .route("/rbn/skimmers", get(handlers::rbn_skimmers))
@@ -202,6 +204,12 @@ fn create_router(
         .route("/clubs/:id/activity", get(handlers::get_club_activity))
         .route("/clubs/:id/status", get(handlers::get_club_status))
         .route("/clubs/:id/notes", put(handlers::update_club_notes))
+        .route("/events", post(handlers::create_event))
+        .route("/events/mine", get(handlers::list_my_events))
+        .route(
+            "/events/:id",
+            put(handlers::update_event).delete(handlers::delete_event),
+        )
         .route("/account", delete(handlers::delete_account))
         .layer(Extension(config.clone()))
         .layer(middleware::from_fn_with_state(
@@ -253,6 +261,22 @@ fn create_router(
         .route(
             "/admin/clubs/:id/members/:callsign",
             delete(handlers::remove_club_member).put(handlers::update_club_member_role),
+        )
+        .route(
+            "/admin/events",
+            get(handlers::list_events_admin),
+        )
+        .route(
+            "/admin/events/:id",
+            put(handlers::admin_update_event).delete(handlers::admin_delete_event),
+        )
+        .route(
+            "/admin/events/:id/review",
+            put(handlers::review_event),
+        )
+        .route(
+            "/admin/events/submitter/:callsign",
+            get(handlers::get_submitter_history),
         )
         .route("/admin/spots/:id", delete(handlers::admin_delete_spot))
         .route("/admin/trails/status", get(handlers::get_trail_status))
