@@ -252,9 +252,13 @@ pub async fn list_all_clubs(pool: &PgPool) -> Result<Vec<ClubWithCount>, AppErro
         SELECT c.id, c.name, c.callsign, c.description,
                c.notes_url, c.notes_title,
                c.created_at, c.updated_at,
-               (SELECT COUNT(*) FROM club_members cm2
-                WHERE cm2.club_id = c.id) AS member_count
+               COALESCE(counts.member_count, 0) AS member_count
         FROM clubs c
+        LEFT JOIN (
+            SELECT club_id, COUNT(*) AS member_count
+            FROM club_members
+            GROUP BY club_id
+        ) counts ON counts.club_id = c.id
         ORDER BY c.name
         "#,
     )
@@ -278,10 +282,14 @@ pub async fn get_clubs_for_callsign(
         SELECT c.id, c.name, c.callsign, c.description,
                c.notes_url, c.notes_title,
                c.created_at, c.updated_at,
-               (SELECT COUNT(*) FROM club_members cm2
-                WHERE cm2.club_id = c.id) AS member_count
+               counts.member_count
         FROM clubs c
         JOIN club_members cm ON cm.club_id = c.id
+        JOIN (
+            SELECT club_id, COUNT(*) AS member_count
+            FROM club_members
+            GROUP BY club_id
+        ) counts ON counts.club_id = c.id
         WHERE cm.callsign = $1
         ORDER BY c.name
         "#,
@@ -383,6 +391,74 @@ pub async fn get_club_activity(
     };
 
     Ok(rows)
+}
+
+/// Enriched member row that includes club_id for batch loading across multiple clubs.
+#[derive(Debug, Clone, FromRow)]
+pub struct EnrichedClubMemberWithClub {
+    pub club_id: Uuid,
+    pub callsign: String,
+    pub role: String,
+    pub joined_at: DateTime<Utc>,
+    pub last_seen_at: Option<DateTime<Utc>>,
+    pub last_grid: Option<String>,
+    pub is_carrier_wave_user: bool,
+}
+
+/// Get enriched members for multiple clubs in a single query (avoids N+1).
+pub async fn get_members_for_clubs(
+    pool: &PgPool,
+    club_ids: &[Uuid],
+) -> Result<Vec<EnrichedClubMemberWithClub>, AppError> {
+    if club_ids.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let members = sqlx::query_as::<_, EnrichedClubMemberWithClub>(
+        r#"
+        SELECT cm.club_id,
+               cm.callsign,
+               cm.role,
+               cm.joined_at,
+               p.last_seen_at,
+               CAST(NULL AS TEXT) AS last_grid,
+               COALESCE(p.id IS NOT NULL, false) AS is_carrier_wave_user
+        FROM club_members cm
+        LEFT JOIN participants p ON UPPER(p.callsign) = cm.callsign
+        WHERE cm.club_id = ANY($1)
+        ORDER BY cm.club_id, cm.role = 'admin' DESC, cm.callsign
+        "#,
+    )
+    .bind(club_ids)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(members)
+}
+
+/// Compute a fingerprint for all clubs a callsign belongs to.
+/// Returns epoch-seconds of the latest mutation (club update or member change).
+/// Used to generate ETags for conditional sync.
+pub async fn get_clubs_fingerprint(pool: &PgPool, callsign: &str) -> Result<i64, AppError> {
+    let ts: Option<DateTime<Utc>> = sqlx::query_scalar(
+        r#"
+        SELECT GREATEST(
+            (SELECT MAX(c.updated_at)
+             FROM clubs c
+             JOIN club_members cm ON cm.club_id = c.id
+             WHERE cm.callsign = $1),
+            (SELECT MAX(cm2.joined_at)
+             FROM club_members cm2
+             JOIN club_members my ON my.club_id = cm2.club_id
+             WHERE my.callsign = $1)
+        )
+        "#,
+    )
+    .bind(callsign.to_uppercase())
+    .fetch_one(pool)
+    .await?;
+
+    Ok(ts.map(|t| t.timestamp()).unwrap_or(0))
 }
 
 /// Check whether a callsign is a member of a given club.

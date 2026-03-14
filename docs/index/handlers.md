@@ -110,6 +110,17 @@ Friend invite links and friend requests.
 - `async fn get_invite_link()` - GET /v1/friends/invite-link - Generate friend invite link (auth required)
 - `async fn create_friend_request()` - POST /v1/friends/requests - Create friend request by user ID or invite token (auth required)
 
+### `src/handlers/clubs.rs`
+Authenticated club endpoints for members.
+
+**Exports:**
+- `async fn get_clubs()` - GET /v1/clubs - Get clubs for the authenticated user
+- `async fn sync_clubs()` - GET /v1/clubs/sync - Batch-fetch all clubs with full member details and ETag support (optimized for app startup)
+- `async fn get_club_details()` - GET /v1/clubs/:id - Get club details with members (requires membership)
+- `async fn get_club_activity()` - GET /v1/clubs/:id/activity - Get club activity feed (requires membership)
+- `async fn get_club_status()` - GET /v1/clubs/:id/status - Get real-time member online status (requires membership)
+- `async fn update_club_notes()` - PUT /v1/clubs/:id/notes - Update club notes (requires club admin role)
+
 ### `src/handlers/clubs_admin.rs`
 Admin CRUD for clubs and members.
 
