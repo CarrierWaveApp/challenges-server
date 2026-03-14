@@ -97,6 +97,22 @@ pub async fn delete_user_account(pool: &PgPool, callsign: &str) -> Result<u64, A
     Ok(result.rows_affected())
 }
 
+pub async fn get_user_counts(pool: &PgPool) -> Result<(i64, i64, i64), AppError> {
+    let row = sqlx::query_as::<_, (i64, i64, i64)>(
+        r#"
+        SELECT
+            COUNT(*) AS total,
+            COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days') AS last_7,
+            COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days') AS last_30
+        FROM users
+        "#,
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(row)
+}
+
 pub async fn get_or_create_user(pool: &PgPool, callsign: &str) -> Result<User, AppError> {
     let user = sqlx::query_as::<_, User>(
         r#"

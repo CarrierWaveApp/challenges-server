@@ -259,6 +259,12 @@ class APIClient {
         try await getWrapped("/v1/admin/events/submitter/\(callsign)")
     }
 
+    // MARK: - Admin Stats
+
+    func getAdminStats() async throws -> AdminStatsResponse {
+        try await getWrapped("/v1/admin/stats")
+    }
+
     // MARK: - Challenges (Admin)
 
     func createChallenge(_ body: [String: Any]) async throws {

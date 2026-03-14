@@ -282,6 +282,7 @@ fn create_router(
         )
         .route("/admin/spots/:id", delete(handlers::admin_delete_spot))
         .route("/admin/trails/status", get(handlers::get_trail_status))
+        .route("/admin/stats", get(handlers::admin_stats))
         .layer(middleware::from_fn_with_state(
             config.admin_token,
             auth::require_admin,

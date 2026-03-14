@@ -32,9 +32,24 @@ pub async fn search_users(
 }
 
 use crate::auth::AuthContext;
-use crate::models::{RegisterRequest, RegisterResponse};
+use crate::models::{AdminStatsResponse, RegisterRequest, RegisterResponse};
 use axum::http::StatusCode;
 use axum::Extension;
+
+/// GET /v1/admin/stats — aggregate user statistics (admin only)
+pub async fn admin_stats(
+    State(pool): State<PgPool>,
+) -> Result<Json<DataResponse<AdminStatsResponse>>, AppError> {
+    let (total, last_7, last_30) = db::get_user_counts(&pool).await?;
+
+    Ok(Json(DataResponse {
+        data: AdminStatsResponse {
+            total_users: total,
+            users_last_7_days: last_7,
+            users_last_30_days: last_30,
+        },
+    }))
+}
 
 /// POST /v1/register
 /// Register a user so they appear in friend search and get an auth token.

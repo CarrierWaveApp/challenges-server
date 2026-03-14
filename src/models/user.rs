@@ -59,3 +59,11 @@ pub struct RegisterResponse {
     pub user_id: Uuid,
     pub device_token: String,
 }
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminStatsResponse {
+    pub total_users: i64,
+    pub users_last_7_days: i64,
+    pub users_last_30_days: i64,
+}

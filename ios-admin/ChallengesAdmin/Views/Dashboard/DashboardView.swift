@@ -9,6 +9,7 @@ struct DashboardView: View {
     @State private var trailStatus: TrailStatusResponse?
     @State private var spotsResponse: SpotsListResponse?
     @State private var clubs: [ClubAdminResponse]?
+    @State private var adminStats: AdminStatsResponse?
     @State private var error: String?
     @State private var serverDown = false
     @State private var isLoading = true
@@ -31,6 +32,7 @@ struct DashboardView: View {
                         }
                         serverStatusSection
                         countsSection
+                        usersSection
                         aggregatorSummarySection
                         if let lastRefresh {
                             Text("Last refreshed \(lastRefresh.formatted(.relative(presentation: .named)))")
@@ -170,6 +172,44 @@ struct DashboardView: View {
         .cardStyle()
     }
 
+    // MARK: - Users
+
+    private var usersSection: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Text("Users")
+                    .font(.headline)
+                Spacer()
+            }
+
+            LazyVGrid(columns: [
+                GridItem(.flexible()),
+                GridItem(.flexible()),
+                GridItem(.flexible()),
+            ], spacing: 12) {
+                CountCard(
+                    title: "Total",
+                    count: adminStats?.totalUsers,
+                    icon: "person.crop.circle.fill",
+                    color: .blue
+                )
+                CountCard(
+                    title: "Last 7 Days",
+                    count: adminStats?.usersLast7Days,
+                    icon: "calendar.badge.plus",
+                    color: .green
+                )
+                CountCard(
+                    title: "Last 30 Days",
+                    count: adminStats?.usersLast30Days,
+                    icon: "calendar",
+                    color: .teal
+                )
+            }
+        }
+        .cardStyle()
+    }
+
     // MARK: - Aggregator Summary
 
     private var aggregatorSummarySection: some View {
@@ -227,6 +267,7 @@ struct DashboardView: View {
             group.addTask { await loadBoundaryStatus() }
             group.addTask { await loadTrailStatus() }
             group.addTask { await loadClubs() }
+            group.addTask { await loadAdminStats() }
         }
 
         lastRefresh = Date()
@@ -280,6 +321,14 @@ struct DashboardView: View {
     private func loadClubs() async {
         do {
             clubs = try await api.getClubs()
+        } catch {
+            // Non-critical
+        }
+    }
+
+    private func loadAdminStats() async {
+        do {
+            adminStats = try await api.getAdminStats()
         } catch {
             // Non-critical
         }

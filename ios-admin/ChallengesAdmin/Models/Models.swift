@@ -236,6 +236,14 @@ struct ImportNotesResponse: Decodable {
     let callsigns: [String]
 }
 
+// MARK: - Admin Stats
+
+struct AdminStatsResponse: Decodable {
+    let totalUsers: Int
+    let usersLast7Days: Int
+    let usersLast30Days: Int
+}
+
 struct EmptyBody: Encodable {}
 
 // MARK: - Events (Admin)
