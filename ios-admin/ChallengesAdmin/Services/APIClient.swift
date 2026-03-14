@@ -223,6 +223,42 @@ class APIClient {
         return wrapper.data
     }
 
+    // MARK: - Events (Admin)
+
+    func getEvents(status: String? = nil, limit: Int = 50) async throws -> EventsListResponse {
+        var items = [
+            URLQueryItem(name: "limit", value: "\(limit)")
+        ]
+        if let status {
+            items.append(URLQueryItem(name: "status", value: status))
+        }
+        return try await getWrapped("/v1/admin/events", queryItems: items)
+    }
+
+    func getEvent(id: String) async throws -> EventDetailResponse {
+        let wrapper: DataWrapper<EventDetailResponse> = try await get("/v1/admin/events/\(id)")
+        return wrapper.data
+    }
+
+    func reviewEvent(id: String, action: String, reason: String? = nil) async throws -> EventDetailResponse {
+        let body = ReviewEventRequest(action: action, reason: reason)
+        let wrapper: DataWrapper<EventDetailResponse> = try await put("/v1/admin/events/\(id)/review", body: body)
+        return wrapper.data
+    }
+
+    func updateEvent(id: String, _ request: UpdateEventRequest) async throws -> EventDetailResponse {
+        let wrapper: DataWrapper<EventDetailResponse> = try await put("/v1/admin/events/\(id)", body: request)
+        return wrapper.data
+    }
+
+    func deleteEvent(id: String) async throws {
+        try await delete("/v1/admin/events/\(id)")
+    }
+
+    func getSubmitterHistory(callsign: String) async throws -> SubmitterStatsResponse {
+        try await getWrapped("/v1/admin/events/submitter/\(callsign)")
+    }
+
     // MARK: - Challenges (Admin)
 
     func createChallenge(_ body: [String: Any]) async throws {

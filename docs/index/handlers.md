@@ -140,6 +140,7 @@ Admin event moderation endpoints.
 
 **Exports:**
 - `async fn list_events_admin()` - GET /v1/admin/events - List events with optional status filter
+- `async fn admin_get_event()` - GET /v1/admin/events/:id - Get any event regardless of status
 - `async fn admin_update_event()` - PUT /v1/admin/events/:id - Edit any event fields
 - `async fn review_event()` - PUT /v1/admin/events/:id/review - Approve or reject an event
 - `async fn admin_delete_event()` - DELETE /v1/admin/events/:id - Hard delete any event

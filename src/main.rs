@@ -268,7 +268,9 @@ fn create_router(
         )
         .route(
             "/admin/events/:id",
-            put(handlers::admin_update_event).delete(handlers::admin_delete_event),
+            get(handlers::admin_get_event)
+                .put(handlers::admin_update_event)
+                .delete(handlers::admin_delete_event),
         )
         .route(
             "/admin/events/:id/review",

@@ -634,6 +634,14 @@ GET /v1/admin/events
 | `limit` | int | Max results (default 50, max 100) |
 | `offset` | int | Pagination offset |
 
+### Get Event (Admin)
+
+```
+GET /v1/admin/events/{id}
+```
+
+Returns any event regardless of status.
+
 ### Edit Event (Admin)
 
 ```

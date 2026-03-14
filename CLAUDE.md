@@ -141,6 +141,7 @@ RBN_PROXY_CALLSIGN=W6JSV                                      # Optional, defaul
 - `POST /v1/admin/clubs/{id}/import-notes` - Import members from callsign notes URL (admin)
 - `GET /v1/admin/trails/status` - Historic trails sync status (admin)
 - `GET /v1/admin/events` - List events with status filter (admin)
+- `GET /v1/admin/events/{id}` - Get any event regardless of status (admin)
 - `PUT /v1/admin/events/{id}` - Edit any event (admin)
 - `PUT /v1/admin/events/{id}/review` - Approve or reject event (admin)
 - `DELETE /v1/admin/events/{id}` - Delete any event (admin)

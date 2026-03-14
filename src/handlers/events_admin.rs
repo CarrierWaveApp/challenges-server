@@ -30,6 +30,21 @@ pub async fn list_events_admin(
     })))
 }
 
+/// GET /v1/admin/events/:id
+/// Get any event regardless of status.
+pub async fn admin_get_event(
+    State(pool): State<PgPool>,
+    Path(event_id): Path<Uuid>,
+) -> Result<Json<DataResponse<EventResponse>>, AppError> {
+    let event = db::events::get_event(&pool, event_id)
+        .await?
+        .ok_or(AppError::EventNotFound { event_id })?;
+
+    Ok(Json(DataResponse {
+        data: EventResponse::from(event),
+    }))
+}
+
 /// PUT /v1/admin/events/:id
 /// Admin edit any event fields (fix typos, adjust coordinates before approving).
 pub async fn admin_update_event(
