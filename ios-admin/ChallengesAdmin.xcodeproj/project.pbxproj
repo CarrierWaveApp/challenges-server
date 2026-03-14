@@ -20,6 +20,8 @@
 		B5B69503DF34C712865F74A2 /* ProgramDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BE0FA972D63A2294C119718 /* ProgramDetailView.swift */; };
 		C5890765FA62E96F07436558 /* ClubsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12C2CBE2021FD4136E0E8218 /* ClubsListView.swift */; };
 		E775F5FDAE84FE4703606908 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26A8DF7626C5E92E88442FE3 /* ContentView.swift */; };
+		C3D4E5F6A7B8C9D0E1F2A3B4 /* EventsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F2 /* EventsListView.swift */; };
+		D4E5F6A7B8C9D0E1F2A3B4C5 /* EventDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6A7B8C9D0E1F2A3 /* EventDetailView.swift */; };
 		EC65BF738FC0C4082F012E4D /* ChallengesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 474DDE6CD505E084949D0F0C /* ChallengesListView.swift */; };
 /* End PBXBuildFile section */
 
@@ -30,6 +32,8 @@
 		26A8DF7626C5E92E88442FE3 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		474DDE6CD505E084949D0F0C /* ChallengesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChallengesListView.swift; sourceTree = "<group>"; };
 		4BE0FA972D63A2294C119718 /* ProgramDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgramDetailView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6A7B8C9D0E1F2 /* EventsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventsListView.swift; sourceTree = "<group>"; };
+		B2C3D4E5F6A7B8C9D0E1F2A3 /* EventDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventDetailView.swift; sourceTree = "<group>"; };
 		62164EDA61B53AA3C0711FED /* AggregatorsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AggregatorsView.swift; sourceTree = "<group>"; };
 		6D27446A1FB0096E55455145 /* ServerConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerConfig.swift; sourceTree = "<group>"; };
 		75FCF73BDB9E2DDC118125C0 /* ProgramsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgramsListView.swift; sourceTree = "<group>"; };
@@ -42,6 +46,15 @@
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
+		E5F6A7B8C9D0E1F2A3B4C5D6 /* Events */ = {
+			isa = PBXGroup;
+			children = (
+				B2C3D4E5F6A7B8C9D0E1F2A3 /* EventDetailView.swift */,
+				A1B2C3D4E5F6A7B8C9D0E1F2 /* EventsListView.swift */,
+			);
+			path = Events;
+			sourceTree = "<group>";
+		};
 		19BB1198851D190D8409260F /* Dashboard */ = {
 			isa = PBXGroup;
 			children = (
@@ -98,6 +111,7 @@
 				7B46D721905ACC730190953C /* Challenges */,
 				48114BAD7275F758540FC004 /* Clubs */,
 				19BB1198851D190D8409260F /* Dashboard */,
+				E5F6A7B8C9D0E1F2A3B4C5D6 /* Events */,
 				A754C61ACC0463478CAA73F6 /* Programs */,
 				D86EFD5836BE4B75B8C1C0C1 /* Settings */,
 			);
@@ -230,6 +244,8 @@
 				C5890765FA62E96F07436558 /* ClubsListView.swift in Sources */,
 				E775F5FDAE84FE4703606908 /* ContentView.swift in Sources */,
 				8E36ADE1054E964AD63399B6 /* DashboardView.swift in Sources */,
+				D4E5F6A7B8C9D0E1F2A3B4C5 /* EventDetailView.swift in Sources */,
+				C3D4E5F6A7B8C9D0E1F2A3B4 /* EventsListView.swift in Sources */,
 				27E371827D2B3BB67B54B627 /* Models.swift in Sources */,
 				B5B69503DF34C712865F74A2 /* ProgramDetailView.swift in Sources */,
 				6BCBBAEF1E105EC93BBF6885 /* ProgramsListView.swift in Sources */,
