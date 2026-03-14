@@ -77,7 +77,7 @@ Periodic disk snapshots of aggregated data (parks, GIS, statistics).
 - `async fn snapshot_loop()` - Background task that saves snapshots at a configurable interval
 
 **Environment Variables:**
-- `SNAPSHOT_ENABLED` - Optional, default false
+- `SNAPSHOT_ENABLED` - Optional, default true
 - `SNAPSHOT_DIR` - Optional, default "data/snapshots"
 - `SNAPSHOT_INTERVAL_HOURS` - Optional, default 1
 - `SNAPSHOT_MAX_AGE_HOURS` - Optional, default 24
