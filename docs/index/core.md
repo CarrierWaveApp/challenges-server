@@ -21,7 +21,7 @@ Application entry point and router setup.
 Environment variable configuration.
 
 **Exports:**
-- `struct Config` - Application configuration with database_url, admin_token, port, base_url, invite_base_url, invite_expiry_days, polish_park_boundaries_* fields
+- `struct Config` - Application configuration with database_url, admin_token, port, base_url, invite_base_url, invite_expiry_days, polish_park_boundaries_*, snapshot_* fields
 - `impl Config::from_env()` - Load config from environment variables
 - `enum ConfigError` - Configuration errors (Missing, Invalid)
 
@@ -60,6 +60,27 @@ Prometheus metrics constants, middleware, and background tasks.
 - `RBN_SPOTS_INGESTED_TOTAL` - Counter: spots ingested from RBN telnet stream (labels: mode, band)
 - `RBN_SPOT_SNR` - Histogram: signal-to-noise ratio distribution (labels: mode)
 - `RBN_SPOT_WPM` - Histogram: CW speed (words per minute) distribution
+
+### `src/snapshots.rs`
+Periodic disk snapshots of aggregated data (parks, GIS, statistics).
+
+**Exports:**
+- `struct SnapshotManifest` - Envelope with version, timestamp, and row counts (Serialize, Deserialize)
+- `struct ParkSnapshot` - Serializable POTA park row (Serialize, Deserialize, FromRow)
+- `struct ActivationSnapshot` - Serializable activation row (Serialize, Deserialize, FromRow)
+- `struct HunterQsoSnapshot` - Serializable hunter QSO row (Serialize, Deserialize, FromRow)
+- `struct FetchStatusSnapshot` - Serializable fetch status row (Serialize, Deserialize, FromRow)
+- `struct BoundarySnapshot` - Serializable park boundary row with GeoJSON geometry (Serialize, Deserialize, FromRow)
+- `struct TrailSnapshot` - Serializable historic trail row with GeoJSON geometry (Serialize, Deserialize, FromRow)
+- `async fn save_snapshot()` - Export all aggregated tables to JSON files in a directory
+- `async fn try_restore()` - Restore from snapshot if tables are empty and snapshot is within max age
+- `async fn snapshot_loop()` - Background task that saves snapshots at a configurable interval
+
+**Environment Variables:**
+- `SNAPSHOT_ENABLED` - Optional, default true
+- `SNAPSHOT_DIR` - Optional, default "data/snapshots"
+- `SNAPSHOT_INTERVAL_HOURS` - Optional, default 1
+- `SNAPSHOT_MAX_AGE_HOURS` - Optional, default 24
 
 ### `src/error.rs`
 Application error types with HTTP responses.
