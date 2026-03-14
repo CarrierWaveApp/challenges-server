@@ -51,6 +51,23 @@ pub struct ClubResponse {
     pub member_count: i64,
 }
 
+/// Combined club + members response for the sync endpoint.
+/// Returns all clubs with full member details in a single payload.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClubSyncResponse {
+    pub id: Uuid,
+    pub name: String,
+    pub callsign: Option<String>,
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notes_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notes_title: Option<String>,
+    pub member_count: i64,
+    pub members: Vec<ClubMemberResponse>,
+}
+
 /// Detailed response for a single club (includes full member list).
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

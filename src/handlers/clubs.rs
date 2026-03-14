@@ -1,4 +1,5 @@
 use axum::extract::{Extension, Query, State};
+use axum::http::{header, HeaderMap};
 use chrono::{Duration, Utc};
 use uuid::Uuid;
 
@@ -9,8 +10,8 @@ use crate::auth::AuthContext;
 use crate::db;
 use crate::error::AppError;
 use crate::models::club::{
-    ClubDetailResponse, ClubMemberResponse, ClubResponse, MemberOnlineStatus, MemberStatusResponse,
-    SpotInfo, UpdateClubNotesRequest,
+    ClubDetailResponse, ClubMemberResponse, ClubResponse, ClubSyncResponse, MemberOnlineStatus,
+    MemberStatusResponse, SpotInfo, UpdateClubNotesRequest,
 };
 
 use super::DataResponse;
@@ -37,6 +38,76 @@ pub async fn get_clubs(
         .collect();
 
     Ok(Json(DataResponse { data }))
+}
+
+/// GET /v1/clubs/sync
+/// Return all clubs for the authenticated user with full member details in a single response.
+/// Supports ETag-based conditional fetching via If-None-Match to skip re-downloading
+/// when nothing has changed (the main use-case is fast app startup).
+pub async fn sync_clubs(
+    State(pool): State<PgPool>,
+    Extension(auth): Extension<AuthContext>,
+    headers: HeaderMap,
+) -> Result<(HeaderMap, Json<DataResponse<Vec<ClubSyncResponse>>>), AppError> {
+    // Compute ETag from the latest mutation timestamp across clubs + members for this user
+    let fingerprint = db::clubs::get_clubs_fingerprint(&pool, &auth.callsign).await?;
+    let etag = format!("\"clubs-{}\"", fingerprint);
+
+    // Check If-None-Match
+    if let Some(inm) = headers.get(header::IF_NONE_MATCH) {
+        if let Ok(val) = inm.to_str() {
+            if val == etag {
+                let mut resp_headers = HeaderMap::new();
+                resp_headers.insert(header::ETAG, etag.parse().unwrap());
+                return Err(AppError::NotModified);
+            }
+        }
+    }
+
+    // Fetch all clubs with members in two queries (no N+1)
+    let clubs = db::clubs::get_clubs_for_callsign(&pool, &auth.callsign).await?;
+
+    let club_ids: Vec<Uuid> = clubs.iter().map(|c| c.id).collect();
+    let all_members = db::clubs::get_members_for_clubs(&pool, &club_ids).await?;
+
+    // Group members by club_id
+    let mut members_by_club: std::collections::HashMap<Uuid, Vec<ClubMemberResponse>> =
+        std::collections::HashMap::new();
+    for m in all_members {
+        members_by_club
+            .entry(m.club_id)
+            .or_default()
+            .push(ClubMemberResponse {
+                callsign: m.callsign,
+                role: m.role,
+                joined_at: m.joined_at,
+                last_seen_at: m.last_seen_at,
+                last_grid: m.last_grid,
+                is_carrier_wave_user: m.is_carrier_wave_user,
+            });
+    }
+
+    let data = clubs
+        .into_iter()
+        .map(|c| {
+            let members = members_by_club.remove(&c.id).unwrap_or_default();
+            ClubSyncResponse {
+                id: c.id,
+                name: c.name,
+                callsign: c.callsign,
+                description: c.description,
+                notes_url: c.notes_url,
+                notes_title: c.notes_title,
+                member_count: c.member_count,
+                members,
+            }
+        })
+        .collect();
+
+    let mut resp_headers = HeaderMap::new();
+    resp_headers.insert(header::ETAG, etag.parse().unwrap());
+
+    Ok((resp_headers, Json(DataResponse { data })))
 }
 
 /// GET /v1/clubs/:id

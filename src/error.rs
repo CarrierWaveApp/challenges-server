@@ -112,6 +112,9 @@ pub enum AppError {
     #[error("Forbidden")]
     Forbidden,
 
+    #[error("Not modified")]
+    NotModified,
+
     #[error("Rate limit exceeded")]
     RateLimited,
 
@@ -140,6 +143,11 @@ struct ErrorBody {
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
+        // 304 Not Modified returns an empty body
+        if matches!(self, Self::NotModified) {
+            return StatusCode::NOT_MODIFIED.into_response();
+        }
+
         let (status, code, details) = match &self {
             Self::ChallengeNotFound { challenge_id } => (
                 StatusCode::NOT_FOUND,
@@ -264,6 +272,7 @@ impl IntoResponse for AppError {
             Self::ChallengeEnded => (StatusCode::BAD_REQUEST, "CHALLENGE_ENDED", None),
             Self::InvalidToken => (StatusCode::UNAUTHORIZED, "INVALID_TOKEN", None),
             Self::Forbidden => (StatusCode::FORBIDDEN, "FORBIDDEN", None),
+            Self::NotModified => unreachable!("handled above"),
             Self::RateLimited => (StatusCode::TOO_MANY_REQUESTS, "RATE_LIMITED", None),
             Self::Validation { .. } => (StatusCode::BAD_REQUEST, "VALIDATION_ERROR", None),
             Self::Database(_) => (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", None),

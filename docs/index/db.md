@@ -124,3 +124,23 @@ Event CRUD and proximity queries.
 - `async fn review_event()` - Approve or reject an event, returns `Option<EventRow>`
 - `async fn admin_delete_event()` - Hard delete any event, returns `bool`
 - `async fn get_submitter_history()` - Get submitter stats, returns `SubmitterStats`
+
+### `src/db/clubs.rs`
+Club queries for admin and authenticated users.
+
+**Exports:**
+- `async fn create_club()` - Create a new club, returns `Club`
+- `async fn update_club()` - Update club metadata (COALESCE for partial updates), returns `Option<Club>`
+- `async fn update_club_notes()` - Set club notes URL and title, returns `Option<Club>`
+- `async fn delete_club()` - Delete club by ID, returns `bool`
+- `async fn add_members()` - Upsert members to a club, returns `Vec<ClubMember>`
+- `async fn remove_member()` - Remove member from a club, returns `bool`
+- `async fn update_member_role()` - Update a member's role, returns `bool`
+- `async fn list_all_clubs()` - List all clubs with member counts (admin), returns `Vec<ClubWithCount>`
+- `async fn get_clubs_for_callsign()` - Get clubs for a callsign with member counts, returns `Vec<ClubWithCount>`
+- `async fn get_club_detail()` - Get single club by ID, returns `Option<Club>`
+- `async fn get_club_members_enriched()` - Get members with presence data, returns `Vec<EnrichedClubMember>`
+- `async fn get_members_for_clubs()` - Batch-fetch members for multiple clubs (avoids N+1), returns `Vec<EnrichedClubMemberWithClub>`
+- `async fn get_clubs_fingerprint()` - Compute ETag fingerprint for a user's clubs, returns `i64`
+- `async fn get_club_activity()` - Get activities from club members with cursor pagination, returns `Vec<ActivityWithCallsign>`
+- `async fn is_club_member()` - Check membership, returns `bool`
