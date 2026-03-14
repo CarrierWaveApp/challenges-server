@@ -63,6 +63,10 @@ BASE_URL=https://challenges.example.com                       # Optional
 RUST_LOG=info                                                 # Optional
 RBN_PROXY_ENABLED=false                                       # Optional, default false
 RBN_PROXY_CALLSIGN=W6JSV                                      # Optional, default W6JSV
+SNAPSHOT_ENABLED=false                                         # Optional, default false
+SNAPSHOT_DIR=data/snapshots                                    # Optional, default data/snapshots
+SNAPSHOT_INTERVAL_HOURS=1                                      # Optional, default 1
+SNAPSHOT_MAX_AGE_HOURS=24                                      # Optional, default 24
 ```
 
 ## Finding Code

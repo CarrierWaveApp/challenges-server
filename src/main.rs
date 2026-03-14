@@ -8,6 +8,7 @@ mod handlers;
 mod metrics;
 mod models;
 mod rbn;
+mod snapshots;
 
 use std::net::SocketAddr;
 
@@ -56,6 +57,15 @@ async fn main() {
 
     tracing::info!("Database connected and migrations complete");
 
+    // Restore from snapshot if tables are empty and a fresh snapshot exists
+    if config.snapshot_enabled {
+        match snapshots::try_restore(&pool, &config).await {
+            Ok(true) => tracing::info!("Snapshot restore succeeded"),
+            Ok(false) => {}
+            Err(e) => tracing::warn!("Snapshot restore failed: {e}"),
+        }
+    }
+
     // Install Prometheus metrics
     let metrics_handle = metrics::install();
     metrics::spawn_pool_metrics(pool.clone());
@@ -92,6 +102,21 @@ async fn main() {
         rbn::spawn_rbn_ingester(rbn_store.clone(), config.rbn_proxy_callsign.clone());
         metrics::spawn_rbn_metrics(rbn_store.clone());
         tracing::info!("RBN proxy enabled (login: {})", config.rbn_proxy_callsign);
+    }
+
+    // Spawn snapshot background loop
+    if config.snapshot_enabled {
+        let snap_pool = pool.clone();
+        let snap_config = config.clone();
+        tokio::spawn(async move {
+            snapshots::snapshot_loop(snap_pool, snap_config).await;
+        });
+        tracing::info!(
+            interval_hours = config.snapshot_interval_hours,
+            max_age_hours = config.snapshot_max_age_hours,
+            dir = %config.snapshot_dir,
+            "Snapshot persistence enabled"
+        );
     }
 
     // Build router

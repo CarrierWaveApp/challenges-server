@@ -34,6 +34,10 @@ pub struct Config {
     pub historic_trails_concurrency: usize,
     pub rbn_proxy_enabled: bool,
     pub rbn_proxy_callsign: String,
+    pub snapshot_enabled: bool,
+    pub snapshot_dir: String,
+    pub snapshot_interval_hours: u64,
+    pub snapshot_max_age_hours: u64,
 }
 
 impl Config {
@@ -179,6 +183,24 @@ impl Config {
         let rbn_proxy_callsign =
             env::var("RBN_PROXY_CALLSIGN").unwrap_or_else(|_| "W6JSV".to_string());
 
+        let snapshot_enabled = env::var("SNAPSHOT_ENABLED")
+            .unwrap_or_else(|_| "false".to_string())
+            .parse()
+            .unwrap_or(false);
+
+        let snapshot_dir =
+            env::var("SNAPSHOT_DIR").unwrap_or_else(|_| "data/snapshots".to_string());
+
+        let snapshot_interval_hours: u64 = env::var("SNAPSHOT_INTERVAL_HOURS")
+            .unwrap_or_else(|_| "1".to_string())
+            .parse()
+            .unwrap_or(1);
+
+        let snapshot_max_age_hours: u64 = env::var("SNAPSHOT_MAX_AGE_HOURS")
+            .unwrap_or_else(|_| "24".to_string())
+            .parse()
+            .unwrap_or(24);
+
         Ok(Self {
             database_url,
             admin_token,
@@ -210,6 +232,10 @@ impl Config {
             historic_trails_concurrency,
             rbn_proxy_enabled,
             rbn_proxy_callsign,
+            snapshot_enabled,
+            snapshot_dir,
+            snapshot_interval_hours,
+            snapshot_max_age_hours,
         })
     }
 }
