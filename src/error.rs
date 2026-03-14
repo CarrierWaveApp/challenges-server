@@ -49,6 +49,18 @@ pub enum AppError {
     #[error("Trail not found")]
     TrailNotFound { reference: String },
 
+    #[error("Event not found")]
+    EventNotFound { event_id: Uuid },
+
+    #[error("Cannot modify another user's event")]
+    EventNotOwned { event_id: Uuid },
+
+    #[error("Maximum pending events reached (10)")]
+    MaxPendingEvents,
+
+    #[error("Invalid review action")]
+    InvalidEventReview { message: String },
+
     #[error("Active self-spot already exists for this program")]
     SelfSpotExists,
 
@@ -175,6 +187,26 @@ impl IntoResponse for AppError {
                 StatusCode::NOT_FOUND,
                 "TRAIL_NOT_FOUND",
                 Some(serde_json::json!({ "reference": reference })),
+            ),
+            Self::EventNotFound { event_id } => (
+                StatusCode::NOT_FOUND,
+                "EVENT_NOT_FOUND",
+                Some(serde_json::json!({ "eventId": event_id })),
+            ),
+            Self::EventNotOwned { event_id } => (
+                StatusCode::FORBIDDEN,
+                "EVENT_NOT_OWNED",
+                Some(serde_json::json!({ "eventId": event_id })),
+            ),
+            Self::MaxPendingEvents => (
+                StatusCode::TOO_MANY_REQUESTS,
+                "MAX_PENDING_EVENTS",
+                None,
+            ),
+            Self::InvalidEventReview { .. } => (
+                StatusCode::BAD_REQUEST,
+                "INVALID_EVENT_REVIEW",
+                None,
             ),
             Self::SelfSpotExists => (StatusCode::CONFLICT, "SELF_SPOT_EXISTS", None),
             Self::CapabilityNotSupported {

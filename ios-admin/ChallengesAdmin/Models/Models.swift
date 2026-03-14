@@ -238,6 +238,89 @@ struct ImportNotesResponse: Decodable {
 
 struct EmptyBody: Encodable {}
 
+// MARK: - Events (Admin)
+
+struct EventsListResponse: Decodable {
+    let events: [EventListItem]
+    let total: Int
+    let limit: Int
+    let offset: Int
+}
+
+struct EventListItem: Decodable, Identifiable {
+    let id: String
+    let name: String
+    let eventType: String
+    let startDate: Date
+    let endDate: Date?
+    let timezone: String
+    let venueName: String?
+    let city: String
+    let state: String?
+    let country: String
+    let latitude: Double
+    let longitude: Double
+    let cost: String?
+    let submittedBy: String
+    let status: String
+    let createdAt: Date
+    let distanceMeters: Double?
+}
+
+struct EventDetailResponse: Decodable, Identifiable {
+    let id: String
+    let name: String
+    let description: String?
+    let eventType: String
+    let startDate: Date
+    let endDate: Date?
+    let timezone: String
+    let venueName: String?
+    let address: String
+    let city: String
+    let state: String?
+    let country: String
+    let latitude: Double
+    let longitude: Double
+    let cost: String?
+    let url: String?
+    let submittedBy: String
+    let status: String
+    let reviewedBy: String?
+    let reviewedAt: Date?
+    let rejectionReason: String?
+    let createdAt: Date
+    let updatedAt: Date
+}
+
+struct ReviewEventRequest: Encodable {
+    let action: String
+    var reason: String?
+}
+
+struct UpdateEventRequest: Encodable {
+    var name: String?
+    var description: String?
+    var eventType: String?
+    var timezone: String?
+    var venueName: String?
+    var address: String?
+    var city: String?
+    var state: String?
+    var country: String?
+    var latitude: Double?
+    var longitude: Double?
+    var cost: String?
+    var url: String?
+}
+
+struct SubmitterStatsResponse: Decodable {
+    let totalSubmitted: Int
+    let totalApproved: Int
+    let totalRejected: Int
+    let totalPending: Int
+}
+
 struct AddMembersRequest: Encodable {
     let members: [AddMemberEntry]
 }

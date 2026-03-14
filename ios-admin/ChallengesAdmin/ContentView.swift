@@ -32,6 +32,11 @@ struct MainTabView: View {
                     Label("Programs", systemImage: "list.bullet")
                 }
 
+            EventsListView()
+                .tabItem {
+                    Label("Events", systemImage: "calendar")
+                }
+
             ClubsListView()
                 .tabItem {
                     Label("Clubs", systemImage: "person.3")
