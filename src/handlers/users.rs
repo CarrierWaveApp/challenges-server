@@ -32,7 +32,7 @@ pub async fn search_users(
 }
 
 use crate::auth::AuthContext;
-use crate::models::{AdminStatsResponse, RegisterRequest, RegisterResponse};
+use crate::models::{AdminStatsResponse, RegisterRequest, RegisterResponse, UserCountByHour};
 use axum::http::StatusCode;
 use axum::Extension;
 
@@ -49,6 +49,22 @@ pub async fn admin_stats(
             users_last_30_days: last_30,
         },
     }))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UserCountsByHourQuery {
+    pub days: Option<i32>,
+}
+
+/// GET /v1/admin/stats/users-by-hour — user registrations per hour (admin only)
+pub async fn admin_users_by_hour(
+    State(pool): State<PgPool>,
+    Query(query): Query<UserCountsByHourQuery>,
+) -> Result<Json<DataResponse<Vec<UserCountByHour>>>, AppError> {
+    let days = query.days.unwrap_or(30).clamp(1, 365);
+    let data = db::get_user_counts_by_hour(&pool, days).await?;
+
+    Ok(Json(DataResponse { data }))
 }
 
 /// POST /v1/register

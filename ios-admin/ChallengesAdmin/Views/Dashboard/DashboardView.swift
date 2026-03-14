@@ -1,3 +1,4 @@
+import Charts
 import SwiftUI
 
 struct DashboardView: View {
@@ -10,6 +11,7 @@ struct DashboardView: View {
     @State private var spotsResponse: SpotsListResponse?
     @State private var clubs: [ClubAdminResponse]?
     @State private var adminStats: AdminStatsResponse?
+    @State private var userCountsByHour: [UserCountByHour]?
     @State private var error: String?
     @State private var serverDown = false
     @State private var isLoading = true
@@ -33,6 +35,7 @@ struct DashboardView: View {
                         serverStatusSection
                         countsSection
                         usersSection
+                        userGrowthChartSection
                         aggregatorSummarySection
                         if let lastRefresh {
                             Text("Last refreshed \(lastRefresh.formatted(.relative(presentation: .named)))")
@@ -210,6 +213,51 @@ struct DashboardView: View {
         .cardStyle()
     }
 
+    // MARK: - User Growth Chart
+
+    private var userGrowthChartSection: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Text("New Users per Hour")
+                    .font(.headline)
+                Spacer()
+                Text("Last 30 Days")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let data = userCountsByHour, !data.isEmpty {
+                Chart(data) { point in
+                    BarMark(
+                        x: .value("Hour", point.hour),
+                        y: .value("Users", point.count)
+                    )
+                    .foregroundStyle(.blue.gradient)
+                }
+                .chartXAxis {
+                    AxisMarks(values: .stride(by: .day, count: 7)) { _ in
+                        AxisGridLine()
+                        AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                    }
+                }
+                .chartYAxis {
+                    AxisMarks { _ in
+                        AxisGridLine()
+                        AxisValueLabel()
+                    }
+                }
+                .frame(height: 200)
+            } else {
+                Text("No data available")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(height: 200)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+        .cardStyle()
+    }
+
     // MARK: - Aggregator Summary
 
     private var aggregatorSummarySection: some View {
@@ -268,6 +316,7 @@ struct DashboardView: View {
             group.addTask { await loadTrailStatus() }
             group.addTask { await loadClubs() }
             group.addTask { await loadAdminStats() }
+            group.addTask { await loadUserCountsByHour() }
         }
 
         lastRefresh = Date()
@@ -329,6 +378,14 @@ struct DashboardView: View {
     private func loadAdminStats() async {
         do {
             adminStats = try await api.getAdminStats()
+        } catch {
+            // Non-critical
+        }
+    }
+
+    private func loadUserCountsByHour() async {
+        do {
+            userCountsByHour = try await api.getUserCountsByHour()
         } catch {
             // Non-critical
         }
