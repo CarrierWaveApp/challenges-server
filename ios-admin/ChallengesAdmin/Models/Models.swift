@@ -244,6 +244,12 @@ struct AdminStatsResponse: Decodable {
     let usersLast30Days: Int
 }
 
+struct UserCountByHour: Decodable, Identifiable {
+    var id: Date { hour }
+    let hour: Date
+    let count: Int
+}
+
 struct EmptyBody: Encodable {}
 
 // MARK: - Events (Admin)

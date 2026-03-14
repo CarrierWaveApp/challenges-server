@@ -113,6 +113,27 @@ pub async fn get_user_counts(pool: &PgPool) -> Result<(i64, i64, i64), AppError>
     Ok(row)
 }
 
+pub async fn get_user_counts_by_hour(
+    pool: &PgPool,
+    days: i32,
+) -> Result<Vec<crate::models::UserCountByHour>, AppError> {
+    let rows = sqlx::query_as::<_, crate::models::UserCountByHour>(
+        r#"
+        SELECT date_trunc('hour', created_at) AS hour,
+               COUNT(*) AS count
+        FROM users
+        WHERE created_at >= NOW() - make_interval(days => $1)
+        GROUP BY hour
+        ORDER BY hour
+        "#,
+    )
+    .bind(days)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows)
+}
+
 pub async fn get_or_create_user(pool: &PgPool, callsign: &str) -> Result<User, AppError> {
     let user = sqlx::query_as::<_, User>(
         r#"

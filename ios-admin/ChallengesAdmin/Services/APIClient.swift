@@ -265,6 +265,12 @@ class APIClient {
         try await getWrapped("/v1/admin/stats")
     }
 
+    func getUserCountsByHour(days: Int = 30) async throws -> [UserCountByHour] {
+        try await getWrapped("/v1/admin/stats/users-by-hour", queryItems: [
+            URLQueryItem(name: "days", value: "\(days)")
+        ])
+    }
+
     // MARK: - Challenges (Admin)
 
     func createChallenge(_ body: [String: Any]) async throws {

@@ -67,3 +67,10 @@ pub struct AdminStatsResponse {
     pub users_last_7_days: i64,
     pub users_last_30_days: i64,
 }
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct UserCountByHour {
+    pub hour: DateTime<Utc>,
+    pub count: i64,
+}
