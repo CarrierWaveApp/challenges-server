@@ -56,13 +56,13 @@ pub struct UserCountsByHourQuery {
     pub days: Option<i32>,
 }
 
-/// GET /v1/admin/stats/users-by-hour — user registrations per hour (admin only)
+/// GET /v1/admin/stats/users-by-hour — active users per hour (admin only)
 pub async fn admin_users_by_hour(
     State(pool): State<PgPool>,
     Query(query): Query<UserCountsByHourQuery>,
 ) -> Result<Json<DataResponse<Vec<UserCountByHour>>>, AppError> {
     let days = query.days.unwrap_or(30).clamp(1, 365);
-    let data = db::get_user_counts_by_hour(&pool, days).await?;
+    let data = db::get_active_users_by_hour(&pool, days).await?;
 
     Ok(Json(DataResponse { data }))
 }

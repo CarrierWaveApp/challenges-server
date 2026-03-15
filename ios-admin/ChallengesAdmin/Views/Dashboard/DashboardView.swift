@@ -218,7 +218,7 @@ struct DashboardView: View {
     private var userGrowthChartSection: some View {
         VStack(spacing: 12) {
             HStack {
-                Text("New Users per Hour")
+                Text("Active Users per Hour")
                     .font(.headline)
                 Spacer()
                 Text("Last 30 Days")
