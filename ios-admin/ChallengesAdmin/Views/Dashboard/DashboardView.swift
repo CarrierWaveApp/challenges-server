@@ -12,6 +12,7 @@ struct DashboardView: View {
     @State private var clubs: [ClubAdminResponse]?
     @State private var adminStats: AdminStatsResponse?
     @State private var userCountsByHour: [UserCountByHour]?
+    @State private var selectedTimespan: Timespan = .thirtyDays
     @State private var error: String?
     @State private var serverDown = false
     @State private var isLoading = true
@@ -185,11 +186,7 @@ struct DashboardView: View {
                 Spacer()
             }
 
-            LazyVGrid(columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-            ], spacing: 12) {
+            VStack(spacing: 8) {
                 CountCard(
                     title: "Total",
                     count: adminStats?.totalUsers,
@@ -197,13 +194,13 @@ struct DashboardView: View {
                     color: .blue
                 )
                 CountCard(
-                    title: "Last 7 Days",
+                    title: "New in Last 7 Days",
                     count: adminStats?.usersLast7Days,
                     icon: "calendar.badge.plus",
                     color: .green
                 )
                 CountCard(
-                    title: "Last 30 Days",
+                    title: "New in Last 30 Days",
                     count: adminStats?.usersLast30Days,
                     icon: "calendar",
                     color: .teal
@@ -221,23 +218,50 @@ struct DashboardView: View {
                 Text("Active Users per Hour")
                     .font(.headline)
                 Spacer()
-                Text("Last 30 Days")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Picker("Timespan", selection: $selectedTimespan) {
+                    ForEach(Timespan.allCases) { span in
+                        Text(span.label).tag(span)
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: selectedTimespan) {
+                    Task { await loadUserCountsByHour() }
+                }
             }
 
             if let data = userCountsByHour, !data.isEmpty {
+                let visibleDomain: TimeInterval = selectedTimespan.scrollWindowDays * 24 * 3600
                 Chart(data) { point in
-                    BarMark(
+                    LineMark(
                         x: .value("Hour", point.hour),
                         y: .value("Users", point.count)
                     )
-                    .foregroundStyle(.blue.gradient)
+                    .foregroundStyle(.blue)
+                    .interpolationMethod(.catmullRom)
+
+                    AreaMark(
+                        x: .value("Hour", point.hour),
+                        y: .value("Users", point.count)
+                    )
+                    .foregroundStyle(.blue.opacity(0.1))
+                    .interpolationMethod(.catmullRom)
                 }
                 .chartXAxis {
-                    AxisMarks(values: .stride(by: .day, count: 7)) { _ in
-                        AxisGridLine()
-                        AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                    if selectedTimespan == .oneDay {
+                        AxisMarks(values: .stride(by: .hour, count: 3)) { _ in
+                            AxisGridLine()
+                            AxisValueLabel(format: .dateTime.hour())
+                        }
+                    } else if selectedTimespan == .sevenDays {
+                        AxisMarks(values: .stride(by: .hour, count: 12)) { _ in
+                            AxisGridLine()
+                            AxisValueLabel(format: .dateTime.weekday(.abbreviated).hour())
+                        }
+                    } else {
+                        AxisMarks(values: .stride(by: .day, count: selectedTimespan.xAxisStrideDays)) { _ in
+                            AxisGridLine()
+                            AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                        }
                     }
                 }
                 .chartYAxis {
@@ -246,6 +270,9 @@ struct DashboardView: View {
                         AxisValueLabel()
                     }
                 }
+                .chartScrollableAxes(.horizontal)
+                .chartXVisibleDomain(length: visibleDomain)
+                .chartScrollPosition(initialX: data[data.count - 1].hour)
                 .frame(height: 200)
             } else {
                 Text("No data available")
@@ -385,9 +412,62 @@ struct DashboardView: View {
 
     private func loadUserCountsByHour() async {
         do {
-            userCountsByHour = try await api.getUserCountsByHour()
+            userCountsByHour = try await api.getUserCountsByHour(days: selectedTimespan.days)
         } catch {
             // Non-critical
+        }
+    }
+}
+
+// MARK: - Timespan
+
+enum Timespan: String, CaseIterable, Identifiable {
+    case oneDay = "1d"
+    case sevenDays = "7d"
+    case thirtyDays = "30d"
+    case ninetyDays = "90d"
+    case oneYear = "1y"
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .oneDay: "24 Hours"
+        case .sevenDays: "7 Days"
+        case .thirtyDays: "30 Days"
+        case .ninetyDays: "90 Days"
+        case .oneYear: "1 Year"
+        }
+    }
+
+    var days: Int {
+        switch self {
+        case .oneDay: 1
+        case .sevenDays: 7
+        case .thirtyDays: 30
+        case .ninetyDays: 90
+        case .oneYear: 365
+        }
+    }
+
+    /// How many days are visible at once before scrolling is needed.
+    var scrollWindowDays: Double {
+        switch self {
+        case .oneDay: 1
+        case .sevenDays: 7
+        case .thirtyDays: 7
+        case .ninetyDays: 14
+        case .oneYear: 30
+        }
+    }
+
+    var xAxisStrideDays: Int {
+        switch self {
+        case .oneDay: 1
+        case .sevenDays: 1
+        case .thirtyDays: 7
+        case .ninetyDays: 14
+        case .oneYear: 30
         }
     }
 }
