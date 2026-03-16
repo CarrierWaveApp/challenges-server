@@ -237,6 +237,10 @@ fn create_router(
             put(handlers::update_event).delete(handlers::delete_event),
         )
         .route("/account", delete(handlers::delete_account))
+        .route(
+            "/performance-reports",
+            post(handlers::create_performance_report),
+        )
         .layer(Extension(config.clone()))
         .layer(middleware::from_fn_with_state(
             pool.clone(),
@@ -307,6 +311,18 @@ fn create_router(
             get(handlers::get_submitter_history),
         )
         .route("/admin/spots/:id", delete(handlers::admin_delete_spot))
+        .route(
+            "/admin/performance-reports",
+            get(handlers::list_performance_reports_admin),
+        )
+        .route(
+            "/admin/performance-reports/stats",
+            get(handlers::get_performance_stats_admin),
+        )
+        .route(
+            "/admin/performance-reports/:id",
+            get(handlers::get_performance_report_admin),
+        )
         .route("/admin/trails/status", get(handlers::get_trail_status))
         .route("/admin/stats", get(handlers::admin_stats))
         .route(

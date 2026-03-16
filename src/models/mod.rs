@@ -9,6 +9,7 @@ pub mod historic_trail;
 pub mod invite;
 pub mod park_boundary;
 pub mod participant;
+pub mod performance_report;
 pub mod pota_stats;
 pub mod program;
 pub mod progress;

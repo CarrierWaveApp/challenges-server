@@ -868,6 +868,138 @@ Permanently deletes a program. Use `PUT` with `{"isActive": false}` for soft-dea
 
 ---
 
+## Performance Reports
+
+### Submit Performance Report
+
+```
+POST /v1/performance-reports
+Authorization: Bearer fd_xxx
+```
+
+Submit a performance issue report from the client app.
+
+**Request:**
+
+```json
+{
+  "category": "hang",
+  "durationSeconds": 3.5,
+  "context": "MapView loading park boundaries",
+  "severity": "warning",
+  "appVersion": "2.1.0",
+  "buildNumber": "142",
+  "deviceModel": "iPhone 15 Pro",
+  "osVersion": "18.3",
+  "diagnosticPayload": { "threadCount": 42, "memoryMB": 320 },
+  "occurredAt": "2026-03-16T14:30:00Z"
+}
+```
+
+**Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `category` | string | Yes | One of: `hang`, `slow_launch`, `memory_warning`, `crash_diagnostic`, `other` |
+| `durationSeconds` | float | No | Duration in seconds (e.g., hang duration, launch time) |
+| `context` | string | No | What was happening when the issue occurred |
+| `severity` | string | No | One of: `info`, `warning`, `critical` (default: `warning`) |
+| `appVersion` | string | No | App version string |
+| `buildNumber` | string | No | Build number |
+| `deviceModel` | string | No | Device model (e.g., "iPhone 15 Pro") |
+| `osVersion` | string | No | OS version (e.g., "18.3") |
+| `diagnosticPayload` | object | No | Arbitrary diagnostic data (stack traces, counters, etc.) |
+| `occurredAt` | datetime | Yes | When the issue occurred on device |
+
+**Response:** 201 Created
+
+```json
+{
+  "data": {
+    "id": "uuid",
+    "callsign": "W1ABC",
+    "category": "hang",
+    "durationSeconds": 3.5,
+    "context": "MapView loading park boundaries",
+    "severity": "warning",
+    "appVersion": "2.1.0",
+    "buildNumber": "142",
+    "deviceModel": "iPhone 15 Pro",
+    "osVersion": "18.3",
+    "diagnosticPayload": { "threadCount": 42, "memoryMB": 320 },
+    "occurredAt": "2026-03-16T14:30:00Z",
+    "createdAt": "2026-03-16T14:30:05Z"
+  }
+}
+```
+
+### List Performance Reports (Admin)
+
+```
+GET /v1/admin/performance-reports
+Authorization: Bearer {ADMIN_TOKEN}
+```
+
+**Query Parameters:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `callsign` | string | Filter by callsign |
+| `category` | string | Filter by category |
+| `severity` | string | Filter by severity |
+| `minDuration` | float | Minimum duration in seconds |
+| `appVersion` | string | Filter by app version |
+| `since` | datetime | Reports created after this time |
+| `limit` | int | Max results (default 50, max 100) |
+| `offset` | int | Pagination offset |
+
+### Get Performance Report (Admin)
+
+```
+GET /v1/admin/performance-reports/{id}
+Authorization: Bearer {ADMIN_TOKEN}
+```
+
+Returns a single performance report with full details.
+
+### Performance Stats (Admin)
+
+```
+GET /v1/admin/performance-reports/stats
+Authorization: Bearer {ADMIN_TOKEN}
+```
+
+**Query Parameters:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `since` | datetime | Only include reports after this time |
+
+**Response:**
+
+```json
+{
+  "data": {
+    "stats": {
+      "totalReports": 142,
+      "uniqueCallsigns": 37,
+      "avgDurationSeconds": 2.8,
+      "maxDurationSeconds": 15.3
+    },
+    "categories": [
+      { "category": "hang", "count": 89, "avgDurationSeconds": 3.1 },
+      { "category": "slow_launch", "count": 32, "avgDurationSeconds": 4.5 }
+    ],
+    "versions": [
+      { "appVersion": "2.1.0", "count": 95 },
+      { "appVersion": "2.0.9", "count": 47 }
+    ]
+  }
+}
+```
+
+---
+
 ## Error Codes
 
 | Code | HTTP | Description |

@@ -173,3 +173,12 @@ Per-day scheduling for multi-day events.
 - `event_days` - Individual day entries for multi-day events
   - Columns: id (UUID), event_id (UUID FK → events ON DELETE CASCADE), date (DATE), start_time (TIMESTAMPTZ), end_time (TIMESTAMPTZ), created_at
   - Indexes: (event_id, date)
+
+### `migrations/021_performance_reports.sql`
+Performance reports for tracking main thread hangs and other pathological performance issues.
+
+**Tables:**
+- `performance_reports` - Client-submitted performance issue reports
+  - Columns: id (UUID), callsign (TEXT), category (TEXT), duration_seconds (DOUBLE PRECISION), context (TEXT), severity (TEXT), app_version (TEXT), build_number (TEXT), device_model (TEXT), os_version (TEXT), diagnostic_payload (JSONB), occurred_at (TIMESTAMPTZ), created_at (TIMESTAMPTZ)
+  - Constraints: category IN (hang, slow_launch, memory_warning, crash_diagnostic, other), severity IN (info, warning, critical)
+  - Indexes: callsign, (category, created_at DESC), created_at DESC

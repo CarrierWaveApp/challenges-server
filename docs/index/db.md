@@ -108,6 +108,17 @@ Friend invite link management.
 - `async fn mark_invite_used()` - Mark invite as used, returns `Option<FriendInvite>`
 - `async fn cleanup_expired_invites()` - Delete old expired/used invites, returns `u64`
 
+### `src/db/performance_reports.rs`
+Performance report storage and queries.
+
+**Exports:**
+- `async fn create_report()` - Insert a performance report, returns `PerformanceReportRow`
+- `async fn list_reports()` - List reports with filtering, returns `(Vec<PerformanceReportRow>, i64)`
+- `async fn get_report()` - Get report by ID, returns `Option<PerformanceReportRow>`
+- `async fn get_stats()` - Aggregate stats (total, unique callsigns, avg/max duration), returns `PerformanceReportStats`
+- `async fn get_category_breakdown()` - Per-category counts and avg duration, returns `Vec<CategoryBreakdown>`
+- `async fn get_version_breakdown()` - Per-version counts, returns `Vec<VersionBreakdown>`
+
 ### `src/db/events.rs`
 Event CRUD and proximity queries.
 

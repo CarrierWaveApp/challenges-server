@@ -135,6 +135,15 @@ Admin CRUD for clubs and members.
 - `async fn update_club_member_role()` - PUT /v1/admin/clubs/:id/members/:callsign - Update role
 - `async fn import_notes_members()` - POST /v1/admin/clubs/:id/import-notes - Import members from callsign notes URL
 
+### `src/handlers/performance_reports.rs`
+Performance report submission and admin viewing.
+
+**Exports:**
+- `async fn create_performance_report()` - POST /v1/performance-reports - Submit a performance report (auth required)
+- `async fn list_performance_reports_admin()` - GET /v1/admin/performance-reports - List reports with filtering (admin)
+- `async fn get_performance_report_admin()` - GET /v1/admin/performance-reports/:id - Get single report (admin)
+- `async fn get_performance_stats_admin()` - GET /v1/admin/performance-reports/stats - Aggregate stats with breakdowns (admin)
+
 ### `src/handlers/events.rs`
 Public and authenticated event endpoints.
 

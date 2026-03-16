@@ -151,6 +151,10 @@ SNAPSHOT_MAX_AGE_HOURS=24                                      # Optional, defau
 - `PUT /v1/admin/events/{id}/review` - Approve or reject event (admin)
 - `DELETE /v1/admin/events/{id}` - Delete any event (admin)
 - `GET /v1/admin/events/submitter/{callsign}` - Get submitter history (admin)
+- `POST /v1/performance-reports` - Submit performance report (auth required)
+- `GET /v1/admin/performance-reports` - List performance reports with filtering (admin)
+- `GET /v1/admin/performance-reports/{id}` - Get single performance report (admin)
+- `GET /v1/admin/performance-reports/stats` - Aggregate performance stats (admin)
 
 ### Not Yet Implemented
 - Badge upload/retrieval

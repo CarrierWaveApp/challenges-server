@@ -101,6 +101,19 @@ Friend invite link data structures.
 - `struct FriendInviteResponse` - API response for friend invite (Serialize)
 - `impl FriendInvite::into_response()` - Convert to API response with URL
 
+### `src/models/performance_report.rs`
+Performance report data structures.
+
+**Exports:**
+- `struct PerformanceReportRow` - Database row for performance_reports table (FromRow)
+- `struct CreatePerformanceReportRequest` - API request for submitting a report (Deserialize, camelCase)
+- `struct PerformanceReportResponse` - API response for a report (Serialize, camelCase)
+- `struct AdminListPerformanceReportsQuery` - Query params for admin listing (Deserialize, camelCase)
+- `struct PerformanceReportStats` - Aggregate stats (FromRow, Serialize, camelCase)
+- `struct CategoryBreakdown` - Per-category breakdown (FromRow, Serialize, camelCase)
+- `struct VersionBreakdown` - Per-version breakdown (FromRow, Serialize, camelCase)
+- `impl From<PerformanceReportRow> for PerformanceReportResponse` - Conversion for API response
+
 ### `src/models/event.rs`
 Event data structures for user-submitted events.
 
