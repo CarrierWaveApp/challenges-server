@@ -3,8 +3,8 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::models::event::{
-    AdminListEventsQuery, CreateEventRequest, EventListItem, EventRow, ListEventsQuery,
-    SubmitterStats, UpdateEventRequest,
+    AdminListEventsQuery, CreateEventRequest, EventDayRequest, EventDayRow, EventListItem,
+    EventRow, ListEventsQuery, SubmitterStats, UpdateEventRequest,
 };
 
 /// List approved events near a location with optional filters.
@@ -460,4 +460,80 @@ pub async fn get_submitter_history(
     .await?;
 
     Ok(stats)
+}
+
+/// Fetch all days for a single event, ordered by date.
+pub async fn get_event_days(pool: &PgPool, event_id: Uuid) -> Result<Vec<EventDayRow>, AppError> {
+    let days = sqlx::query_as::<_, EventDayRow>(
+        r#"
+        SELECT id, event_id, date, start_time, end_time, created_at
+        FROM event_days
+        WHERE event_id = $1
+        ORDER BY date ASC
+        "#,
+    )
+    .bind(event_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(days)
+}
+
+/// Fetch days for multiple events at once (batch loader for list endpoints).
+pub async fn get_event_days_batch(
+    pool: &PgPool,
+    event_ids: &[Uuid],
+) -> Result<Vec<EventDayRow>, AppError> {
+    let days = sqlx::query_as::<_, EventDayRow>(
+        r#"
+        SELECT id, event_id, date, start_time, end_time, created_at
+        FROM event_days
+        WHERE event_id = ANY($1)
+        ORDER BY event_id, date ASC
+        "#,
+    )
+    .bind(event_ids)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(days)
+}
+
+/// Replace all days for an event (delete + insert).
+pub async fn replace_event_days(
+    pool: &PgPool,
+    event_id: Uuid,
+    days: &[EventDayRequest],
+) -> Result<Vec<EventDayRow>, AppError> {
+    // Delete existing days
+    sqlx::query("DELETE FROM event_days WHERE event_id = $1")
+        .bind(event_id)
+        .execute(pool)
+        .await?;
+
+    if days.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // Insert new days
+    let mut inserted = Vec::with_capacity(days.len());
+    for day in days {
+        let row = sqlx::query_as::<_, EventDayRow>(
+            r#"
+            INSERT INTO event_days (event_id, date, start_time, end_time)
+            VALUES ($1, $2, $3, $4)
+            RETURNING id, event_id, date, start_time, end_time, created_at
+            "#,
+        )
+        .bind(event_id)
+        .bind(day.date)
+        .bind(day.start_time)
+        .bind(day.end_time)
+        .fetch_one(pool)
+        .await?;
+
+        inserted.push(row);
+    }
+
+    Ok(inserted)
 }

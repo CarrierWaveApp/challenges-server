@@ -1,7 +1,48 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
+
+/// Database row for event_days table.
+#[derive(Debug, Clone, FromRow)]
+pub struct EventDayRow {
+    pub id: Uuid,
+    pub event_id: Uuid,
+    pub date: NaiveDate,
+    pub start_time: DateTime<Utc>,
+    pub end_time: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+/// API response for a single event day.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EventDayResponse {
+    pub id: Uuid,
+    pub date: NaiveDate,
+    pub start_time: DateTime<Utc>,
+    pub end_time: Option<DateTime<Utc>>,
+}
+
+impl From<EventDayRow> for EventDayResponse {
+    fn from(d: EventDayRow) -> Self {
+        Self {
+            id: d.id,
+            date: d.date,
+            start_time: d.start_time,
+            end_time: d.end_time,
+        }
+    }
+}
+
+/// Request body for a single event day (used in create/update).
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EventDayRequest {
+    pub date: NaiveDate,
+    pub start_time: DateTime<Utc>,
+    pub end_time: Option<DateTime<Utc>>,
+}
 
 /// Full database row for the events table.
 #[derive(Debug, Clone, FromRow)]
@@ -58,6 +99,8 @@ pub struct EventResponse {
     pub rejection_reason: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub days: Option<Vec<EventDayResponse>>,
 }
 
 impl From<EventRow> for EventResponse {
@@ -86,7 +129,20 @@ impl From<EventRow> for EventResponse {
             rejection_reason: e.rejection_reason,
             created_at: e.created_at,
             updated_at: e.updated_at,
+            days: None,
         }
+    }
+}
+
+impl EventResponse {
+    /// Attach days to an event response.
+    pub fn with_days(mut self, days: Vec<EventDayRow>) -> Self {
+        if days.is_empty() {
+            self.days = None;
+        } else {
+            self.days = Some(days.into_iter().map(EventDayResponse::from).collect());
+        }
+        self
     }
 }
 
@@ -132,6 +188,7 @@ pub struct CreateEventRequest {
     pub longitude: f64,
     pub cost: Option<String>,
     pub url: Option<String>,
+    pub days: Option<Vec<EventDayRequest>>,
 }
 
 /// Request body for updating an event (user editing own event).
@@ -153,6 +210,7 @@ pub struct UpdateEventRequest {
     pub longitude: Option<f64>,
     pub cost: Option<String>,
     pub url: Option<String>,
+    pub days: Option<Vec<EventDayRequest>>,
 }
 
 /// Request body for admin reviewing an event.

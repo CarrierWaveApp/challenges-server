@@ -165,3 +165,11 @@ User-submitted events with admin moderation and proximity-based discovery.
 
 **Functions/Triggers:**
 - `events_set_location()` - Trigger function that auto-populates the geography column from lat/lon on insert or update
+
+### `migrations/020_event_days.sql`
+Per-day scheduling for multi-day events.
+
+**Tables:**
+- `event_days` - Individual day entries for multi-day events
+  - Columns: id (UUID), event_id (UUID FK → events ON DELETE CASCADE), date (DATE), start_time (TIMESTAMPTZ), end_time (TIMESTAMPTZ), created_at
+  - Indexes: (event_id, date)
