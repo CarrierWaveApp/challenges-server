@@ -236,6 +236,10 @@ fn create_router(
             "/events/:id",
             put(handlers::update_event).delete(handlers::delete_event),
         )
+        .route(
+            "/telemetry/upload-errors",
+            post(handlers::report_upload_errors),
+        )
         .route("/account", delete(handlers::delete_account))
         .layer(Extension(config.clone()))
         .layer(middleware::from_fn_with_state(

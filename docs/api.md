@@ -625,6 +625,57 @@ Returns all events submitted by the authenticated callsign, across all statuses.
 
 ---
 
+## Telemetry Endpoints
+
+### Report Upload Errors
+
+```
+POST /v1/telemetry/upload-errors
+Authorization: Bearer fd_xxx
+```
+
+Report anonymized, aggregated upload error data. Used to identify systemic issues (e.g., a service rejecting everyone's uploads). No callsigns, QSO data, or raw error messages are included — only category, hashed message, and counts.
+
+**Request:**
+
+```json
+{
+  "errors": [
+    {
+      "service": "pota",
+      "category": "authentication",
+      "message_hash": "a1b2c3",
+      "affected_count": 5,
+      "is_transient": false,
+      "app_version": "1.8.0",
+      "os_version": "18.4"
+    }
+  ]
+}
+```
+
+**Valid services:** `pota`, `qrz`, `clublog`, `eqsl`, `lotw`, `hamqth`
+
+**Valid categories:** `authentication`, `validation`, `rate_limited`, `maintenance`, `network_timeout`, `network_offline`, `server_error`, `rejected`, `subscription_required`
+
+**Limits:** Max 50 errors per report.
+
+**Response:**
+
+```json
+{
+  "accepted": 1
+}
+```
+
+**Errors:**
+
+| Code | HTTP | Description |
+|------|------|-------------|
+| `VALIDATION_ERROR` | 400 | Unknown service/category, too many errors, or invalid field lengths |
+
+---
+
 ## Admin Endpoints
 
 All require `Authorization: Bearer {ADMIN_TOKEN}`.

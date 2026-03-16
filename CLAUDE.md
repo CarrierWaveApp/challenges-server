@@ -140,6 +140,7 @@ SNAPSHOT_MAX_AGE_HOURS=24                                      # Optional, defau
 - `DELETE /v1/events/{id}` - Delete own event (auth required)
 - `GET /v1/events/mine` - List own submitted events (auth required)
 - `GET /v1/clubs/sync` - Batch-fetch all clubs with members and ETag support (auth required)
+- `POST /v1/telemetry/upload-errors` - Report anonymized upload error telemetry (auth required)
 - `POST /v1/admin/challenges` - Create challenge (admin)
 - `PUT /v1/admin/challenges/{id}` - Update challenge (admin)
 - `DELETE /v1/admin/challenges/{id}` - Delete challenge (admin)

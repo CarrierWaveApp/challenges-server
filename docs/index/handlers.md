@@ -146,6 +146,12 @@ Public and authenticated event endpoints.
 - `async fn delete_event()` - DELETE /v1/events/:id - Delete own event (auth required)
 - `async fn list_my_events()` - GET /v1/events/mine - List own submitted events, all statuses (auth required)
 
+### `src/handlers/upload_error_telemetry.rs`
+Upload error telemetry reporting.
+
+**Exports:**
+- `async fn report_upload_errors()` - POST /v1/telemetry/upload-errors - Report anonymized upload error telemetry (auth required)
+
 ### `src/handlers/events_admin.rs`
 Admin event moderation endpoints.
 

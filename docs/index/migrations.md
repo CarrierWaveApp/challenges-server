@@ -173,3 +173,11 @@ Per-day scheduling for multi-day events.
 - `event_days` - Individual day entries for multi-day events
   - Columns: id (UUID), event_id (UUID FK → events ON DELETE CASCADE), date (DATE), start_time (TIMESTAMPTZ), end_time (TIMESTAMPTZ), created_at
   - Indexes: (event_id, date)
+
+### `migrations/021_upload_error_telemetry.sql`
+Anonymized upload error telemetry from client apps.
+
+**Tables:**
+- `upload_error_telemetry` - Aggregated error reports from client sync
+  - Columns: id (UUID), callsign (TEXT), service (TEXT), category (TEXT), message_hash (TEXT), affected_count (INTEGER), is_transient (BOOLEAN), app_version (TEXT), os_version (TEXT), created_at (TIMESTAMPTZ)
+  - Indexes: created_at, (service, created_at), (category, created_at)

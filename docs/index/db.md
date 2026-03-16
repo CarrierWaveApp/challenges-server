@@ -108,6 +108,12 @@ Friend invite link management.
 - `async fn mark_invite_used()` - Mark invite as used, returns `Option<FriendInvite>`
 - `async fn cleanup_expired_invites()` - Delete old expired/used invites, returns `u64`
 
+### `src/db/upload_error_telemetry.rs`
+Upload error telemetry storage.
+
+**Exports:**
+- `async fn insert_upload_errors()` - Insert a batch of upload error telemetry entries, returns `usize`
+
 ### `src/db/events.rs`
 Event CRUD and proximity queries.
 

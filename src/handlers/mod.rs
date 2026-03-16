@@ -19,6 +19,7 @@ pub mod programs;
 pub mod progress;
 pub mod rbn;
 pub mod spots;
+pub mod upload_error_telemetry;
 pub mod users;
 
 pub use badges::*;
@@ -44,4 +45,5 @@ pub use programs::*;
 pub use progress::*;
 pub use rbn::*;
 pub use spots::*;
+pub use upload_error_telemetry::*;
 pub use users::*;

@@ -101,6 +101,14 @@ Friend invite link data structures.
 - `struct FriendInviteResponse` - API response for friend invite (Serialize)
 - `impl FriendInvite::into_response()` - Convert to API response with URL
 
+### `src/models/upload_error_telemetry.rs`
+Upload error telemetry data structures.
+
+**Exports:**
+- `struct UploadErrorEntry` - Single error entry in a telemetry report (Deserialize)
+- `struct ReportUploadErrorsRequest` - API request for reporting upload errors (Deserialize)
+- `struct ReportUploadErrorsResponse` - API response for telemetry endpoint (Serialize)
+
 ### `src/models/event.rs`
 Event data structures for user-submitted events.
 

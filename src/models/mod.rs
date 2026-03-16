@@ -13,6 +13,7 @@ pub mod pota_stats;
 pub mod program;
 pub mod progress;
 pub mod spot;
+pub mod upload_error_telemetry;
 pub mod user;
 
 pub use badge::*;
