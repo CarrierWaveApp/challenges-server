@@ -108,6 +108,12 @@ Upload error telemetry data structures.
 - `struct UploadErrorEntry` - Single error entry in a telemetry report (Deserialize)
 - `struct ReportUploadErrorsRequest` - API request for reporting upload errors (Deserialize)
 - `struct ReportUploadErrorsResponse` - API response for telemetry endpoint (Serialize)
+- `struct TelemetryQuery` - Query params for admin telemetry summary (Deserialize)
+- `struct ServiceCount` - Error count by service (FromRow, Serialize)
+- `struct CategoryCount` - Error count by category (FromRow, Serialize)
+- `struct DailyErrorCount` - Errors per day for trend chart (FromRow, Serialize)
+- `struct RecentError` - Single recent error row (FromRow, Serialize)
+- `struct TelemetrySummaryResponse` - Full admin telemetry response (Serialize)
 
 ### `src/models/event.rs`
 Event data structures for user-submitted events.

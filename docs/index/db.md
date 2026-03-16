@@ -113,6 +113,7 @@ Upload error telemetry storage.
 
 **Exports:**
 - `async fn insert_upload_errors()` - Insert a batch of upload error telemetry entries, returns `usize`
+- `async fn get_telemetry_summary()` - Get aggregated telemetry summary with filters, returns `TelemetrySummaryResponse`
 
 ### `src/db/events.rs`
 Event CRUD and proximity queries.

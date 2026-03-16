@@ -23,6 +23,7 @@
 		C3D4E5F6A7B8C9D0E1F2A3B4 /* EventsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F2 /* EventsListView.swift */; };
 		D4E5F6A7B8C9D0E1F2A3B4C5 /* EventDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6A7B8C9D0E1F2A3 /* EventDetailView.swift */; };
 		EC65BF738FC0C4082F012E4D /* ChallengesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 474DDE6CD505E084949D0F0C /* ChallengesListView.swift */; };
+		F6A7B8C9D0E1F2A3B4C5D6E7 /* TelemetryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6F7A8B9C0D1E2F3A4B5C6D7 /* TelemetryView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -42,6 +43,7 @@
 		A803E31F4735A9989C0CDE80 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AB6ED9BACBD29BC42F6FAF5C /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		AD52B8F9A8A078F2DAB4ED9C /* ClubDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClubDetailView.swift; sourceTree = "<group>"; };
+		E6F7A8B9C0D1E2F3A4B5C6D7 /* TelemetryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryView.swift; sourceTree = "<group>"; };
 		F05FACEF9B5A30D61F108E81 /* ChallengesAdminApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChallengesAdminApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -114,6 +116,7 @@
 				E5F6A7B8C9D0E1F2A3B4C5D6 /* Events */,
 				A754C61ACC0463478CAA73F6 /* Programs */,
 				D86EFD5836BE4B75B8C1C0C1 /* Settings */,
+				D7E8F9A0B1C2D3E4F5A6B7C8 /* Telemetry */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -125,6 +128,14 @@
 				75FCF73BDB9E2DDC118125C0 /* ProgramsListView.swift */,
 			);
 			path = Programs;
+			sourceTree = "<group>";
+		};
+		D7E8F9A0B1C2D3E4F5A6B7C8 /* Telemetry */ = {
+			isa = PBXGroup;
+			children = (
+				E6F7A8B9C0D1E2F3A4B5C6D7 /* TelemetryView.swift */,
+			);
+			path = Telemetry;
 			sourceTree = "<group>";
 		};
 		D86EFD5836BE4B75B8C1C0C1 /* Settings */ = {
@@ -251,6 +262,7 @@
 				6BCBBAEF1E105EC93BBF6885 /* ProgramsListView.swift in Sources */,
 				93C370D50285E19139192832 /* ServerConfig.swift in Sources */,
 				4E566950C2D4BFB7582FC3B9 /* SettingsView.swift in Sources */,
+				F6A7B8C9D0E1F2A3B4C5D6E7 /* TelemetryView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

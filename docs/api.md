@@ -674,6 +674,57 @@ Report anonymized, aggregated upload error data. Used to identify systemic issue
 |------|------|-------------|
 | `VALIDATION_ERROR` | 400 | Unknown service/category, too many errors, or invalid field lengths |
 
+### Get Upload Error Telemetry Summary (Admin)
+
+```
+GET /v1/admin/telemetry/upload-errors
+Authorization: Bearer {ADMIN_TOKEN}
+```
+
+Returns aggregated upload error telemetry for identifying systemic issues.
+
+**Query Parameters:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `days` | int | Lookback period (default 7, max 90) |
+| `service` | string | Filter by service (e.g., `pota`) |
+| `category` | string | Filter by category (e.g., `authentication`) |
+
+**Response:**
+
+```json
+{
+  "data": {
+    "totalErrors": 42,
+    "totalAffectedQsos": 128,
+    "uniqueCallsigns": 15,
+    "byService": [
+      { "service": "pota", "errorCount": 25, "affectedQsos": 80 }
+    ],
+    "byCategory": [
+      { "category": "authentication", "errorCount": 18, "affectedQsos": 50 }
+    ],
+    "dailyTrend": [
+      { "date": "2026-03-15", "errorCount": 10, "affectedQsos": 30 }
+    ],
+    "recentErrors": [
+      {
+        "service": "pota",
+        "category": "authentication",
+        "messageHash": "a1b2c3",
+        "affectedCount": 5,
+        "isTransient": false,
+        "appVersion": "1.8.0",
+        "osVersion": "18.4",
+        "callsign": "W1ABC",
+        "createdAt": "2026-03-15T14:30:00Z"
+      }
+    ]
+  }
+}
+```
+
 ---
 
 ## Admin Endpoints

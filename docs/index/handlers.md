@@ -151,6 +151,7 @@ Upload error telemetry reporting.
 
 **Exports:**
 - `async fn report_upload_errors()` - POST /v1/telemetry/upload-errors - Report anonymized upload error telemetry (auth required)
+- `async fn get_telemetry_summary()` - GET /v1/admin/telemetry/upload-errors - Upload error telemetry summary (admin)
 
 ### `src/handlers/events_admin.rs`
 Admin event moderation endpoints.

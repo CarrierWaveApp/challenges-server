@@ -271,6 +271,19 @@ class APIClient {
         ])
     }
 
+    // MARK: - Telemetry (Admin)
+
+    func getTelemetrySummary(days: Int = 7, service: String? = nil, category: String? = nil) async throws -> TelemetrySummaryResponse {
+        var items = [URLQueryItem(name: "days", value: "\(days)")]
+        if let service {
+            items.append(URLQueryItem(name: "service", value: service))
+        }
+        if let category {
+            items.append(URLQueryItem(name: "category", value: category))
+        }
+        return try await getWrapped("/v1/admin/telemetry/upload-errors", queryItems: items)
+    }
+
     // MARK: - Challenges (Admin)
 
     func createChallenge(_ body: [String: Any]) async throws {

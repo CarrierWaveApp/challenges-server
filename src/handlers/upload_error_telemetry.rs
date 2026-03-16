@@ -1,4 +1,4 @@
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::Extension;
 use sqlx::PgPool;
 
@@ -7,8 +7,11 @@ use crate::db;
 use crate::error::AppError;
 use crate::extractors::Json;
 use crate::models::upload_error_telemetry::{
-    ReportUploadErrorsRequest, ReportUploadErrorsResponse,
+    ReportUploadErrorsRequest, ReportUploadErrorsResponse, TelemetryQuery,
+    TelemetrySummaryResponse,
 };
+
+use super::DataResponse;
 
 const MAX_ERRORS_PER_REPORT: usize = 50;
 
@@ -87,4 +90,23 @@ pub async fn report_upload_errors(
             .await?;
 
     Ok(Json(ReportUploadErrorsResponse { accepted }))
+}
+
+/// GET /v1/admin/telemetry/upload-errors
+/// Get upload error telemetry summary (admin only).
+pub async fn get_telemetry_summary(
+    State(pool): State<PgPool>,
+    Query(query): Query<TelemetryQuery>,
+) -> Result<Json<DataResponse<TelemetrySummaryResponse>>, AppError> {
+    let days = query.days.unwrap_or(7).clamp(1, 90);
+
+    let summary = db::upload_error_telemetry::get_telemetry_summary(
+        &pool,
+        days,
+        query.service.as_deref(),
+        query.category.as_deref(),
+    )
+    .await?;
+
+    Ok(Json(DataResponse { data: summary }))
 }

@@ -42,6 +42,11 @@ struct MainTabView: View {
                     Label("Clubs", systemImage: "person.3")
                 }
 
+            TelemetryView()
+                .tabItem {
+                    Label("Telemetry", systemImage: "chart.bar.xaxis.ascending")
+                }
+
             ChallengesListView()
                 .tabItem {
                     Label("Challenges", systemImage: "trophy")

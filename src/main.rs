@@ -310,6 +310,10 @@ fn create_router(
             "/admin/events/submitter/:callsign",
             get(handlers::get_submitter_history),
         )
+        .route(
+            "/admin/telemetry/upload-errors",
+            get(handlers::get_telemetry_summary),
+        )
         .route("/admin/spots/:id", delete(handlers::admin_delete_spot))
         .route("/admin/trails/status", get(handlers::get_trail_status))
         .route("/admin/stats", get(handlers::admin_stats))

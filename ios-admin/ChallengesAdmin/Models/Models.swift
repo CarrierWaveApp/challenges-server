@@ -343,3 +343,49 @@ struct AddMemberEntry: Encodable {
     let callsign: String
     let role: String
 }
+
+// MARK: - Upload Error Telemetry (Admin)
+
+struct TelemetrySummaryResponse: Decodable {
+    let totalErrors: Int
+    let totalAffectedQsos: Int
+    let uniqueCallsigns: Int
+    let byService: [ServiceErrorCount]
+    let byCategory: [CategoryErrorCount]
+    let dailyTrend: [DailyErrorCount]
+    let recentErrors: [RecentError]
+}
+
+struct ServiceErrorCount: Decodable, Identifiable {
+    var id: String { service }
+    let service: String
+    let errorCount: Int
+    let affectedQsos: Int
+}
+
+struct CategoryErrorCount: Decodable, Identifiable {
+    var id: String { category }
+    let category: String
+    let errorCount: Int
+    let affectedQsos: Int
+}
+
+struct DailyErrorCount: Decodable, Identifiable {
+    var id: String { date }
+    let date: String
+    let errorCount: Int
+    let affectedQsos: Int
+}
+
+struct RecentError: Decodable, Identifiable {
+    var id: String { "\(callsign)-\(createdAt)-\(messageHash)" }
+    let service: String
+    let category: String
+    let messageHash: String
+    let affectedCount: Int
+    let isTransient: Bool
+    let appVersion: String
+    let osVersion: String
+    let callsign: String
+    let createdAt: Date
+}
