@@ -119,10 +119,10 @@ pub async fn get_active_users_by_hour(
 ) -> Result<Vec<crate::models::UserCountByHour>, AppError> {
     let rows = sqlx::query_as::<_, crate::models::UserCountByHour>(
         r#"
-        SELECT date_trunc('hour', last_seen_at) AS hour,
+        SELECT date_trunc('hour', created_at) AS hour,
                COUNT(DISTINCT callsign) AS count
-        FROM participants
-        WHERE last_seen_at >= NOW() - make_interval(days => $1)
+        FROM activities
+        WHERE created_at >= NOW() - make_interval(days => $1)
         GROUP BY hour
         ORDER BY hour
         "#,
