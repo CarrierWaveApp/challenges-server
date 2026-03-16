@@ -124,6 +124,9 @@ Event CRUD and proximity queries.
 - `async fn review_event()` - Approve or reject an event, returns `Option<EventRow>`
 - `async fn admin_delete_event()` - Hard delete any event, returns `bool`
 - `async fn get_submitter_history()` - Get submitter stats, returns `SubmitterStats`
+- `async fn get_event_days()` - Fetch days for a single event ordered by date, returns `Vec<EventDayRow>`
+- `async fn get_event_days_batch()` - Fetch days for multiple events at once, returns `Vec<EventDayRow>`
+- `async fn replace_event_days()` - Replace all days for an event (delete + insert), returns `Vec<EventDayRow>`
 
 ### `src/db/clubs.rs`
 Club queries for admin and authenticated users.

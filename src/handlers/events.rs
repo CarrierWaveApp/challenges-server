@@ -74,8 +74,10 @@ pub async fn get_event(
         return Err(AppError::EventNotFound { event_id });
     }
 
+    let days = db::events::get_event_days(&pool, event_id).await?;
+
     Ok(Json(DataResponse {
-        data: EventResponse::from(event),
+        data: EventResponse::from(event).with_days(days),
     }))
 }
 
@@ -125,10 +127,16 @@ pub async fn create_event(
 
     let event = db::events::create_event(&pool, &req, &auth.callsign).await?;
 
+    let days = if let Some(ref day_reqs) = req.days {
+        db::events::replace_event_days(&pool, event.id, day_reqs).await?
+    } else {
+        Vec::new()
+    };
+
     Ok((
         StatusCode::CREATED,
         Json(DataResponse {
-            data: EventResponse::from(event),
+            data: EventResponse::from(event).with_days(days),
         }),
     ))
 }
@@ -173,8 +181,14 @@ pub async fn update_event(
         .await?
         .ok_or(AppError::EventNotFound { event_id })?;
 
+    if let Some(ref day_reqs) = req.days {
+        db::events::replace_event_days(&pool, event_id, day_reqs).await?;
+    }
+
+    let days = db::events::get_event_days(&pool, event_id).await?;
+
     Ok(Json(DataResponse {
-        data: EventResponse::from(event),
+        data: EventResponse::from(event).with_days(days),
     }))
 }
 

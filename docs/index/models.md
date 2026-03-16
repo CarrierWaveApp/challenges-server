@@ -105,14 +105,18 @@ Friend invite link data structures.
 Event data structures for user-submitted events.
 
 **Exports:**
+- `struct EventDayRow` - Database row for event_days table (FromRow)
+- `struct EventDayResponse` - API response for a single event day (Serialize, Deserialize, camelCase)
+- `struct EventDayRequest` - Request body for a single event day (Deserialize, camelCase)
 - `struct EventRow` - Database row for events table (FromRow)
-- `struct EventResponse` - API response for single event (Serialize, camelCase)
+- `struct EventResponse` - API response for single event with optional days array (Serialize, camelCase)
 - `struct EventListItem` - List item with optional distance_meters (FromRow, Serialize, camelCase)
-- `struct CreateEventRequest` - API request for creating event (Deserialize, camelCase)
-- `struct UpdateEventRequest` - API request for updating event, all fields optional (Deserialize, camelCase)
+- `struct CreateEventRequest` - API request for creating event with optional days (Deserialize, camelCase)
+- `struct UpdateEventRequest` - API request for updating event with optional days, all fields optional (Deserialize, camelCase)
 - `struct ReviewEventRequest` - API request for admin review with action + reason (Deserialize, camelCase)
 - `struct ListEventsQuery` - Query params for proximity search (Deserialize, camelCase)
 - `struct AdminListEventsQuery` - Query params for admin list (Deserialize, camelCase)
 - `struct MyEventsQuery` - Query params for own events (Deserialize, camelCase)
 - `struct SubmitterStats` - Submitter history stats (FromRow, Serialize, camelCase)
-- `impl From<EventRow> for EventResponse` - Conversion for API response
+- `impl From<EventRow> for EventResponse` - Conversion for API response (days defaults to None)
+- `impl EventResponse::with_days()` - Attach event days to response

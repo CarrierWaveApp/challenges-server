@@ -574,11 +574,20 @@ Submit a new event for admin review. Max 10 pending events per callsign.
   "longitude": -72.5898,
   "cost": "Free",
   "url": "https://example.com/meeting",
-  "description": "Monthly meeting of the Springfield ARC"
+  "description": "Monthly meeting of the Springfield ARC",
+  "days": [
+    {
+      "date": "2026-04-01",
+      "startTime": "2026-04-01T19:00:00Z",
+      "endTime": "2026-04-01T21:00:00Z"
+    }
+  ]
 }
 ```
 
-**Response:** 201 Created with the event (status = "pending").
+The `days` field is optional. When provided, each entry represents a specific day of a multi-day event with its own schedule. The `startDate`/`endDate` fields remain as the overall event span for backward compatibility.
+
+**Response:** 201 Created with the event (status = "pending"). If days were provided, the response includes a `days` array.
 
 **Errors:**
 
