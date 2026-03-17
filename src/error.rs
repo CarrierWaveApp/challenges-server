@@ -55,6 +55,9 @@ pub enum AppError {
     #[error("Cannot modify another user's event")]
     EventNotOwned { event_id: Uuid },
 
+    #[error("Callsign already taken by another user")]
+    CallsignTaken { callsign: String },
+
     #[error("Maximum pending events reached (10)")]
     MaxPendingEvents,
 
@@ -205,6 +208,11 @@ impl IntoResponse for AppError {
                 StatusCode::FORBIDDEN,
                 "EVENT_NOT_OWNED",
                 Some(serde_json::json!({ "eventId": event_id })),
+            ),
+            Self::CallsignTaken { callsign } => (
+                StatusCode::CONFLICT,
+                "CALLSIGN_TAKEN",
+                Some(serde_json::json!({ "callsign": callsign })),
             ),
             Self::MaxPendingEvents => (
                 StatusCode::TOO_MANY_REQUESTS,

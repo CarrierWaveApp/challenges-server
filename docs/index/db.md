@@ -67,9 +67,12 @@ Invite token management.
 User management.
 
 **Exports:**
+- `struct CallsignChangeRow` - Database row for callsign_changes table (FromRow)
 - `async fn get_user_by_callsign()` - Get user by callsign, returns `Option<User>`
 - `async fn get_user_by_id()` - Get user by ID, returns `Option<User>`
 - `async fn get_or_create_user()` - Get or create user by callsign, returns `User`
+- `async fn update_callsign()` - Update callsign across all tables in transaction, returns `(User, Vec<String>)`
+- `async fn get_callsign_history()` - Get previous callsigns for user, returns `Vec<String>`
 
 ### `src/db/programs.rs`
 Program registry queries.

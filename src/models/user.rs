@@ -60,6 +60,20 @@ pub struct RegisterResponse {
     pub device_token: String,
 }
 
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateCallsignRequest {
+    pub new_callsign: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateCallsignResponse {
+    pub user_id: Uuid,
+    pub callsign: String,
+    pub previous_callsigns: Vec<String>,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AdminStatsResponse {

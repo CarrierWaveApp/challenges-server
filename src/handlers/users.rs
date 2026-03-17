@@ -32,7 +32,10 @@ pub async fn search_users(
 }
 
 use crate::auth::AuthContext;
-use crate::models::{AdminStatsResponse, RegisterRequest, RegisterResponse, UserCountByHour};
+use crate::models::{
+    AdminStatsResponse, RegisterRequest, RegisterResponse, UpdateCallsignRequest,
+    UpdateCallsignResponse, UserCountByHour,
+};
 use axum::http::StatusCode;
 use axum::Extension;
 
@@ -113,4 +116,39 @@ pub async fn delete_account(
     }
 
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// PUT /v1/account/callsign
+/// Update the authenticated user's callsign across all tables.
+/// Returns the new callsign and list of previous callsigns.
+pub async fn update_callsign(
+    State(pool): State<PgPool>,
+    Extension(auth): Extension<AuthContext>,
+    Json(body): Json<UpdateCallsignRequest>,
+) -> Result<Json<DataResponse<UpdateCallsignResponse>>, AppError> {
+    let new_callsign = body.new_callsign.trim().to_uppercase();
+
+    if new_callsign.is_empty() {
+        return Err(AppError::Validation {
+            message: "newCallsign is required".to_string(),
+        });
+    }
+
+    // Look up the user by current callsign to get user_id
+    let user = db::get_user_by_callsign(&pool, &auth.callsign)
+        .await?
+        .ok_or(AppError::UserNotFound {
+            user_id: auth.participant_id,
+        })?;
+
+    let (updated_user, previous_callsigns) =
+        db::update_callsign(&pool, user.id, &auth.callsign, &new_callsign).await?;
+
+    Ok(Json(DataResponse {
+        data: UpdateCallsignResponse {
+            user_id: updated_user.id,
+            callsign: updated_user.callsign,
+            previous_callsigns,
+        },
+    }))
 }

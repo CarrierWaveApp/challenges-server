@@ -1,8 +1,18 @@
-use sqlx::PgPool;
+use chrono::{DateTime, Utc};
+use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::models::User;
+
+#[allow(dead_code)]
+#[derive(Debug, FromRow)]
+pub struct CallsignChangeRow {
+    pub id: Uuid,
+    pub old_callsign: String,
+    pub new_callsign: String,
+    pub changed_at: DateTime<Utc>,
+}
 
 #[allow(dead_code)]
 pub async fn get_user_by_callsign(pool: &PgPool, callsign: &str) -> Result<Option<User>, AppError> {
@@ -148,4 +158,156 @@ pub async fn get_or_create_user(pool: &PgPool, callsign: &str) -> Result<User, A
     .await?;
 
     Ok(user)
+}
+
+/// Update a user's callsign across all tables in a single transaction.
+/// Records the change in callsign_changes for audit.
+/// Returns the updated user and list of previous callsigns.
+pub async fn update_callsign(
+    pool: &PgPool,
+    user_id: Uuid,
+    old_callsign: &str,
+    new_callsign: &str,
+) -> Result<(User, Vec<String>), AppError> {
+    let old_upper = old_callsign.to_uppercase();
+    let new_upper = new_callsign.to_uppercase();
+
+    if old_upper == new_upper {
+        return Err(AppError::Validation {
+            message: "new callsign is the same as current callsign".to_string(),
+        });
+    }
+
+    // Check if the new callsign is already taken by another user
+    let existing = sqlx::query_as::<_, User>(
+        "SELECT id, callsign, created_at FROM users WHERE callsign = $1",
+    )
+    .bind(&new_upper)
+    .fetch_optional(pool)
+    .await?;
+
+    if let Some(existing_user) = existing {
+        if existing_user.id != user_id {
+            return Err(AppError::CallsignTaken {
+                callsign: new_upper.clone(),
+            });
+        }
+    }
+
+    let mut tx = pool.begin().await?;
+
+    // Record the change
+    sqlx::query(
+        r#"
+        INSERT INTO callsign_changes (user_id, old_callsign, new_callsign)
+        VALUES ($1, $2, $3)
+        "#,
+    )
+    .bind(user_id)
+    .bind(&old_upper)
+    .bind(&new_upper)
+    .execute(&mut *tx)
+    .await?;
+
+    // Update users table
+    let user = sqlx::query_as::<_, User>(
+        r#"
+        UPDATE users SET callsign = $1 WHERE id = $2
+        RETURNING id, callsign, created_at
+        "#,
+    )
+    .bind(&new_upper)
+    .bind(user_id)
+    .fetch_one(&mut *tx)
+    .await?;
+
+    // Update all callsign-based tables
+    sqlx::query("UPDATE participants SET callsign = $1 WHERE callsign = $2")
+        .bind(&new_upper)
+        .bind(&old_upper)
+        .execute(&mut *tx)
+        .await?;
+
+    sqlx::query("UPDATE challenge_participants SET callsign = $1 WHERE callsign = $2")
+        .bind(&new_upper)
+        .bind(&old_upper)
+        .execute(&mut *tx)
+        .await?;
+
+    sqlx::query("UPDATE progress SET callsign = $1 WHERE callsign = $2")
+        .bind(&new_upper)
+        .bind(&old_upper)
+        .execute(&mut *tx)
+        .await?;
+
+    sqlx::query("UPDATE earned_badges SET callsign = $1 WHERE callsign = $2")
+        .bind(&new_upper)
+        .bind(&old_upper)
+        .execute(&mut *tx)
+        .await?;
+
+    sqlx::query("UPDATE activities SET callsign = $1 WHERE callsign = $2")
+        .bind(&new_upper)
+        .bind(&old_upper)
+        .execute(&mut *tx)
+        .await?;
+
+    sqlx::query("UPDATE spots SET callsign = $1 WHERE callsign = $2")
+        .bind(&new_upper)
+        .bind(&old_upper)
+        .execute(&mut *tx)
+        .await?;
+
+    sqlx::query("UPDATE club_members SET callsign = $1 WHERE callsign = $2")
+        .bind(&new_upper)
+        .bind(&old_upper)
+        .execute(&mut *tx)
+        .await?;
+
+    sqlx::query("UPDATE events SET submitted_by = $1 WHERE submitted_by = $2")
+        .bind(&new_upper)
+        .bind(&old_upper)
+        .execute(&mut *tx)
+        .await?;
+
+    sqlx::query("UPDATE upload_error_telemetry SET callsign = $1 WHERE callsign = $2")
+        .bind(&new_upper)
+        .bind(&old_upper)
+        .execute(&mut *tx)
+        .await?;
+
+    tx.commit().await?;
+
+    // Fetch previous callsigns
+    let history = get_callsign_history(pool, user_id).await?;
+
+    Ok((user, history))
+}
+
+/// Get the list of previous callsigns for a user (most recent first).
+pub async fn get_callsign_history(
+    pool: &PgPool,
+    user_id: Uuid,
+) -> Result<Vec<String>, AppError> {
+    let rows = sqlx::query_as::<_, CallsignChangeRow>(
+        r#"
+        SELECT id, old_callsign, new_callsign, changed_at
+        FROM callsign_changes
+        WHERE user_id = $1
+        ORDER BY changed_at DESC
+        "#,
+    )
+    .bind(user_id)
+    .fetch_all(pool)
+    .await?;
+
+    // Collect unique old callsigns
+    let mut previous: Vec<String> = Vec::new();
+    for row in &rows {
+        if !previous.contains(&row.old_callsign) {
+            previous.push(row.old_callsign.clone());
+        }
+    }
+
+    Ok(previous)
 }

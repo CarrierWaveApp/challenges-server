@@ -69,6 +69,8 @@ User data structures.
 **Exports:**
 - `struct User` - Database row for users table (FromRow)
 - `struct UserResponse` - API response for user (Serialize)
+- `struct UpdateCallsignRequest` - API request for updating callsign (Deserialize, camelCase)
+- `struct UpdateCallsignResponse` - API response after callsign update with previous callsigns (Serialize, camelCase)
 - `impl From<User> for UserResponse` - Conversion for API response
 
 ### `src/models/friend_request.rs`

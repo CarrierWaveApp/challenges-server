@@ -241,6 +241,7 @@ fn create_router(
             post(handlers::report_upload_errors),
         )
         .route("/account", delete(handlers::delete_account))
+        .route("/account/callsign", put(handlers::update_callsign))
         .layer(Extension(config.clone()))
         .layer(middleware::from_fn_with_state(
             pool.clone(),
