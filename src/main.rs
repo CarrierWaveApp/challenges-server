@@ -210,6 +210,8 @@ fn create_router(
         .route("/rbn/spots", get(handlers::rbn_spots))
         .route("/rbn/stats", get(handlers::rbn_stats))
         .route("/rbn/skimmers", get(handlers::rbn_skimmers))
+        .route("/metrics", post(handlers::ingest_metrics))
+        .route("/diagnostics", post(handlers::ingest_diagnostics))
         .layer(Extension(rbn_store))
         .layer(middleware::from_fn_with_state(
             pool.clone(),
@@ -343,6 +345,10 @@ fn create_router(
         .route(
             "/admin/telemetry/upload-errors",
             get(handlers::get_telemetry_summary),
+        )
+        .route(
+            "/admin/metrickit",
+            get(handlers::get_metrickit_summary),
         )
         .route("/admin/spots/:id", delete(handlers::admin_delete_spot))
         .route("/admin/trails/status", get(handlers::get_trail_status))
