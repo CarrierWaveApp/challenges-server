@@ -115,6 +115,17 @@ Upload error telemetry data structures.
 - `struct RecentError` - Single recent error row (FromRow, Serialize)
 - `struct TelemetrySummaryResponse` - Full admin telemetry response (Serialize)
 
+### `src/models/club.rs` (membership monitors)
+Additional types for membership monitoring.
+
+**Exports (monitors):**
+- `struct MembershipMonitor` - Database row for club_membership_monitors table (FromRow)
+- `struct MembershipMonitorResponse` - API response for a membership monitor (Serialize, camelCase)
+- `struct CreateMonitorRequest` - API request for creating a monitor (Deserialize)
+- `struct UpdateMonitorRequest` - API request for updating a monitor (Deserialize)
+- `struct MonitorCheckResponse` - Response for a triggered monitor check (Serialize)
+- `impl From<MembershipMonitor> for MembershipMonitorResponse` - Conversion for API response
+
 ### `src/models/event.rs`
 Event data structures for user-submitted events.
 

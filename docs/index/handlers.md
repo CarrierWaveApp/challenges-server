@@ -134,6 +134,11 @@ Admin CRUD for clubs and members.
 - `async fn remove_club_member()` - DELETE /v1/admin/clubs/:id/members/:callsign - Remove member
 - `async fn update_club_member_role()` - PUT /v1/admin/clubs/:id/members/:callsign - Update role
 - `async fn import_notes_members()` - POST /v1/admin/clubs/:id/import-notes - Import members from callsign notes URL
+- `async fn list_monitors()` - GET /v1/admin/clubs/:id/monitors - List membership monitors for a club
+- `async fn create_monitor()` - POST /v1/admin/clubs/:id/monitors - Create a membership monitor
+- `async fn update_monitor_handler()` - PUT /v1/admin/clubs/:id/monitors/:monitor_id - Update a monitor
+- `async fn delete_monitor()` - DELETE /v1/admin/clubs/:id/monitors/:monitor_id - Delete a monitor
+- `async fn trigger_monitor_check()` - POST /v1/admin/clubs/:id/monitors/:monitor_id/check - Trigger immediate check
 
 ### `src/handlers/events.rs`
 Public and authenticated event endpoints.

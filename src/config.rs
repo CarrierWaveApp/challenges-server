@@ -38,6 +38,8 @@ pub struct Config {
     pub snapshot_dir: String,
     pub snapshot_interval_hours: u64,
     pub snapshot_max_age_hours: u64,
+    pub membership_monitor_enabled: bool,
+    pub membership_monitor_poll_minutes: u64,
 }
 
 impl Config {
@@ -201,6 +203,16 @@ impl Config {
             .parse()
             .unwrap_or(24);
 
+        let membership_monitor_enabled = env::var("MEMBERSHIP_MONITOR_ENABLED")
+            .unwrap_or_else(|_| "true".to_string())
+            .parse()
+            .unwrap_or(true);
+
+        let membership_monitor_poll_minutes: u64 = env::var("MEMBERSHIP_MONITOR_POLL_MINUTES")
+            .unwrap_or_else(|_| "5".to_string())
+            .parse()
+            .unwrap_or(5);
+
         Ok(Self {
             database_url,
             admin_token,
@@ -236,6 +248,8 @@ impl Config {
             snapshot_dir,
             snapshot_interval_hours,
             snapshot_max_age_hours,
+            membership_monitor_enabled,
+            membership_monitor_poll_minutes,
         })
     }
 }

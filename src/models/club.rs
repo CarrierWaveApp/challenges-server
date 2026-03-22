@@ -219,3 +219,110 @@ pub struct ImportNotesResponse {
     pub skipped: usize,
     pub callsigns: Vec<String>,
 }
+
+// ---------------------------------------------------------------------------
+// Membership monitor types
+// ---------------------------------------------------------------------------
+
+/// Database row for the club_membership_monitors table.
+#[allow(dead_code)]
+#[derive(Debug, Clone, FromRow)]
+pub struct MembershipMonitor {
+    pub id: Uuid,
+    pub club_id: Uuid,
+    pub url: String,
+    pub label: Option<String>,
+    pub format: String,
+    pub interval_hours: i32,
+    pub last_checked_at: Option<DateTime<Utc>>,
+    pub last_status: Option<String>,
+    pub last_member_count: Option<i32>,
+    pub enabled: bool,
+    pub remove_stale: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+/// API response for a membership monitor.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MembershipMonitorResponse {
+    pub id: Uuid,
+    pub club_id: Uuid,
+    pub url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    pub format: String,
+    pub interval_hours: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_checked_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_member_count: Option<i32>,
+    pub enabled: bool,
+    pub remove_stale: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<MembershipMonitor> for MembershipMonitorResponse {
+    fn from(m: MembershipMonitor) -> Self {
+        Self {
+            id: m.id,
+            club_id: m.club_id,
+            url: m.url,
+            label: m.label,
+            format: m.format,
+            interval_hours: m.interval_hours,
+            last_checked_at: m.last_checked_at,
+            last_status: m.last_status,
+            last_member_count: m.last_member_count,
+            enabled: m.enabled,
+            remove_stale: m.remove_stale,
+            created_at: m.created_at,
+        }
+    }
+}
+
+/// Request body for POST /v1/admin/clubs/:id/monitors.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateMonitorRequest {
+    pub url: String,
+    pub label: Option<String>,
+    #[serde(default = "default_monitor_format")]
+    pub format: String,
+    #[serde(default = "default_interval_hours")]
+    pub interval_hours: i32,
+    #[serde(default)]
+    pub remove_stale: bool,
+}
+
+fn default_monitor_format() -> String {
+    "callsign_notes".to_string()
+}
+
+fn default_interval_hours() -> i32 {
+    24
+}
+
+/// Request body for PUT /v1/admin/clubs/:id/monitors/:monitor_id.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateMonitorRequest {
+    pub url: Option<String>,
+    pub label: Option<Option<String>>,
+    pub format: Option<String>,
+    pub interval_hours: Option<i32>,
+    pub enabled: Option<bool>,
+    pub remove_stale: Option<bool>,
+}
+
+/// Response for a monitor check trigger.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MonitorCheckResponse {
+    pub added: usize,
+    pub removed: usize,
+    pub total: usize,
+    pub status: String,
+}

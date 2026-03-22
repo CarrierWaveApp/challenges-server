@@ -8,8 +8,9 @@ use sqlx::PgPool;
 use crate::db;
 use crate::error::AppError;
 use crate::models::club::{
-    AddMembersRequest, ClubMemberResponse, ClubResponse, CreateClubRequest, ImportNotesResponse,
-    UpdateClubRequest, UpdateMemberRoleRequest,
+    AddMembersRequest, ClubMemberResponse, ClubResponse, CreateClubRequest,
+    CreateMonitorRequest, ImportNotesResponse, MembershipMonitorResponse, MonitorCheckResponse,
+    UpdateClubRequest, UpdateMemberRoleRequest, UpdateMonitorRequest,
 };
 
 use super::DataResponse;
@@ -326,4 +327,201 @@ pub async fn import_notes_members(
             callsigns: new_callsigns,
         },
     }))
+}
+
+// ---------------------------------------------------------------------------
+// Membership monitors
+// ---------------------------------------------------------------------------
+
+/// GET /v1/admin/clubs/:id/monitors
+/// List membership monitors for a club.
+pub async fn list_monitors(
+    State(pool): State<PgPool>,
+    Path(club_id): Path<Uuid>,
+) -> Result<Json<DataResponse<Vec<MembershipMonitorResponse>>>, AppError> {
+    db::clubs::get_club_detail(&pool, club_id)
+        .await?
+        .ok_or(AppError::ClubNotFound { club_id })?;
+
+    let monitors = db::clubs::list_monitors(&pool, club_id).await?;
+    let data = monitors.into_iter().map(Into::into).collect();
+
+    Ok(Json(DataResponse { data }))
+}
+
+/// POST /v1/admin/clubs/:id/monitors
+/// Create a membership monitor for a club.
+pub async fn create_monitor(
+    State(pool): State<PgPool>,
+    Path(club_id): Path<Uuid>,
+    Json(body): Json<CreateMonitorRequest>,
+) -> Result<(StatusCode, Json<DataResponse<MembershipMonitorResponse>>), AppError> {
+    db::clubs::get_club_detail(&pool, club_id)
+        .await?
+        .ok_or(AppError::ClubNotFound { club_id })?;
+
+    if !body.url.starts_with("https://") {
+        return Err(AppError::Validation {
+            message: "Monitor URL must start with https://".to_string(),
+        });
+    }
+
+    let valid_formats = ["callsign_notes", "one_per_line"];
+    if !valid_formats.contains(&body.format.as_str()) {
+        return Err(AppError::Validation {
+            message: format!(
+                "Invalid format '{}'. Must be one of: {}",
+                body.format,
+                valid_formats.join(", ")
+            ),
+        });
+    }
+
+    if body.interval_hours < 1 {
+        return Err(AppError::Validation {
+            message: "interval_hours must be at least 1".to_string(),
+        });
+    }
+
+    let monitor = db::clubs::create_monitor(
+        &pool,
+        club_id,
+        &body.url,
+        body.label.as_deref(),
+        &body.format,
+        body.interval_hours,
+        body.remove_stale,
+    )
+    .await?;
+
+    Ok((
+        StatusCode::CREATED,
+        Json(DataResponse {
+            data: monitor.into(),
+        }),
+    ))
+}
+
+/// PUT /v1/admin/clubs/:id/monitors/:monitor_id
+/// Update a membership monitor.
+pub async fn update_monitor_handler(
+    State(pool): State<PgPool>,
+    Path((club_id, monitor_id)): Path<(Uuid, Uuid)>,
+    Json(body): Json<UpdateMonitorRequest>,
+) -> Result<Json<DataResponse<MembershipMonitorResponse>>, AppError> {
+    db::clubs::get_club_detail(&pool, club_id)
+        .await?
+        .ok_or(AppError::ClubNotFound { club_id })?;
+
+    if let Some(ref url) = body.url {
+        if !url.starts_with("https://") {
+            return Err(AppError::Validation {
+                message: "Monitor URL must start with https://".to_string(),
+            });
+        }
+    }
+
+    if let Some(ref format) = body.format {
+        let valid_formats = ["callsign_notes", "one_per_line"];
+        if !valid_formats.contains(&format.as_str()) {
+            return Err(AppError::Validation {
+                message: format!(
+                    "Invalid format '{}'. Must be one of: {}",
+                    format,
+                    valid_formats.join(", ")
+                ),
+            });
+        }
+    }
+
+    if let Some(hours) = body.interval_hours {
+        if hours < 1 {
+            return Err(AppError::Validation {
+                message: "interval_hours must be at least 1".to_string(),
+            });
+        }
+    }
+
+    let label = body.label.as_ref().map(|o| o.as_deref());
+
+    let monitor = db::clubs::update_monitor(
+        &pool,
+        monitor_id,
+        body.url.as_deref(),
+        label,
+        body.format.as_deref(),
+        body.interval_hours,
+        body.enabled,
+        body.remove_stale,
+    )
+    .await?
+    .ok_or(AppError::Validation {
+        message: "Monitor not found".to_string(),
+    })?;
+
+    Ok(Json(DataResponse {
+        data: monitor.into(),
+    }))
+}
+
+/// DELETE /v1/admin/clubs/:id/monitors/:monitor_id
+/// Delete a membership monitor.
+pub async fn delete_monitor(
+    State(pool): State<PgPool>,
+    Path((_club_id, monitor_id)): Path<(Uuid, Uuid)>,
+) -> Result<StatusCode, AppError> {
+    let deleted = db::clubs::delete_monitor(&pool, monitor_id).await?;
+
+    if deleted {
+        Ok(StatusCode::NO_CONTENT)
+    } else {
+        Err(AppError::Validation {
+            message: "Monitor not found".to_string(),
+        })
+    }
+}
+
+/// POST /v1/admin/clubs/:id/monitors/:monitor_id/check
+/// Trigger an immediate monitor check.
+pub async fn trigger_monitor_check(
+    State(pool): State<PgPool>,
+    Path((club_id, monitor_id)): Path<(Uuid, Uuid)>,
+) -> Result<Json<DataResponse<MonitorCheckResponse>>, AppError> {
+    db::clubs::get_club_detail(&pool, club_id)
+        .await?
+        .ok_or(AppError::ClubNotFound { club_id })?;
+
+    let monitor = db::clubs::get_monitor(&pool, monitor_id)
+        .await?
+        .ok_or(AppError::Validation {
+            message: "Monitor not found".to_string(),
+        })?;
+
+    match crate::membership_monitor::check_monitor(&pool, &monitor).await {
+        Ok((added, removed, total)) => {
+            let _ =
+                db::clubs::update_monitor_status(&pool, monitor_id, "ok", total as i32).await;
+
+            Ok(Json(DataResponse {
+                data: MonitorCheckResponse {
+                    added,
+                    removed,
+                    total,
+                    status: "ok".to_string(),
+                },
+            }))
+        }
+        Err(e) => {
+            let status = format!("error: {e}");
+            let _ = db::clubs::update_monitor_status(
+                &pool,
+                monitor_id,
+                &status,
+                monitor.last_member_count.unwrap_or(0),
+            )
+            .await;
+
+            Err(AppError::Internal(format!("Monitor check failed: {e}")))
+        }
+    }
 }

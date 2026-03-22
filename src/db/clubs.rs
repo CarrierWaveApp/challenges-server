@@ -477,3 +477,220 @@ pub async fn is_club_member(
 
     Ok(exists)
 }
+
+// ---------------------------------------------------------------------------
+// Membership monitor operations
+// ---------------------------------------------------------------------------
+
+use crate::models::club::MembershipMonitor;
+
+/// Create a membership monitor for a club.
+pub async fn create_monitor(
+    pool: &PgPool,
+    club_id: Uuid,
+    url: &str,
+    label: Option<&str>,
+    format: &str,
+    interval_hours: i32,
+    remove_stale: bool,
+) -> Result<MembershipMonitor, AppError> {
+    let monitor = sqlx::query_as::<_, MembershipMonitor>(
+        r#"
+        INSERT INTO club_membership_monitors (club_id, url, label, format, interval_hours, remove_stale)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id, club_id, url, label, format, interval_hours,
+                  last_checked_at, last_status, last_member_count,
+                  enabled, remove_stale, created_at
+        "#,
+    )
+    .bind(club_id)
+    .bind(url)
+    .bind(label)
+    .bind(format)
+    .bind(interval_hours)
+    .bind(remove_stale)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(monitor)
+}
+
+/// Update a membership monitor.
+pub async fn update_monitor(
+    pool: &PgPool,
+    monitor_id: Uuid,
+    url: Option<&str>,
+    label: Option<Option<&str>>,
+    format: Option<&str>,
+    interval_hours: Option<i32>,
+    enabled: Option<bool>,
+    remove_stale: Option<bool>,
+) -> Result<Option<MembershipMonitor>, AppError> {
+    let update_label = label.is_some();
+    let label_val = label.flatten();
+
+    let monitor = sqlx::query_as::<_, MembershipMonitor>(
+        r#"
+        UPDATE club_membership_monitors
+        SET url            = COALESCE($2, url),
+            label          = CASE WHEN $3 THEN $4 ELSE label END,
+            format         = COALESCE($5, format),
+            interval_hours = COALESCE($6, interval_hours),
+            enabled        = COALESCE($7, enabled),
+            remove_stale   = COALESCE($8, remove_stale)
+        WHERE id = $1
+        RETURNING id, club_id, url, label, format, interval_hours,
+                  last_checked_at, last_status, last_member_count,
+                  enabled, remove_stale, created_at
+        "#,
+    )
+    .bind(monitor_id)
+    .bind(url)
+    .bind(update_label)
+    .bind(label_val)
+    .bind(format)
+    .bind(interval_hours)
+    .bind(enabled)
+    .bind(remove_stale)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(monitor)
+}
+
+/// Delete a membership monitor. Returns true if a row was deleted.
+pub async fn delete_monitor(pool: &PgPool, monitor_id: Uuid) -> Result<bool, AppError> {
+    let result = sqlx::query("DELETE FROM club_membership_monitors WHERE id = $1")
+        .bind(monitor_id)
+        .execute(pool)
+        .await?;
+
+    Ok(result.rows_affected() > 0)
+}
+
+/// List all monitors for a club.
+pub async fn list_monitors(
+    pool: &PgPool,
+    club_id: Uuid,
+) -> Result<Vec<MembershipMonitor>, AppError> {
+    let monitors = sqlx::query_as::<_, MembershipMonitor>(
+        r#"
+        SELECT id, club_id, url, label, format, interval_hours,
+               last_checked_at, last_status, last_member_count,
+               enabled, remove_stale, created_at
+        FROM club_membership_monitors
+        WHERE club_id = $1
+        ORDER BY created_at
+        "#,
+    )
+    .bind(club_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(monitors)
+}
+
+/// Get a single monitor by ID.
+pub async fn get_monitor(
+    pool: &PgPool,
+    monitor_id: Uuid,
+) -> Result<Option<MembershipMonitor>, AppError> {
+    let monitor = sqlx::query_as::<_, MembershipMonitor>(
+        r#"
+        SELECT id, club_id, url, label, format, interval_hours,
+               last_checked_at, last_status, last_member_count,
+               enabled, remove_stale, created_at
+        FROM club_membership_monitors
+        WHERE id = $1
+        "#,
+    )
+    .bind(monitor_id)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(monitor)
+}
+
+/// Get all monitors that are due for a check.
+pub async fn get_due_monitors(pool: &PgPool) -> Result<Vec<MembershipMonitor>, AppError> {
+    let monitors = sqlx::query_as::<_, MembershipMonitor>(
+        r#"
+        SELECT id, club_id, url, label, format, interval_hours,
+               last_checked_at, last_status, last_member_count,
+               enabled, remove_stale, created_at
+        FROM club_membership_monitors
+        WHERE enabled = true
+          AND (last_checked_at IS NULL
+               OR last_checked_at + make_interval(hours => interval_hours) <= now())
+        ORDER BY last_checked_at NULLS FIRST
+        "#,
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(monitors)
+}
+
+/// Update a monitor's status after a check.
+pub async fn update_monitor_status(
+    pool: &PgPool,
+    monitor_id: Uuid,
+    status: &str,
+    member_count: i32,
+) -> Result<(), AppError> {
+    sqlx::query(
+        r#"
+        UPDATE club_membership_monitors
+        SET last_checked_at = now(),
+            last_status = $2,
+            last_member_count = $3
+        WHERE id = $1
+        "#,
+    )
+    .bind(monitor_id)
+    .bind(status)
+    .bind(member_count)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+/// Get all current member callsigns for a club (simple list for diffing).
+pub async fn get_member_callsigns(
+    pool: &PgPool,
+    club_id: Uuid,
+) -> Result<Vec<String>, AppError> {
+    let callsigns: Vec<String> = sqlx::query_scalar(
+        "SELECT callsign FROM club_members WHERE club_id = $1",
+    )
+    .bind(club_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(callsigns)
+}
+
+/// Remove multiple members from a club by callsign. Returns count removed.
+pub async fn remove_members_batch(
+    pool: &PgPool,
+    club_id: Uuid,
+    callsigns: &[String],
+) -> Result<u64, AppError> {
+    if callsigns.is_empty() {
+        return Ok(0);
+    }
+
+    let result = sqlx::query(
+        r#"
+        DELETE FROM club_members
+        WHERE club_id = $1 AND callsign = ANY($2)
+        "#,
+    )
+    .bind(club_id)
+    .bind(callsigns)
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected())
+}

@@ -154,3 +154,12 @@ Club queries for admin and authenticated users.
 - `async fn get_clubs_fingerprint()` - Compute ETag fingerprint for a user's clubs, returns `i64`
 - `async fn get_club_activity()` - Get activities from club members with cursor pagination, returns `Vec<ActivityWithCallsign>`
 - `async fn is_club_member()` - Check membership, returns `bool`
+- `async fn create_monitor()` - Create a membership monitor, returns `MembershipMonitor`
+- `async fn update_monitor()` - Update a monitor, returns `Option<MembershipMonitor>`
+- `async fn delete_monitor()` - Delete a monitor, returns `bool`
+- `async fn list_monitors()` - List monitors for a club, returns `Vec<MembershipMonitor>`
+- `async fn get_monitor()` - Get single monitor by ID, returns `Option<MembershipMonitor>`
+- `async fn get_due_monitors()` - Get monitors due for checking, returns `Vec<MembershipMonitor>`
+- `async fn update_monitor_status()` - Update monitor status after check
+- `async fn get_member_callsigns()` - Get all callsigns for a club, returns `Vec<String>`
+- `async fn remove_members_batch()` - Remove multiple members by callsign, returns `u64`

@@ -5,12 +5,15 @@ struct ClubDetailView: View {
     @State private var club: ClubAdminResponse
 
     @State private var members: [ClubMemberAdminResponse] = []
+    @State private var monitors: [MembershipMonitorResponse] = []
     @State private var isLoading = true
     @State private var error: String?
     @State private var showingAddMember = false
     @State private var showingEditSheet = false
+    @State private var showingAddMonitor = false
     @State private var isImporting = false
     @State private var importResult: String?
+    @State private var checkResult: String?
 
     private var api: APIClient { APIClient(config: config) }
 
@@ -21,6 +24,7 @@ struct ClubDetailView: View {
     var body: some View {
         List {
             clubInfoSection
+            monitorsSection
             membersSection
         }
         .navigationTitle(club.name)
@@ -37,6 +41,11 @@ struct ClubDetailView: View {
                     } label: {
                         Label("Add Member", systemImage: "person.badge.plus")
                     }
+                    Button {
+                        showingAddMonitor = true
+                    } label: {
+                        Label("Add Monitor", systemImage: "antenna.radiowaves.left.and.right")
+                    }
                     if club.notesUrl != nil {
                         Button {
                             Task { await importFromNotes() }
@@ -50,8 +59,8 @@ struct ClubDetailView: View {
                 }
             }
         }
-        .refreshable { await loadMembers() }
-        .task { await loadMembers() }
+        .refreshable { await loadData() }
+        .task { await loadData() }
         .sheet(isPresented: $showingAddMember) {
             AddMemberSheet(clubId: club.id) { await loadMembers() }
         }
@@ -60,6 +69,9 @@ struct ClubDetailView: View {
                 club = updated
             }
         }
+        .sheet(isPresented: $showingAddMonitor) {
+            AddMonitorSheet(clubId: club.id) { await loadMonitors() }
+        }
         .alert("Import Notes", isPresented: .init(
             get: { importResult != nil },
             set: { if !$0 { importResult = nil } }
@@ -67,6 +79,16 @@ struct ClubDetailView: View {
             Button("OK") { importResult = nil }
         } message: {
             if let result = importResult {
+                Text(result)
+            }
+        }
+        .alert("Monitor Check", isPresented: .init(
+            get: { checkResult != nil },
+            set: { if !$0 { checkResult = nil } }
+        )) {
+            Button("OK") { checkResult = nil }
+        } message: {
+            if let result = checkResult {
                 Text(result)
             }
         }
@@ -98,6 +120,78 @@ struct ClubDetailView: View {
                 LabeledContent("Notes") {
                     Text(club.notesTitle ?? notesUrl)
                         .foregroundStyle(.blue)
+                }
+            }
+        }
+    }
+
+    private var monitorsSection: some View {
+        Section("Monitors (\(monitors.count))") {
+            if monitors.isEmpty && !isLoading {
+                Text("No membership monitors")
+                    .foregroundStyle(.secondary)
+                    .font(.subheadline)
+            }
+
+            ForEach(monitors) { monitor in
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(monitor.label ?? monitor.url)
+                            .font(.headline)
+                            .lineLimit(1)
+                        Spacer()
+                        if monitor.enabled {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                                .font(.caption)
+                        } else {
+                            Image(systemName: "pause.circle.fill")
+                                .foregroundStyle(.secondary)
+                                .font(.caption)
+                        }
+                    }
+
+                    if monitor.label != nil {
+                        Text(monitor.url)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+
+                    HStack(spacing: 12) {
+                        Label("\(monitor.intervalHours)h", systemImage: "clock")
+                        if let count = monitor.lastMemberCount {
+                            Label("\(count)", systemImage: "person.2")
+                        }
+                        if let status = monitor.lastStatus {
+                            Text(status)
+                                .foregroundStyle(status == "ok" ? .green : .red)
+                        }
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                    if let checked = monitor.lastCheckedAt {
+                        Text("Checked \(checked.formatted(.relative(presentation: .named)))")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .padding(.vertical, 2)
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button(role: .destructive) {
+                        Task { await deleteMonitor(monitor) }
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
+                .swipeActions(edge: .leading) {
+                    Button {
+                        Task { await triggerCheck(monitor) }
+                    } label: {
+                        Label("Check Now", systemImage: "arrow.clockwise")
+                    }
+                    .tint(.blue)
                 }
             }
         }
@@ -139,6 +233,13 @@ struct ClubDetailView: View {
         }
     }
 
+    private func loadData() async {
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { await loadMembers() }
+            group.addTask { await loadMonitors() }
+        }
+    }
+
     private func loadMembers() async {
         isLoading = true
         do {
@@ -147,6 +248,35 @@ struct ClubDetailView: View {
             self.error = error.localizedDescription
         }
         isLoading = false
+    }
+
+    private func loadMonitors() async {
+        do {
+            monitors = try await api.getMonitors(clubId: club.id)
+        } catch {
+            if !error.isCancellation {
+                self.error = error.localizedDescription
+            }
+        }
+    }
+
+    private func deleteMonitor(_ monitor: MembershipMonitorResponse) async {
+        do {
+            try await api.deleteMonitor(clubId: club.id, monitorId: monitor.id)
+            monitors.removeAll { $0.id == monitor.id }
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    private func triggerCheck(_ monitor: MembershipMonitorResponse) async {
+        do {
+            let result = try await api.triggerMonitorCheck(clubId: club.id, monitorId: monitor.id)
+            checkResult = "Added \(result.added), removed \(result.removed) (total: \(result.total))"
+            await loadData()
+        } catch {
+            self.error = error.localizedDescription
+        }
     }
 
     private func importFromNotes() async {
@@ -349,6 +479,96 @@ struct EditClubSheet: View {
         do {
             let updated = try await api.updateClub(id: club.id, request)
             onSaved(updated)
+            dismiss()
+        } catch {
+            self.error = error.localizedDescription
+        }
+        isSubmitting = false
+    }
+}
+
+// MARK: - Add Monitor Sheet
+
+struct AddMonitorSheet: View {
+    @EnvironmentObject var config: ServerConfig
+    @Environment(\.dismiss) private var dismiss
+    let clubId: String
+    let onAdded: () async -> Void
+
+    @State private var url = ""
+    @State private var label = ""
+    @State private var format = "callsign_notes"
+    @State private var intervalHours = 24
+    @State private var removeStale = false
+    @State private var isSubmitting = false
+    @State private var error: String?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("URL", text: $url)
+                        .keyboardType(.URL)
+                        .textInputAutocapitalization(.never)
+                    TextField("Label (optional)", text: $label)
+                }
+
+                Section("Format") {
+                    Picker("Format", selection: $format) {
+                        Text("Callsign Notes (Ham2K)").tag("callsign_notes")
+                        Text("One Per Line").tag("one_per_line")
+                    }
+                    .pickerStyle(.menu)
+                }
+
+                Section("Schedule") {
+                    Stepper("Every \(intervalHours) hour\(intervalHours == 1 ? "" : "s")", value: $intervalHours, in: 1...168)
+                }
+
+                Section {
+                    Toggle("Remove stale members", isOn: $removeStale)
+                } footer: {
+                    Text("When enabled, members not found in the list will be removed from the club.")
+                }
+
+                if let error {
+                    Section {
+                        Text(error)
+                            .foregroundStyle(.red)
+                            .font(.subheadline)
+                    }
+                }
+            }
+            .navigationTitle("Add Monitor")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") {
+                        Task { await addMonitor() }
+                    }
+                    .disabled(url.isEmpty || isSubmitting)
+                }
+            }
+        }
+    }
+
+    private func addMonitor() async {
+        isSubmitting = true
+        error = nil
+        let api = APIClient(config: config)
+        let request = CreateMonitorRequest(
+            url: url,
+            label: label.isEmpty ? nil : label,
+            format: format,
+            intervalHours: intervalHours,
+            removeStale: removeStale
+        )
+        do {
+            _ = try await api.createMonitor(clubId: clubId, request)
+            await onAdded()
             dismiss()
         } catch {
             self.error = error.localizedDescription

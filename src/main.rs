@@ -5,6 +5,7 @@ mod db;
 mod error;
 mod extractors;
 mod handlers;
+mod membership_monitor;
 mod metrics;
 mod models;
 mod rbn;
@@ -117,6 +118,19 @@ async fn main() {
             max_age_hours = config.snapshot_max_age_hours,
             dir = %config.snapshot_dir,
             "Snapshot persistence enabled"
+        );
+    }
+
+    // Spawn membership monitor background loop
+    if config.membership_monitor_enabled {
+        let mon_pool = pool.clone();
+        let poll_minutes = config.membership_monitor_poll_minutes;
+        tokio::spawn(async move {
+            membership_monitor::monitor_loop(mon_pool, poll_minutes).await;
+        });
+        tracing::info!(
+            poll_minutes = config.membership_monitor_poll_minutes,
+            "Membership monitor enabled"
         );
     }
 
@@ -323,6 +337,18 @@ fn create_router(
         .route(
             "/admin/clubs/:id/members/:callsign",
             delete(handlers::remove_club_member).put(handlers::update_club_member_role),
+        )
+        .route(
+            "/admin/clubs/:id/monitors",
+            get(handlers::list_monitors).post(handlers::create_monitor),
+        )
+        .route(
+            "/admin/clubs/:id/monitors/:monitor_id",
+            put(handlers::update_monitor_handler).delete(handlers::delete_monitor),
+        )
+        .route(
+            "/admin/clubs/:id/monitors/:monitor_id/check",
+            post(handlers::trigger_monitor_check),
         )
         .route(
             "/admin/events",

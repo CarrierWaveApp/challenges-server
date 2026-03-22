@@ -223,6 +223,35 @@ class APIClient {
         return wrapper.data
     }
 
+    // MARK: - Membership Monitors
+
+    func getMonitors(clubId: String) async throws -> [MembershipMonitorResponse] {
+        let wrapper: DataWrapper<[MembershipMonitorResponse]> = try await get("/v1/admin/clubs/\(clubId)/monitors")
+        return wrapper.data
+    }
+
+    func createMonitor(clubId: String, _ request: CreateMonitorRequest) async throws -> MembershipMonitorResponse {
+        let wrapper: DataWrapper<MembershipMonitorResponse> = try await post("/v1/admin/clubs/\(clubId)/monitors", body: request)
+        return wrapper.data
+    }
+
+    func updateMonitor(clubId: String, monitorId: String, _ request: UpdateMonitorRequest) async throws -> MembershipMonitorResponse {
+        let wrapper: DataWrapper<MembershipMonitorResponse> = try await put("/v1/admin/clubs/\(clubId)/monitors/\(monitorId)", body: request)
+        return wrapper.data
+    }
+
+    func deleteMonitor(clubId: String, monitorId: String) async throws {
+        try await delete("/v1/admin/clubs/\(clubId)/monitors/\(monitorId)")
+    }
+
+    func triggerMonitorCheck(clubId: String, monitorId: String) async throws -> MonitorCheckResponse {
+        let wrapper: DataWrapper<MonitorCheckResponse> = try await post(
+            "/v1/admin/clubs/\(clubId)/monitors/\(monitorId)/check",
+            body: EmptyBody()
+        )
+        return wrapper.data
+    }
+
     // MARK: - Events (Admin)
 
     func getEvents(status: String? = nil, limit: Int = 50) async throws -> EventsListResponse {

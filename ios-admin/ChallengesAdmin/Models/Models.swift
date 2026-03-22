@@ -344,6 +344,47 @@ struct AddMemberEntry: Encodable {
     let role: String
 }
 
+// MARK: - Membership Monitors
+
+struct MembershipMonitorResponse: Decodable, Identifiable {
+    let id: String
+    let clubId: String
+    let url: String
+    let label: String?
+    let format: String
+    let intervalHours: Int
+    let lastCheckedAt: Date?
+    let lastStatus: String?
+    let lastMemberCount: Int?
+    let enabled: Bool
+    let removeStale: Bool
+    let createdAt: Date
+}
+
+struct CreateMonitorRequest: Encodable {
+    let url: String
+    var label: String?
+    var format: String = "callsignNotes"
+    var intervalHours: Int = 24
+    var removeStale: Bool = false
+}
+
+struct UpdateMonitorRequest: Encodable {
+    var url: String?
+    var label: Nullable<String>?
+    var format: String?
+    var intervalHours: Int?
+    var enabled: Bool?
+    var removeStale: Bool?
+}
+
+struct MonitorCheckResponse: Decodable {
+    let added: Int
+    let removed: Int
+    let total: Int
+    let status: String
+}
+
 // MARK: - Upload Error Telemetry (Admin)
 
 struct TelemetrySummaryResponse: Decodable {
