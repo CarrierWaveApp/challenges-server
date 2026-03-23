@@ -461,6 +461,37 @@ pub async fn get_clubs_fingerprint(pool: &PgPool, callsign: &str) -> Result<i64,
     Ok(ts.map(|t| t.timestamp()).unwrap_or(0))
 }
 
+/// Lightweight membership row: just callsign + club name for the cache.
+#[derive(Debug, Clone, FromRow)]
+pub struct MembershipRow {
+    pub club_name: String,
+    pub callsign: String,
+}
+
+/// Get all member callsigns grouped by club name for the authenticated user's clubs.
+/// Returns only (club_name, callsign) pairs — no roles, dates, or enrichment.
+pub async fn get_membership_callsigns(
+    pool: &PgPool,
+    callsign: &str,
+) -> Result<Vec<MembershipRow>, AppError> {
+    let rows = sqlx::query_as::<_, MembershipRow>(
+        r#"
+        SELECT c.name AS club_name, cm2.callsign
+        FROM club_members cm2
+        JOIN clubs c ON c.id = cm2.club_id
+        WHERE cm2.club_id IN (
+            SELECT club_id FROM club_members WHERE callsign = $1
+        )
+        ORDER BY c.name, cm2.callsign
+        "#,
+    )
+    .bind(callsign.to_uppercase())
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows)
+}
+
 /// Check whether a callsign is a member of a given club.
 pub async fn is_club_member(
     pool: &PgPool,

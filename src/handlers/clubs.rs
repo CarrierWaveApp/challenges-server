@@ -10,8 +10,8 @@ use crate::auth::AuthContext;
 use crate::db;
 use crate::error::AppError;
 use crate::models::club::{
-    ClubDetailResponse, ClubMemberResponse, ClubResponse, ClubSyncResponse, MemberOnlineStatus,
-    MemberStatusResponse, SpotInfo, UpdateClubNotesRequest,
+    ClubDetailResponse, ClubMemberResponse, ClubMembershipEntry, ClubResponse, ClubSyncResponse,
+    MemberOnlineStatus, MemberStatusResponse, SpotInfo, UpdateClubNotesRequest,
 };
 
 use super::DataResponse;
@@ -347,6 +347,46 @@ pub async fn update_club_notes(
             member_count,
         },
     }))
+}
+
+/// GET /v1/clubs/membership
+/// Return a compact callsign→club mapping for building the in-memory cache.
+/// Much lighter than /sync — only callsigns and club names, no member details.
+/// Supports ETag-based conditional fetching.
+pub async fn get_club_membership(
+    State(pool): State<PgPool>,
+    Extension(auth): Extension<AuthContext>,
+    headers: HeaderMap,
+) -> Result<(HeaderMap, Json<DataResponse<Vec<ClubMembershipEntry>>>), AppError> {
+    let fingerprint = db::clubs::get_clubs_fingerprint(&pool, &auth.callsign).await?;
+    let etag = format!("\"membership-{}\"", fingerprint);
+
+    if let Some(inm) = headers.get(header::IF_NONE_MATCH) {
+        if let Ok(val) = inm.to_str() {
+            if val == etag {
+                return Err(AppError::NotModified);
+            }
+        }
+    }
+
+    let rows = db::clubs::get_membership_callsigns(&pool, &auth.callsign).await?;
+
+    // Group by club name
+    let mut by_club: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
+    for row in rows {
+        by_club.entry(row.club_name).or_default().push(row.callsign);
+    }
+
+    let data: Vec<ClubMembershipEntry> = by_club
+        .into_iter()
+        .map(|(name, callsigns)| ClubMembershipEntry { name, callsigns })
+        .collect();
+
+    let mut resp_headers = HeaderMap::new();
+    resp_headers.insert(header::ETAG, etag.parse().unwrap());
+
+    Ok((resp_headers, Json(DataResponse { data })))
 }
 
 /// Internal: partial spot row for status queries.

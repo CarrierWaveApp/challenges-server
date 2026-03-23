@@ -29,7 +29,15 @@
       "Bash(timeout 10 cargo run:*)",
       "Bash(npm run:*)",
       "Bash(gh api:*)",
-      "Bash(gh search:*)"
+      "Bash(gh search:*)",
+      "Bash(yamllint:*)",
+      "Bash(ruby:*)",
+      "Bash(SQLX_OFFLINE=true cargo clippy:*)",
+      "Bash(cargo fmt:*)",
+      "Bash(SQLX_OFFLINE=true cargo build:*)",
+      "Bash(xcrun xctrace:*)",
+      "Bash(git revert:*)",
+      "Bash(TOKEN=\"b0b585dcaa3bfa377ab81779b64eb8c8bb31b1bd8f80e94dacde5920a8ebdec6\" curl -s https://activities.carrierwave.app/v1/admin/clubs -H \"Authorization: Bearer $TOKEN\")"
     ]
   }
 }

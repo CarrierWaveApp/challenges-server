@@ -258,6 +258,7 @@ fn create_router(
         .route("/feed", get(handlers::get_feed))
         .route("/clubs", get(handlers::get_clubs))
         .route("/clubs/sync", get(handlers::sync_clubs))
+        .route("/clubs/membership", get(handlers::get_club_membership))
         .route("/clubs/:id", get(handlers::get_club_details))
         .route("/clubs/:id/activity", get(handlers::get_club_activity))
         .route("/clubs/:id/status", get(handlers::get_club_status))

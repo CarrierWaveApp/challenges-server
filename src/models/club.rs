@@ -211,6 +211,15 @@ pub struct UpdateMemberRoleRequest {
     pub role: String,
 }
 
+/// Compact membership response: club name → list of callsigns.
+/// Used by iOS to build the in-memory callsign lookup cache.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClubMembershipEntry {
+    pub name: String,
+    pub callsigns: Vec<String>,
+}
+
 /// Response for POST /v1/admin/clubs/:id/import-notes.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
