@@ -97,11 +97,6 @@ async fn main() {
         aggregators::spawn_historic_trails_aggregator(pool.clone(), &config);
     }
 
-    // Spawn club membership sync aggregator
-    if config.club_sync_enabled {
-        aggregators::spawn_club_sync(pool.clone(), &config);
-    }
-
     // Spawn RBN telnet ingester
     let rbn_store = rbn::SpotStore::new();
     if config.rbn_proxy_enabled {

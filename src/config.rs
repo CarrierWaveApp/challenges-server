@@ -38,8 +38,6 @@ pub struct Config {
     pub snapshot_dir: String,
     pub snapshot_interval_hours: u64,
     pub snapshot_max_age_hours: u64,
-    pub club_sync_enabled: bool,
-    pub club_sync_interval_hours: u64,
 }
 
 impl Config {
@@ -203,16 +201,6 @@ impl Config {
             .parse()
             .unwrap_or(24);
 
-        let club_sync_enabled = env::var("CLUB_SYNC_ENABLED")
-            .unwrap_or_else(|_| "false".to_string())
-            .parse()
-            .unwrap_or(false);
-
-        let club_sync_interval_hours: u64 = env::var("CLUB_SYNC_INTERVAL_HOURS")
-            .unwrap_or_else(|_| "6".to_string())
-            .parse()
-            .unwrap_or(6);
-
         Ok(Self {
             database_url,
             admin_token,
@@ -248,8 +236,6 @@ impl Config {
             snapshot_dir,
             snapshot_interval_hours,
             snapshot_max_age_hours,
-            club_sync_enabled,
-            club_sync_interval_hours,
         })
     }
 }

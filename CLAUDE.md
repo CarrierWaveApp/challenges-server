@@ -67,8 +67,6 @@ SNAPSHOT_ENABLED=true                                          # Optional, defau
 SNAPSHOT_DIR=data/snapshots                                    # Optional, default data/snapshots
 SNAPSHOT_INTERVAL_HOURS=1                                      # Optional, default 1
 SNAPSHOT_MAX_AGE_HOURS=24                                      # Optional, default 24
-CLUB_SYNC_ENABLED=false                                        # Optional, default false
-CLUB_SYNC_INTERVAL_HOURS=6                                     # Optional, default 6
 ```
 
 ## Finding Code
