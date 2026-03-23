@@ -1,3 +1,4 @@
+pub mod club_sync;
 pub mod historic_trails;
 pub mod park_boundaries;
 pub mod polish_park_boundaries;
@@ -133,6 +134,26 @@ pub fn spawn_pota_stats_aggregator(pool: PgPool, config: &Config) {
         pota_stats::poll_loop(pool, client, stats_config).await;
     });
     tracing::info!("POTA stats aggregator started");
+}
+
+/// Spawn the club membership sync aggregator.
+pub fn spawn_club_sync(pool: PgPool, config: &Config) {
+    let client = reqwest::Client::builder()
+        .user_agent(format!(
+            "{}/{}",
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_VERSION")
+        ))
+        .build()
+        .expect("failed to build HTTP client");
+    let interval_hours = config.club_sync_interval_hours;
+    tokio::spawn(async move {
+        club_sync::poll_loop(pool, client, interval_hours).await;
+    });
+    tracing::info!(
+        interval_hours = config.club_sync_interval_hours,
+        "Club membership sync aggregator started"
+    );
 }
 
 /// Delete expired spots every 2 minutes.

@@ -153,4 +153,6 @@ Club queries for admin and authenticated users.
 - `async fn get_members_for_clubs()` - Batch-fetch members for multiple clubs (avoids N+1), returns `Vec<EnrichedClubMemberWithClub>`
 - `async fn get_clubs_fingerprint()` - Compute ETag fingerprint for a user's clubs, returns `i64`
 - `async fn get_club_activity()` - Get activities from club members with cursor pagination, returns `Vec<ActivityWithCallsign>`
+- `async fn get_club_by_name()` - Get club by name (case-insensitive), returns `Option<Club>`
+- `async fn sync_members()` - Diff-sync members for a club (add new, remove departed, preserve admins), returns `(usize, usize)`
 - `async fn is_club_member()` - Check membership, returns `bool`

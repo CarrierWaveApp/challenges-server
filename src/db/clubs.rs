@@ -461,6 +461,76 @@ pub async fn get_clubs_fingerprint(pool: &PgPool, callsign: &str) -> Result<i64,
     Ok(ts.map(|t| t.timestamp()).unwrap_or(0))
 }
 
+/// Get a club by name (case-insensitive).
+pub async fn get_club_by_name(pool: &PgPool, name: &str) -> Result<Option<Club>, AppError> {
+    let club = sqlx::query_as::<_, Club>(
+        r#"
+        SELECT id, name, callsign, description, notes_url, notes_title,
+               created_at, updated_at
+        FROM clubs
+        WHERE LOWER(name) = LOWER($1)
+        "#,
+    )
+    .bind(name)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(club)
+}
+
+/// Sync members for a club: add new callsigns, remove departed ones.
+/// Only touches members with role='member' — preserves admin roles.
+/// Returns (added, removed) counts.
+pub async fn sync_members(
+    pool: &PgPool,
+    club_id: Uuid,
+    callsigns: &[String],
+) -> Result<(usize, usize), AppError> {
+    let new_set: std::collections::HashSet<String> =
+        callsigns.iter().map(|cs| cs.to_uppercase()).collect();
+
+    // Get existing members
+    let existing = sqlx::query_as::<_, ClubMember>(
+        "SELECT id, club_id, callsign, role, joined_at FROM club_members WHERE club_id = $1",
+    )
+    .bind(club_id)
+    .fetch_all(pool)
+    .await?;
+
+    let existing_callsigns: std::collections::HashSet<String> =
+        existing.iter().map(|m| m.callsign.clone()).collect();
+
+    // Add new members
+    let to_add: Vec<String> = new_set
+        .iter()
+        .filter(|cs| !existing_callsigns.contains(*cs))
+        .cloned()
+        .collect();
+
+    let added = to_add.len();
+    if !to_add.is_empty() {
+        let member_tuples: Vec<(String, String)> = to_add
+            .into_iter()
+            .map(|cs| (cs, "member".to_string()))
+            .collect();
+        add_members(pool, club_id, &member_tuples).await?;
+    }
+
+    // Remove departed members (only role='member', preserve admins)
+    let to_remove: Vec<&str> = existing
+        .iter()
+        .filter(|m| m.role == "member" && !new_set.contains(&m.callsign))
+        .map(|m| m.callsign.as_str())
+        .collect();
+
+    let removed = to_remove.len();
+    for callsign in &to_remove {
+        remove_member(pool, club_id, callsign).await?;
+    }
+
+    Ok((added, removed))
+}
+
 /// Check whether a callsign is a member of a given club.
 pub async fn is_club_member(
     pool: &PgPool,
