@@ -252,7 +252,7 @@ pub async fn list_all_clubs(pool: &PgPool) -> Result<Vec<ClubWithCount>, AppErro
         r#"
         SELECT c.id, c.name, c.callsign, c.description,
                c.notes_url, c.notes_title,
-               (c.logo_data IS NOT NULL) AS "has_logo!",
+               (c.logo_data IS NOT NULL) AS has_logo,
                c.created_at, c.updated_at,
                COALESCE(counts.member_count, 0) AS member_count
         FROM clubs c
@@ -283,7 +283,7 @@ pub async fn get_clubs_for_callsign(
         r#"
         SELECT c.id, c.name, c.callsign, c.description,
                c.notes_url, c.notes_title,
-               (c.logo_data IS NOT NULL) AS "has_logo!",
+               (c.logo_data IS NOT NULL) AS has_logo,
                c.created_at, c.updated_at,
                counts.member_count
         FROM clubs c
