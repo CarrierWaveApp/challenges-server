@@ -154,3 +154,6 @@ Club queries for admin and authenticated users.
 - `async fn get_clubs_fingerprint()` - Compute ETag fingerprint for a user's clubs, returns `i64`
 - `async fn get_club_activity()` - Get activities from club members with cursor pagination, returns `Vec<ActivityWithCallsign>`
 - `async fn is_club_member()` - Check membership, returns `bool`
+- `async fn get_club_logo()` - Get club logo data and content type, returns `Option<ClubLogo>`
+- `async fn set_club_logo()` - Store or replace a club's logo, returns `bool`
+- `async fn delete_club_logo()` - Remove a club's logo, returns `bool`

@@ -1,5 +1,6 @@
 use axum::extract::State;
 use axum::http::StatusCode;
+use axum_extra::extract::Multipart;
 use uuid::Uuid;
 
 use crate::extractors::{Json, Path};
@@ -30,6 +31,7 @@ pub async fn list_clubs_admin(
             description: c.description,
             notes_url: c.notes_url,
             notes_title: c.notes_title,
+            has_logo: c.has_logo,
             member_count: c.member_count,
         })
         .collect();
@@ -89,6 +91,7 @@ pub async fn create_club(
                 description: club.description,
                 notes_url: club.notes_url,
                 notes_title: club.notes_title,
+                has_logo: club.logo_content_type.is_some(),
                 member_count: 0,
             },
         }),
@@ -131,6 +134,7 @@ pub async fn update_club(
             description: club.description,
             notes_url: club.notes_url,
             notes_title: club.notes_title,
+            has_logo: club.logo_content_type.is_some(),
             member_count: members.len() as i64,
         },
     }))
@@ -326,4 +330,88 @@ pub async fn import_notes_members(
             callsigns: new_callsigns,
         },
     }))
+}
+
+const MAX_LOGO_SIZE: usize = 2 * 1024 * 1024; // 2MB
+const ALLOWED_LOGO_TYPES: &[&str] = &["image/png", "image/jpeg", "image/svg+xml", "image/gif", "image/webp"];
+
+/// PUT /v1/admin/clubs/:id/logo
+/// Upload or replace a club's logo.
+pub async fn upload_club_logo(
+    State(pool): State<PgPool>,
+    Path(club_id): Path<Uuid>,
+    mut multipart: Multipart,
+) -> Result<StatusCode, AppError> {
+    // Verify club exists
+    db::clubs::get_club_detail(&pool, club_id)
+        .await?
+        .ok_or(AppError::ClubNotFound { club_id })?;
+
+    let mut image_data: Option<Vec<u8>> = None;
+    let mut content_type: Option<String> = None;
+
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| AppError::Validation {
+            message: format!("Failed to read multipart field: {}", e),
+        })?
+    {
+        let field_name = field.name().unwrap_or("").to_string();
+
+        if field_name == "image" {
+            let ct = field
+                .content_type()
+                .map(|s| s.to_string())
+                .unwrap_or_default();
+
+            if !ALLOWED_LOGO_TYPES.contains(&ct.as_str()) {
+                return Err(AppError::Validation {
+                    message: format!(
+                        "Invalid content type '{}'. Allowed: PNG, JPEG, SVG, GIF, WebP",
+                        ct
+                    ),
+                });
+            }
+
+            let data = field.bytes().await.map_err(|e| AppError::Validation {
+                message: format!("Failed to read image data: {}", e),
+            })?;
+
+            if data.len() > MAX_LOGO_SIZE {
+                return Err(AppError::Validation {
+                    message: format!("Logo too large. Maximum size is {} bytes", MAX_LOGO_SIZE),
+                });
+            }
+
+            content_type = Some(ct);
+            image_data = Some(data.to_vec());
+        }
+    }
+
+    let image_data = image_data.ok_or(AppError::Validation {
+        message: "Missing required field: image".to_string(),
+    })?;
+    let content_type = content_type.ok_or(AppError::Validation {
+        message: "Missing image content type".to_string(),
+    })?;
+
+    db::clubs::set_club_logo(&pool, club_id, &image_data, &content_type).await?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// DELETE /v1/admin/clubs/:id/logo
+/// Remove a club's logo.
+pub async fn delete_club_logo(
+    State(pool): State<PgPool>,
+    Path(club_id): Path<Uuid>,
+) -> Result<StatusCode, AppError> {
+    let deleted = db::clubs::delete_club_logo(&pool, club_id).await?;
+
+    if deleted {
+        Ok(StatusCode::NO_CONTENT)
+    } else {
+        Err(AppError::ClubNotFound { club_id })
+    }
 }

@@ -17,6 +17,7 @@ pub struct Club {
     pub description: Option<String>,
     pub notes_url: Option<String>,
     pub notes_title: Option<String>,
+    pub logo_content_type: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -48,6 +49,7 @@ pub struct ClubResponse {
     pub notes_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub notes_title: Option<String>,
+    pub has_logo: bool,
     pub member_count: i64,
 }
 
@@ -64,6 +66,7 @@ pub struct ClubSyncResponse {
     pub notes_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub notes_title: Option<String>,
+    pub has_logo: bool,
     pub member_count: i64,
     pub members: Vec<ClubMemberResponse>,
 }
@@ -80,6 +83,7 @@ pub struct ClubDetailResponse {
     pub notes_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub notes_title: Option<String>,
+    pub has_logo: bool,
     pub members: Vec<ClubMemberResponse>,
 }
 

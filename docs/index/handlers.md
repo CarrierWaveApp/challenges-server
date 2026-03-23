@@ -120,6 +120,7 @@ Authenticated club endpoints for members.
 - `async fn get_club_activity()` - GET /v1/clubs/:id/activity - Get club activity feed (requires membership)
 - `async fn get_club_status()` - GET /v1/clubs/:id/status - Get real-time member online status (requires membership)
 - `async fn update_club_notes()` - PUT /v1/clubs/:id/notes - Update club notes (requires club admin role)
+- `async fn get_club_logo()` - GET /v1/clubs/:id/logo - Serve club logo image (public, no auth)
 
 ### `src/handlers/clubs_admin.rs`
 Admin CRUD for clubs and members.
@@ -134,6 +135,8 @@ Admin CRUD for clubs and members.
 - `async fn remove_club_member()` - DELETE /v1/admin/clubs/:id/members/:callsign - Remove member
 - `async fn update_club_member_role()` - PUT /v1/admin/clubs/:id/members/:callsign - Update role
 - `async fn import_notes_members()` - POST /v1/admin/clubs/:id/import-notes - Import members from callsign notes URL
+- `async fn upload_club_logo()` - PUT /v1/admin/clubs/:id/logo - Upload or replace club logo
+- `async fn delete_club_logo()` - DELETE /v1/admin/clubs/:id/logo - Remove club logo
 
 ### `src/handlers/events.rs`
 Public and authenticated event endpoints.

@@ -19,6 +19,7 @@ pub struct ClubWithCount {
     pub description: Option<String>,
     pub notes_url: Option<String>,
     pub notes_title: Option<String>,
+    pub has_logo: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub member_count: i64,
@@ -64,7 +65,7 @@ pub async fn create_club(
         INSERT INTO clubs (name, callsign, description)
         VALUES ($1, $2, $3)
         RETURNING id, name, callsign, description, notes_url, notes_title,
-                  created_at, updated_at
+                  logo_content_type, created_at, updated_at
         "#,
     )
     .bind(name)
@@ -113,7 +114,7 @@ pub async fn update_club(
             updated_at  = now()
         WHERE id = $1
         RETURNING id, name, callsign, description, notes_url, notes_title,
-                  created_at, updated_at
+                  logo_content_type, created_at, updated_at
         "#,
     )
     .bind(club_id)
@@ -149,7 +150,7 @@ pub async fn update_club_notes(
             updated_at  = now()
         WHERE id = $1
         RETURNING id, name, callsign, description, notes_url, notes_title,
-                  created_at, updated_at
+                  logo_content_type, created_at, updated_at
         "#,
     )
     .bind(club_id)
@@ -251,6 +252,7 @@ pub async fn list_all_clubs(pool: &PgPool) -> Result<Vec<ClubWithCount>, AppErro
         r#"
         SELECT c.id, c.name, c.callsign, c.description,
                c.notes_url, c.notes_title,
+               (c.logo_data IS NOT NULL) AS "has_logo!",
                c.created_at, c.updated_at,
                COALESCE(counts.member_count, 0) AS member_count
         FROM clubs c
@@ -281,6 +283,7 @@ pub async fn get_clubs_for_callsign(
         r#"
         SELECT c.id, c.name, c.callsign, c.description,
                c.notes_url, c.notes_title,
+               (c.logo_data IS NOT NULL) AS "has_logo!",
                c.created_at, c.updated_at,
                counts.member_count
         FROM clubs c
@@ -306,7 +309,7 @@ pub async fn get_club_detail(pool: &PgPool, club_id: Uuid) -> Result<Option<Club
     let club = sqlx::query_as::<_, Club>(
         r#"
         SELECT id, name, callsign, description, notes_url, notes_title,
-               created_at, updated_at
+               logo_content_type, created_at, updated_at
         FROM clubs
         WHERE id = $1
         "#,
@@ -507,4 +510,74 @@ pub async fn is_club_member(
     .await?;
 
     Ok(exists)
+}
+
+// ---------------------------------------------------------------------------
+// Logo operations
+// ---------------------------------------------------------------------------
+
+/// Logo data row (image bytes + content type).
+#[derive(Debug, Clone, FromRow)]
+pub struct ClubLogo {
+    pub logo_data: Vec<u8>,
+    pub logo_content_type: String,
+}
+
+/// Get a club's logo data and content type.
+pub async fn get_club_logo(pool: &PgPool, club_id: Uuid) -> Result<Option<ClubLogo>, AppError> {
+    let row = sqlx::query_as::<_, ClubLogo>(
+        r#"
+        SELECT logo_data, logo_content_type
+        FROM clubs
+        WHERE id = $1 AND logo_data IS NOT NULL
+        "#,
+    )
+    .bind(club_id)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(row)
+}
+
+/// Store or replace a club's logo.
+pub async fn set_club_logo(
+    pool: &PgPool,
+    club_id: Uuid,
+    logo_data: &[u8],
+    content_type: &str,
+) -> Result<bool, AppError> {
+    let result = sqlx::query(
+        r#"
+        UPDATE clubs
+        SET logo_data = $2,
+            logo_content_type = $3,
+            updated_at = now()
+        WHERE id = $1
+        "#,
+    )
+    .bind(club_id)
+    .bind(logo_data)
+    .bind(content_type)
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected() > 0)
+}
+
+/// Remove a club's logo.
+pub async fn delete_club_logo(pool: &PgPool, club_id: Uuid) -> Result<bool, AppError> {
+    let result = sqlx::query(
+        r#"
+        UPDATE clubs
+        SET logo_data = NULL,
+            logo_content_type = NULL,
+            updated_at = now()
+        WHERE id = $1
+        "#,
+    )
+    .bind(club_id)
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected() > 0)
 }

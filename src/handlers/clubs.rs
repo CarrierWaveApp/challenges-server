@@ -1,5 +1,6 @@
+use axum::body::Body;
 use axum::extract::{Extension, Query, State};
-use axum::http::{header, HeaderMap};
+use axum::http::{header, HeaderMap, Response, StatusCode};
 use chrono::{Duration, Utc};
 use uuid::Uuid;
 
@@ -33,6 +34,7 @@ pub async fn get_clubs(
             description: c.description,
             notes_url: c.notes_url,
             notes_title: c.notes_title,
+            has_logo: c.has_logo,
             member_count: c.member_count,
         })
         .collect();
@@ -98,6 +100,7 @@ pub async fn sync_clubs(
                 description: c.description,
                 notes_url: c.notes_url,
                 notes_title: c.notes_title,
+                has_logo: c.has_logo,
                 member_count: c.member_count,
                 members,
             }
@@ -148,6 +151,7 @@ pub async fn get_club_details(
             description: club.description,
             notes_url: club.notes_url,
             notes_title: club.notes_title,
+            has_logo: club.logo_content_type.is_some(),
             members: member_responses,
         },
     }))
@@ -344,6 +348,7 @@ pub async fn update_club_notes(
             description: club.description,
             notes_url: club.notes_url,
             notes_title: club.notes_title,
+            has_logo: club.logo_content_type.is_some(),
             member_count,
         },
     }))
@@ -387,6 +392,26 @@ pub async fn get_club_membership(
     resp_headers.insert(header::ETAG, etag.parse().unwrap());
 
     Ok((resp_headers, Json(DataResponse { data })))
+}
+
+/// GET /v1/clubs/:id/logo
+/// Serve the club's logo image (public, no auth required).
+pub async fn get_club_logo(
+    State(pool): State<PgPool>,
+    Path(club_id): Path<Uuid>,
+) -> Result<Response<Body>, AppError> {
+    let logo = db::clubs::get_club_logo(&pool, club_id)
+        .await?
+        .ok_or(AppError::ClubNotFound { club_id })?;
+
+    let response = Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, logo.logo_content_type)
+        .header(header::CACHE_CONTROL, "public, max-age=86400")
+        .body(Body::from(logo.logo_data))
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+
+    Ok(response)
 }
 
 /// Internal: partial spot row for status queries.

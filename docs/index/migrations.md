@@ -181,3 +181,10 @@ Anonymized upload error telemetry from client apps.
 - `upload_error_telemetry` - Aggregated error reports from client sync
   - Columns: id (UUID), callsign (TEXT), service (TEXT), category (TEXT), message_hash (TEXT), affected_count (INTEGER), is_transient (BOOLEAN), app_version (TEXT), os_version (TEXT), created_at (TIMESTAMPTZ)
   - Indexes: created_at, (service, created_at), (category, created_at)
+
+### `migrations/024_club_logos.sql`
+Add logo storage columns to clubs table.
+
+**Columns added:**
+- `logo_data` (BYTEA) - Logo image binary data
+- `logo_content_type` (TEXT) - MIME type of the logo image
