@@ -117,6 +117,7 @@ SNAPSHOT_MAX_AGE_HOURS=24                                      # Optional, defau
 - `DELETE /v1/challenges/{id}/leave` - Leave challenge (auth required)
 - `GET /v1/programs` - List active programs
 - `GET /v1/programs/{slug}` - Get program by slug
+- `PUT /v1/account/callsign` - Change callsign across all tables (auth required)
 - `DELETE /v1/activities/{id}` - Delete own activity (auth required)
 - `GET /v1/pota/stats/activator` - Activator stats with rank
 - `GET /v1/pota/stats/hunter` - Hunter stats with rank

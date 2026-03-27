@@ -173,3 +173,14 @@ Admin event moderation endpoints.
 - `async fn review_event()` - PUT /v1/admin/events/:id/review - Approve or reject an event
 - `async fn admin_delete_event()` - DELETE /v1/admin/events/:id - Hard delete any event
 - `async fn get_submitter_history()` - GET /v1/admin/events/submitter/:callsign - Get submitter stats
+
+### `src/handlers/users.rs`
+User management, search, registration, and account operations.
+
+**Exports:**
+- `async fn search_users()` - GET /v1/users/search?q=... - Search users by callsign (public)
+- `async fn admin_stats()` - GET /v1/admin/stats - Aggregate user statistics (admin)
+- `async fn admin_users_by_hour()` - GET /v1/admin/stats/users-by-hour - Active users per hour (admin)
+- `async fn register()` - POST /v1/register - Register user and get auth token
+- `async fn change_callsign()` - PUT /v1/account/callsign - Change callsign across all tables (auth required)
+- `async fn delete_account()` - DELETE /v1/account - Delete account and all data (auth required)

@@ -4,7 +4,6 @@ use uuid::Uuid;
 use crate::error::AppError;
 use crate::models::User;
 
-#[allow(dead_code)]
 pub async fn get_user_by_callsign(pool: &PgPool, callsign: &str) -> Result<Option<User>, AppError> {
     let user = sqlx::query_as::<_, User>(
         r#"
@@ -132,6 +131,121 @@ pub async fn get_active_users_by_hour(
     .await?;
 
     Ok(rows)
+}
+
+/// Change a user's callsign across all callsign-keyed tables in a single transaction.
+/// Records the change in callsign_history for audit.
+/// Does NOT update pota_activations or pota_hunter_qsos (external data).
+pub async fn change_callsign(
+    pool: &PgPool,
+    user_id: Uuid,
+    old_callsign: &str,
+    new_callsign: &str,
+) -> Result<User, AppError> {
+    let old_upper = old_callsign.to_uppercase();
+    let new_upper = new_callsign.to_uppercase();
+
+    // Check if new callsign is already taken
+    let existing = sqlx::query_scalar::<_, Uuid>(
+        "SELECT id FROM users WHERE callsign = $1 AND id != $2",
+    )
+    .bind(&new_upper)
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await?;
+
+    if existing.is_some() {
+        return Err(AppError::CallsignTaken {
+            callsign: new_upper,
+        });
+    }
+
+    let mut tx = pool.begin().await?;
+
+    // Update all callsign-keyed tables
+    sqlx::query("UPDATE participants SET callsign = $1 WHERE callsign = $2")
+        .bind(&new_upper)
+        .bind(&old_upper)
+        .execute(&mut *tx)
+        .await?;
+
+    sqlx::query("UPDATE challenge_participants SET callsign = $1 WHERE callsign = $2")
+        .bind(&new_upper)
+        .bind(&old_upper)
+        .execute(&mut *tx)
+        .await?;
+
+    sqlx::query("UPDATE progress SET callsign = $1 WHERE callsign = $2")
+        .bind(&new_upper)
+        .bind(&old_upper)
+        .execute(&mut *tx)
+        .await?;
+
+    sqlx::query("UPDATE earned_badges SET callsign = $1 WHERE callsign = $2")
+        .bind(&new_upper)
+        .bind(&old_upper)
+        .execute(&mut *tx)
+        .await?;
+
+    sqlx::query("UPDATE activities SET callsign = $1 WHERE callsign = $2")
+        .bind(&new_upper)
+        .bind(&old_upper)
+        .execute(&mut *tx)
+        .await?;
+
+    sqlx::query("UPDATE club_members SET callsign = $1 WHERE callsign = $2")
+        .bind(&new_upper)
+        .bind(&old_upper)
+        .execute(&mut *tx)
+        .await?;
+
+    sqlx::query("UPDATE events SET submitted_by = $1 WHERE submitted_by = $2")
+        .bind(&new_upper)
+        .bind(&old_upper)
+        .execute(&mut *tx)
+        .await?;
+
+    sqlx::query("UPDATE spots SET callsign = $1 WHERE callsign = $2")
+        .bind(&new_upper)
+        .bind(&old_upper)
+        .execute(&mut *tx)
+        .await?;
+
+    sqlx::query("UPDATE upload_error_telemetry SET callsign = $1 WHERE callsign = $2")
+        .bind(&new_upper)
+        .bind(&old_upper)
+        .execute(&mut *tx)
+        .await?;
+
+    // Update the users table last
+    let user = sqlx::query_as::<_, User>(
+        r#"
+        UPDATE users SET callsign = $1
+        WHERE id = $2
+        RETURNING id, callsign, created_at
+        "#,
+    )
+    .bind(&new_upper)
+    .bind(user_id)
+    .fetch_one(&mut *tx)
+    .await?;
+
+    // Record the change in history
+    sqlx::query(
+        r#"
+        INSERT INTO callsign_history (user_id, old_callsign, new_callsign)
+        VALUES ($1, $2, $3)
+        "#,
+    )
+    .bind(user_id)
+    .bind(&old_upper)
+    .bind(&new_upper)
+    .execute(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(user)
 }
 
 pub async fn get_or_create_user(pool: &PgPool, callsign: &str) -> Result<User, AppError> {

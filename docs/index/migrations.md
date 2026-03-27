@@ -188,3 +188,13 @@ Add logo storage columns to clubs table.
 **Columns added:**
 - `logo_data` (BYTEA) - Logo image binary data
 - `logo_content_type` (TEXT) - MIME type of the logo image
+
+### `migrations/025_callsign_history.sql`
+Callsign change audit log.
+
+**Tables:**
+- `callsign_history` - Records callsign changes with user_id, old_callsign, new_callsign, changed_at
+
+**Indexes:**
+- `idx_callsign_history_user_id` - Lookup history by user
+- `idx_callsign_history_old` - Lookup by previous callsign

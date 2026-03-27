@@ -69,6 +69,7 @@ User management.
 **Exports:**
 - `async fn get_user_by_callsign()` - Get user by callsign, returns `Option<User>`
 - `async fn get_user_by_id()` - Get user by ID, returns `Option<User>`
+- `async fn change_callsign()` - Change callsign across all tables in a transaction, returns `User`
 - `async fn get_or_create_user()` - Get or create user by callsign, returns `User`
 
 ### `src/db/programs.rs`

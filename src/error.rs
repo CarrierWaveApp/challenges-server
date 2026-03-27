@@ -61,6 +61,9 @@ pub enum AppError {
     #[error("Invalid review action")]
     InvalidEventReview { message: String },
 
+    #[error("Callsign already taken")]
+    CallsignTaken { callsign: String },
+
     #[error("Active self-spot already exists for this program")]
     SelfSpotExists,
 
@@ -215,6 +218,11 @@ impl IntoResponse for AppError {
                 StatusCode::BAD_REQUEST,
                 "INVALID_EVENT_REVIEW",
                 None,
+            ),
+            Self::CallsignTaken { ref callsign } => (
+                StatusCode::CONFLICT,
+                "CALLSIGN_TAKEN",
+                Some(serde_json::json!({ "callsign": callsign })),
             ),
             Self::SelfSpotExists => (StatusCode::CONFLICT, "SELF_SPOT_EXISTS", None),
             Self::CapabilityNotSupported {

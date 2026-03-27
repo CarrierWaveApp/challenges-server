@@ -35,6 +35,7 @@ use crate::auth::AuthContext;
 use crate::models::{AdminStatsResponse, RegisterRequest, RegisterResponse, UserCountByHour};
 use axum::http::StatusCode;
 use axum::Extension;
+use serde::Serialize;
 
 /// GET /v1/admin/stats — aggregate user statistics (admin only)
 pub async fn admin_stats(
@@ -96,6 +97,54 @@ pub async fn register(
             },
         }),
     ))
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChangeCallsignRequest {
+    pub new_callsign: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChangeCallsignResponse {
+    pub callsign: String,
+}
+
+/// PUT /v1/account/callsign
+/// Change the authenticated user's callsign across all tables.
+pub async fn change_callsign(
+    State(pool): State<PgPool>,
+    Extension(auth): Extension<AuthContext>,
+    Json(body): Json<ChangeCallsignRequest>,
+) -> Result<Json<DataResponse<ChangeCallsignResponse>>, AppError> {
+    let new_callsign = body.new_callsign.trim().to_uppercase();
+
+    if new_callsign.is_empty() {
+        return Err(AppError::Validation {
+            message: "newCallsign is required".to_string(),
+        });
+    }
+
+    if new_callsign == auth.callsign {
+        return Err(AppError::Validation {
+            message: "new callsign must differ from current callsign".to_string(),
+        });
+    }
+
+    let user = db::get_user_by_callsign(&pool, &auth.callsign)
+        .await?
+        .ok_or(AppError::UserNotFound {
+            user_id: auth.participant_id,
+        })?;
+
+    let updated = db::change_callsign(&pool, user.id, &auth.callsign, &new_callsign).await?;
+
+    Ok(Json(DataResponse {
+        data: ChangeCallsignResponse {
+            callsign: updated.callsign,
+        },
+    }))
 }
 
 /// DELETE /v1/account
