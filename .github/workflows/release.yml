@@ -47,6 +47,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-musl-
 
+      - name: Clean stale macro expansions
+        run: cargo clean -p activities-server --release --target x86_64-unknown-linux-musl 2>/dev/null || true
+
       - name: Build release binary
         run: cargo build --release --target x86_64-unknown-linux-musl
 
