@@ -20,6 +20,7 @@ pub mod programs;
 pub mod progress;
 pub mod rbn;
 pub mod spots;
+pub mod twilio_webhook;
 pub mod upload_error_telemetry;
 pub mod users;
 
@@ -47,5 +48,6 @@ pub use programs::*;
 pub use progress::*;
 pub use rbn::*;
 pub use spots::*;
+pub use twilio_webhook::*;
 pub use upload_error_telemetry::*;
 pub use users::*;

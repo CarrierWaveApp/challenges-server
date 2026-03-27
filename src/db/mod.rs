@@ -12,6 +12,7 @@ pub mod participants;
 pub mod pota_stats;
 pub mod programs;
 pub mod progress;
+pub mod spot_markers;
 pub mod spots;
 pub mod metrickit_telemetry;
 pub mod upload_error_telemetry;

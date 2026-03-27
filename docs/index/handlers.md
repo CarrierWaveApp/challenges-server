@@ -156,6 +156,13 @@ Upload error telemetry reporting.
 - `async fn report_upload_errors()` - POST /v1/telemetry/upload-errors - Report anonymized upload error telemetry (auth required)
 - `async fn get_telemetry_summary()` - GET /v1/admin/telemetry/upload-errors - Upload error telemetry summary (admin)
 
+### `src/handlers/twilio_webhook.rs`
+Twilio SMS webhook for POTA/SOTA spotting and marker generation.
+
+**Exports:**
+- `async fn create_spot_marker()` - POST /v1/spot-markers - Generate a spot marker for SMS spotting (auth required)
+- `async fn twilio_sms_webhook()` - POST /v1/twilio/sms - Twilio webhook for incoming SMS spot messages (public, form-encoded)
+
 ### `src/handlers/events_admin.rs`
 Admin event moderation endpoints.
 

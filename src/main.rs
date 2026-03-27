@@ -211,6 +211,7 @@ fn create_router(
         .route("/rbn/spots", get(handlers::rbn_spots))
         .route("/rbn/stats", get(handlers::rbn_stats))
         .route("/rbn/skimmers", get(handlers::rbn_skimmers))
+        .route("/twilio/sms", post(handlers::twilio_sms_webhook))
         .route("/metrics", post(handlers::ingest_metrics))
         .route("/diagnostics", post(handlers::ingest_diagnostics))
         .layer(Extension(rbn_store))
@@ -274,6 +275,7 @@ fn create_router(
             "/telemetry/upload-errors",
             post(handlers::report_upload_errors),
         )
+        .route("/spot-markers", post(handlers::create_spot_marker))
         .route("/account", delete(handlers::delete_account))
         .layer(Extension(config.clone()))
         .layer(middleware::from_fn_with_state(
