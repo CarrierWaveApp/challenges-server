@@ -115,6 +115,16 @@ Upload error telemetry data structures.
 - `struct RecentError` - Single recent error row (FromRow, Serialize)
 - `struct TelemetrySummaryResponse` - Full admin telemetry response (Serialize)
 
+### `src/models/spot_marker.rs`
+Spot marker and Twilio webhook data structures.
+
+**Exports:**
+- `struct SpotMarkerRow` - Database row for spot_markers table (FromRow)
+- `struct SpotMarkerResponse` - API response for spot marker (Serialize, camelCase)
+- `struct TwilioSmsWebhook` - Twilio SMS webhook form fields (Deserialize)
+- `enum SpotType` - Pota or Sota, determined by reference format
+- `struct ParsedSpotMessage` - Parsed SMS spot message fields
+
 ### `src/models/event.rs`
 Event data structures for user-submitted events.
 

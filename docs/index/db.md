@@ -115,6 +115,14 @@ Upload error telemetry storage.
 - `async fn insert_upload_errors()` - Insert a batch of upload error telemetry entries, returns `usize`
 - `async fn get_telemetry_summary()` - Get aggregated telemetry summary with filters, returns `TelemetrySummaryResponse`
 
+### `src/db/spot_markers.rs`
+Spot marker management for SMS-based spotting.
+
+**Exports:**
+- `fn generate_marker()` - Generate a random 6-character alphanumeric marker code
+- `async fn create_spot_marker()` - Create a spot marker for a participant (replaces existing), returns `SpotMarkerRow`
+- `async fn get_spot_marker()` - Look up a spot marker by code, returns `Option<SpotMarkerRow>`
+
 ### `src/db/events.rs`
 Event CRUD and proximity queries.
 
