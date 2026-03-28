@@ -163,3 +163,71 @@ pub async fn delete_account(
 
     Ok(StatusCode::NO_CONTENT)
 }
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaimPreviousRequest {
+    pub previous_callsign: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaimPreviousResponse {
+    pub merged: bool,
+    pub previous_callsign: String,
+}
+
+/// POST /v1/account/claim-previous
+/// Merge data from a previous callsign's account into the current user.
+/// Used when a user changed their callsign before the app had server-side sync,
+/// resulting in a new account that lost friends/challenges from the old one.
+pub async fn claim_previous_account(
+    State(pool): State<PgPool>,
+    Extension(auth): Extension<AuthContext>,
+    Json(body): Json<ClaimPreviousRequest>,
+) -> Result<Json<DataResponse<ClaimPreviousResponse>>, AppError> {
+    let previous = body.previous_callsign.trim().to_uppercase();
+
+    if previous.is_empty() {
+        return Err(AppError::Validation {
+            message: "previousCallsign is required".to_string(),
+        });
+    }
+
+    if previous == auth.callsign {
+        return Err(AppError::Validation {
+            message: "previousCallsign must differ from current callsign".to_string(),
+        });
+    }
+
+    // Look up the old user
+    let old_user = db::get_user_by_callsign(&pool, &previous)
+        .await?
+        .ok_or(AppError::UserNotFound {
+            user_id: auth.participant_id,
+        })?;
+
+    // Look up the current user
+    let current_user = db::get_user_by_callsign(&pool, &auth.callsign)
+        .await?
+        .ok_or(AppError::UserNotFound {
+            user_id: auth.participant_id,
+        })?;
+
+    // Merge old account into current
+    db::merge_previous_account(
+        &pool,
+        current_user.id,
+        old_user.id,
+        &previous,
+        &auth.callsign,
+    )
+    .await?;
+
+    Ok(Json(DataResponse {
+        data: ClaimPreviousResponse {
+            merged: true,
+            previous_callsign: previous,
+        },
+    }))
+}

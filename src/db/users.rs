@@ -248,6 +248,154 @@ pub async fn change_callsign(
     Ok(user)
 }
 
+/// Merge an old (previous callsign) user account into the current user.
+/// Transfers all UUID-keyed data (friendships, friend_requests, activities)
+/// and callsign-keyed data from the old user to the current user,
+/// then deletes the old user record.
+pub async fn merge_previous_account(
+    pool: &PgPool,
+    current_user_id: Uuid,
+    old_user_id: Uuid,
+    old_callsign: &str,
+    new_callsign: &str,
+) -> Result<(), AppError> {
+    let mut tx = pool.begin().await?;
+
+    // Transfer UUID-keyed relationships: friendships
+    // Re-point old_user's friendships to current_user (skip duplicates)
+    sqlx::query(
+        r#"
+        UPDATE friendships SET user_id = $1
+        WHERE user_id = $2
+        AND NOT EXISTS (
+            SELECT 1 FROM friendships f2
+            WHERE f2.user_id = $1 AND f2.friend_id = friendships.friend_id
+        )
+        "#,
+    )
+    .bind(current_user_id)
+    .bind(old_user_id)
+    .execute(&mut *tx)
+    .await?;
+
+    // Also transfer where old user is the friend side
+    sqlx::query(
+        r#"
+        UPDATE friendships SET friend_id = $1
+        WHERE friend_id = $2
+        AND NOT EXISTS (
+            SELECT 1 FROM friendships f2
+            WHERE f2.friend_id = $1 AND f2.user_id = friendships.user_id
+        )
+        "#,
+    )
+    .bind(current_user_id)
+    .bind(old_user_id)
+    .execute(&mut *tx)
+    .await?;
+
+    // Transfer friend_requests
+    sqlx::query(
+        r#"
+        UPDATE friend_requests SET from_user_id = $1
+        WHERE from_user_id = $2
+        AND NOT EXISTS (
+            SELECT 1 FROM friend_requests f2
+            WHERE f2.from_user_id = $1 AND f2.to_user_id = friend_requests.to_user_id
+        )
+        "#,
+    )
+    .bind(current_user_id)
+    .bind(old_user_id)
+    .execute(&mut *tx)
+    .await?;
+
+    sqlx::query(
+        r#"
+        UPDATE friend_requests SET to_user_id = $1
+        WHERE to_user_id = $2
+        AND NOT EXISTS (
+            SELECT 1 FROM friend_requests f2
+            WHERE f2.to_user_id = $1 AND f2.from_user_id = friend_requests.from_user_id
+        )
+        "#,
+    )
+    .bind(current_user_id)
+    .bind(old_user_id)
+    .execute(&mut *tx)
+    .await?;
+
+    // Transfer activities (UUID-keyed via user_id)
+    sqlx::query("UPDATE activities SET user_id = $1, callsign = $3 WHERE user_id = $2")
+        .bind(current_user_id)
+        .bind(old_user_id)
+        .bind(new_callsign)
+        .execute(&mut *tx)
+        .await?;
+
+    // Transfer callsign-keyed data from old callsign
+    sqlx::query(
+        "UPDATE challenge_participants SET callsign = $1 WHERE callsign = $2",
+    )
+    .bind(new_callsign)
+    .bind(old_callsign)
+    .execute(&mut *tx)
+    .await?;
+
+    sqlx::query("UPDATE progress SET callsign = $1 WHERE callsign = $2")
+        .bind(new_callsign)
+        .bind(old_callsign)
+        .execute(&mut *tx)
+        .await?;
+
+    sqlx::query("UPDATE earned_badges SET callsign = $1 WHERE callsign = $2")
+        .bind(new_callsign)
+        .bind(old_callsign)
+        .execute(&mut *tx)
+        .await?;
+
+    sqlx::query("UPDATE club_members SET callsign = $1 WHERE callsign = $2")
+        .bind(new_callsign)
+        .bind(old_callsign)
+        .execute(&mut *tx)
+        .await?;
+
+    sqlx::query("UPDATE spots SET callsign = $1 WHERE callsign = $2")
+        .bind(new_callsign)
+        .bind(old_callsign)
+        .execute(&mut *tx)
+        .await?;
+
+    // Record the merge in callsign_history
+    sqlx::query(
+        r#"
+        INSERT INTO callsign_history (user_id, old_callsign, new_callsign)
+        VALUES ($1, $2, $3)
+        "#,
+    )
+    .bind(current_user_id)
+    .bind(old_callsign)
+    .bind(new_callsign)
+    .execute(&mut *tx)
+    .await?;
+
+    // Delete old user's remaining orphaned data then the user itself.
+    // CASCADE handles friendships/friend_requests that weren't transferred (duplicates).
+    sqlx::query("DELETE FROM participants WHERE callsign = $1")
+        .bind(old_callsign)
+        .execute(&mut *tx)
+        .await?;
+
+    sqlx::query("DELETE FROM users WHERE id = $1")
+        .bind(old_user_id)
+        .execute(&mut *tx)
+        .await?;
+
+    tx.commit().await?;
+
+    Ok(())
+}
+
 pub async fn get_or_create_user(pool: &PgPool, callsign: &str) -> Result<User, AppError> {
     let user = sqlx::query_as::<_, User>(
         r#"

@@ -278,6 +278,10 @@ fn create_router(
         .route("/spot-markers", post(handlers::create_spot_marker))
         .route("/account", delete(handlers::delete_account))
         .route("/account/callsign", put(handlers::change_callsign))
+        .route(
+            "/account/claim-previous",
+            post(handlers::claim_previous_account),
+        )
         .layer(Extension(config.clone()))
         .layer(middleware::from_fn_with_state(
             pool.clone(),
