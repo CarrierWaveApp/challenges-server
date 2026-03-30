@@ -125,6 +125,23 @@ Spot marker and Twilio webhook data structures.
 - `enum SpotType` - Pota or Sota, determined by reference format
 - `struct ParsedSpotMessage` - Parsed SMS spot message fields
 
+### `src/models/equipment.rs`
+Equipment catalog data structures.
+
+**Exports:**
+- `enum EquipmentCategory` - radio, antenna, key, microphone, accessory
+- `enum Portability` - pocket, backpack, portable, mobile, base
+- `struct EquipmentRow` - Database row for equipment_catalog table (FromRow)
+- `struct EquipmentEntryResponse` - API response for single entry (Serialize)
+- `struct CatalogResponse` - Full catalog response with version and entries
+- `struct SearchResultEntry` - Search result with confidence and matched_field
+- `struct SearchResponse` - Search results wrapper
+- `struct EquipmentSearchRow` - DB row with score and matched_field (FromRow)
+- `struct CatalogQuery` - Query params for catalog endpoint (since)
+- `struct SearchQuery` - Query params for search endpoint (q, category, limit)
+- `struct CreateEquipmentRequest` - Admin create request (Deserialize)
+- `struct UpdateEquipmentRequest` - Admin partial update request (Deserialize)
+
 ### `src/models/event.rs`
 Event data structures for user-submitted events.
 

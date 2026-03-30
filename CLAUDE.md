@@ -117,6 +117,8 @@ SNAPSHOT_MAX_AGE_HOURS=24                                      # Optional, defau
 - `DELETE /v1/challenges/{id}/leave` - Leave challenge (auth required)
 - `GET /v1/programs` - List active programs
 - `GET /v1/programs/{slug}` - Get program by slug
+- `GET /v1/equipment/catalog` - Equipment catalog with ETag and optional `since` delta
+- `GET /v1/equipment/search` - Fuzzy equipment search (q, category, limit)
 - `PUT /v1/account/callsign` - Change callsign across all tables (auth required)
 - `DELETE /v1/activities/{id}` - Delete own activity (auth required)
 - `GET /v1/pota/stats/activator` - Activator stats with rank
@@ -151,6 +153,9 @@ SNAPSHOT_MAX_AGE_HOURS=24                                      # Optional, defau
 - `PUT /v1/admin/clubs/{id}/logo` - Upload or replace club logo (admin)
 - `DELETE /v1/admin/clubs/{id}/logo` - Remove club logo (admin)
 - `GET /v1/admin/trails/status` - Historic trails sync status (admin)
+- `POST /v1/admin/equipment` - Create equipment entry (admin)
+- `PUT /v1/admin/equipment/{id}` - Update equipment entry (admin)
+- `DELETE /v1/admin/equipment/{id}` - Delete equipment entry (admin)
 - `GET /v1/admin/events` - List events with status filter (admin)
 - `GET /v1/admin/events/{id}` - Get any event regardless of status (admin)
 - `PUT /v1/admin/events/{id}` - Edit any event (admin)

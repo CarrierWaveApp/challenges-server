@@ -198,3 +198,24 @@ Callsign change audit log.
 **Indexes:**
 - `idx_callsign_history_user_id` - Lookup history by user
 - `idx_callsign_history_old` - Lookup by previous callsign
+
+### `migrations/027_equipment_catalog.sql`
+Equipment catalog schema with pg_trgm fuzzy search support.
+
+**Extensions:**
+- `pg_trgm` - Trigram similarity for fuzzy text matching
+
+**Tables:**
+- `equipment_catalog` - Amateur radio equipment entries
+  - Columns: id (TEXT PK slug), name, manufacturer, category, bands, modes, max_power_watts, portability, weight_grams, description, aliases, image_url, created_at, updated_at
+  - Constraints: category IN (radio, antenna, key, microphone, accessory), portability IN (pocket, backpack, portable, mobile, base)
+
+**Indexes:**
+- `idx_equipment_catalog_trgm` - GIN trigram index on name + aliases for fuzzy search
+- `idx_equipment_catalog_category` - Category filter
+- `idx_equipment_catalog_updated_at` - Delta sync queries
+
+### `migrations/028_equipment_seed_data.sql`
+Seed data for equipment catalog with POTA/portable-popular gear.
+
+Includes radios (Elecraft, Icom, Yaesu, LNR, QRP Labs, Xiegu, Lab599), antennas (EFHW, Spooltenna, Chameleon, Buddipole, SOTAbeams, PackTenna, Wolf River, Super Antenna), keys (CW Morse, Begali, Vibroplex, N0SA, Palm, AME), microphones (Heil Sound), and accessories (Bioenno batteries, masts).

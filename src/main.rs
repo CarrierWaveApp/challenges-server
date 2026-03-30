@@ -206,6 +206,8 @@ fn create_router(
         .route("/trails/status", get(handlers::get_trail_status))
         .route("/trails/:reference", get(handlers::get_trail))
         .route("/clubs/:id/logo", get(handlers::get_club_logo))
+        .route("/equipment/catalog", get(handlers::get_catalog))
+        .route("/equipment/search", get(handlers::search_equipment))
         .route("/events", get(handlers::list_events))
         .route("/events/:id", get(handlers::get_event))
         .route("/rbn/spots", get(handlers::rbn_spots))
@@ -336,6 +338,14 @@ fn create_router(
         .route(
             "/admin/clubs/:id/members/:callsign",
             delete(handlers::remove_club_member).put(handlers::update_club_member_role),
+        )
+        .route(
+            "/admin/equipment",
+            post(handlers::create_equipment),
+        )
+        .route(
+            "/admin/equipment/:id",
+            put(handlers::update_equipment).delete(handlers::delete_equipment),
         )
         .route(
             "/admin/events",

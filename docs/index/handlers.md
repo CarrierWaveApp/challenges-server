@@ -138,6 +138,16 @@ Admin CRUD for clubs and members.
 - `async fn upload_club_logo()` - PUT /v1/admin/clubs/:id/logo - Upload or replace club logo
 - `async fn delete_club_logo()` - DELETE /v1/admin/clubs/:id/logo - Remove club logo
 
+### `src/handlers/equipment.rs`
+Equipment catalog endpoints (public + admin).
+
+**Exports:**
+- `async fn get_catalog()` - GET /v1/equipment/catalog - Full catalog with ETag and optional `since` delta
+- `async fn search_equipment()` - GET /v1/equipment/search - Fuzzy search with pg_trgm
+- `async fn create_equipment()` - POST /v1/admin/equipment - Create equipment entry (admin)
+- `async fn update_equipment()` - PUT /v1/admin/equipment/:id - Update equipment entry (admin)
+- `async fn delete_equipment()` - DELETE /v1/admin/equipment/:id - Delete equipment entry (admin)
+
 ### `src/handlers/events.rs`
 Public and authenticated event endpoints.
 
