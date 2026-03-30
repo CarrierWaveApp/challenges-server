@@ -42,6 +42,10 @@ pub struct EquipmentRow {
     pub description: Option<String>,
     pub aliases: Vec<String>,
     pub image_url: Option<String>,
+    pub antenna_connector: Option<String>,
+    pub power_connector: Option<String>,
+    pub key_jack: Option<String>,
+    pub mic_jack: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -67,6 +71,14 @@ pub struct EquipmentEntryResponse {
     pub aliases: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub image_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub antenna_connector: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub power_connector: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key_jack: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mic_jack: Option<String>,
 }
 
 impl From<EquipmentRow> for EquipmentEntryResponse {
@@ -84,6 +96,10 @@ impl From<EquipmentRow> for EquipmentEntryResponse {
             description: r.description,
             aliases: r.aliases,
             image_url: r.image_url,
+            antenna_connector: r.antenna_connector,
+            power_connector: r.power_connector,
+            key_jack: r.key_jack,
+            mic_jack: r.mic_jack,
         }
     }
 }
@@ -127,6 +143,10 @@ pub struct EquipmentSearchRow {
     pub description: Option<String>,
     pub aliases: Vec<String>,
     pub image_url: Option<String>,
+    pub antenna_connector: Option<String>,
+    pub power_connector: Option<String>,
+    pub key_jack: Option<String>,
+    pub mic_jack: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub score: Option<f64>,
@@ -167,6 +187,10 @@ pub struct CreateEquipmentRequest {
     #[serde(default)]
     pub aliases: Vec<String>,
     pub image_url: Option<String>,
+    pub antenna_connector: Option<String>,
+    pub power_connector: Option<String>,
+    pub key_jack: Option<String>,
+    pub mic_jack: Option<String>,
 }
 
 fn default_portability() -> String {
@@ -186,4 +210,8 @@ pub struct UpdateEquipmentRequest {
     pub description: Option<Option<String>>,
     pub aliases: Option<Vec<String>>,
     pub image_url: Option<Option<String>>,
+    pub antenna_connector: Option<Option<String>>,
+    pub power_connector: Option<Option<String>>,
+    pub key_jack: Option<Option<String>>,
+    pub mic_jack: Option<Option<String>>,
 }

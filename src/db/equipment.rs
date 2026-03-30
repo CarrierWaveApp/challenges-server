@@ -31,7 +31,8 @@ pub async fn get_catalog_entries(
                 r#"
                 SELECT id, name, manufacturer, category, bands, modes,
                        max_power_watts, portability, weight_grams, description,
-                       aliases, image_url, created_at, updated_at
+                       aliases, image_url, antenna_connector, power_connector,
+                       key_jack, mic_jack, created_at, updated_at
                 FROM equipment_catalog
                 WHERE updated_at > $1
                 ORDER BY name ASC
@@ -46,7 +47,8 @@ pub async fn get_catalog_entries(
                 r#"
                 SELECT id, name, manufacturer, category, bands, modes,
                        max_power_watts, portability, weight_grams, description,
-                       aliases, image_url, created_at, updated_at
+                       aliases, image_url, antenna_connector, power_connector,
+                       key_jack, mic_jack, created_at, updated_at
                 FROM equipment_catalog
                 ORDER BY name ASC
                 "#,
@@ -70,7 +72,8 @@ pub async fn search_equipment(
         r#"
         SELECT id, name, manufacturer, category, bands, modes,
                max_power_watts, portability, weight_grams, description,
-               aliases, image_url, created_at, updated_at,
+               aliases, image_url, antenna_connector, power_connector,
+               key_jack, mic_jack, created_at, updated_at,
                GREATEST(
                    similarity(name, $1),
                    similarity(manufacturer || ' ' || name, $1),
@@ -133,12 +136,14 @@ pub async fn create_entry(
         INSERT INTO equipment_catalog (
             id, name, manufacturer, category, bands, modes,
             max_power_watts, portability, weight_grams, description,
-            aliases, image_url
+            aliases, image_url, antenna_connector, power_connector,
+            key_jack, mic_jack
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
         RETURNING id, name, manufacturer, category, bands, modes,
                   max_power_watts, portability, weight_grams, description,
-                  aliases, image_url, created_at, updated_at
+                  aliases, image_url, antenna_connector, power_connector,
+                  key_jack, mic_jack, created_at, updated_at
         "#,
     )
     .bind(&req.id)
@@ -153,6 +158,10 @@ pub async fn create_entry(
     .bind(&req.description)
     .bind(&req.aliases)
     .bind(&req.image_url)
+    .bind(&req.antenna_connector)
+    .bind(&req.power_connector)
+    .bind(&req.key_jack)
+    .bind(&req.mic_jack)
     .fetch_one(pool)
     .await?;
 
@@ -179,11 +188,16 @@ pub async fn update_entry(
             description = CASE WHEN $12 THEN $13 ELSE description END,
             aliases = COALESCE($14, aliases),
             image_url = CASE WHEN $15 THEN $16 ELSE image_url END,
+            antenna_connector = CASE WHEN $17 THEN $18 ELSE antenna_connector END,
+            power_connector = CASE WHEN $19 THEN $20 ELSE power_connector END,
+            key_jack = CASE WHEN $21 THEN $22 ELSE key_jack END,
+            mic_jack = CASE WHEN $23 THEN $24 ELSE mic_jack END,
             updated_at = now()
         WHERE id = $1
         RETURNING id, name, manufacturer, category, bands, modes,
                   max_power_watts, portability, weight_grams, description,
-                  aliases, image_url, created_at, updated_at
+                  aliases, image_url, antenna_connector, power_connector,
+                  key_jack, mic_jack, created_at, updated_at
         "#,
     )
     .bind(id)
@@ -202,6 +216,14 @@ pub async fn update_entry(
     .bind(&req.aliases)
     .bind(req.image_url.is_some())
     .bind(req.image_url.as_ref().and_then(|v| v.clone()))
+    .bind(req.antenna_connector.is_some())
+    .bind(req.antenna_connector.as_ref().and_then(|v| v.clone()))
+    .bind(req.power_connector.is_some())
+    .bind(req.power_connector.as_ref().and_then(|v| v.clone()))
+    .bind(req.key_jack.is_some())
+    .bind(req.key_jack.as_ref().and_then(|v| v.clone()))
+    .bind(req.mic_jack.is_some())
+    .bind(req.mic_jack.as_ref().and_then(|v| v.clone()))
     .fetch_optional(pool)
     .await?;
 
