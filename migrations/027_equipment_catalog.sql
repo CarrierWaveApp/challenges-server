@@ -18,10 +18,16 @@ CREATE TABLE equipment_catalog (
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Immutable wrapper for array_to_string (needed for index expressions in PG 17+)
+CREATE OR REPLACE FUNCTION immutable_array_to_string(arr TEXT[], sep TEXT)
+RETURNS TEXT LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT array_to_string(arr, sep);
+$$;
+
 -- Trigram index for fuzzy search across name and aliases
 CREATE INDEX idx_equipment_catalog_trgm
     ON equipment_catalog
-    USING gin ((name || ' ' || array_to_string(aliases, ' ')) gin_trgm_ops);
+    USING gin ((name || ' ' || immutable_array_to_string(aliases, ' ')) gin_trgm_ops);
 
 CREATE INDEX idx_equipment_catalog_category ON equipment_catalog(category);
 CREATE INDEX idx_equipment_catalog_updated_at ON equipment_catalog(updated_at);
