@@ -37,7 +37,22 @@
       "Bash(SQLX_OFFLINE=true cargo build:*)",
       "Bash(xcrun xctrace:*)",
       "Bash(git revert:*)",
-      "Bash(TOKEN=\"b0b585dcaa3bfa377ab81779b64eb8c8bb31b1bd8f80e94dacde5920a8ebdec6\" curl -s https://activities.carrierwave.app/v1/admin/clubs -H \"Authorization: Bearer $TOKEN\")"
+      "Bash(TOKEN=\"b0b585dcaa3bfa377ab81779b64eb8c8bb31b1bd8f80e94dacde5920a8ebdec6\" curl -s https://activities.carrierwave.app/v1/admin/clubs -H \"Authorization: Bearer $TOKEN\")",
+      "mcp__claude_ai_Linear__list_projects",
+      "mcp__claude_ai_Linear__list_teams",
+      "mcp__claude_ai_Linear__save_issue",
+      "Bash(ADMIN_TOKEN=b0b585dcaa3bfa377ab81779b64eb8c8bb31b1bd8f80e94dacde5920a8ebdec6 ./scripts/ingest_club_logos.sh 2>&1)",
+      "Bash(make format:*)",
+      "Bash(tar xzf:*)",
+      "Bash(md5 ./activities-server)",
+      "Bash(xxd /Users/jsvana/projects/activities-server/migrations/025_callsign_history.sql)",
+      "Bash(xxd /tmp/staging-dl/migrations/025_callsign_history.sql)",
+      "Bash(gh release:*)",
+      "Bash(gh run:*)",
+      "Bash(gh cache:*)",
+      "Bash(while read:*)",
+      "Bash(do gh:*)",
+      "Bash(done)"
     ]
   }
 }

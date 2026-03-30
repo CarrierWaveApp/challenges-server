@@ -78,7 +78,7 @@ pub async fn search_equipment(
                    similarity(name, $1),
                    similarity(manufacturer || ' ' || name, $1),
                    similarity(array_to_string(aliases, ' '), $1)
-               ) AS score,
+               )::float8 AS score,
                CASE
                    WHEN similarity(name, $1) >= GREATEST(
                        similarity(manufacturer || ' ' || name, $1),
