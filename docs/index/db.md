@@ -124,6 +124,19 @@ Spot marker management for SMS-based spotting.
 - `async fn create_spot_marker()` - Create a spot marker for a participant (replaces existing), returns `SpotMarkerRow`
 - `async fn get_spot_marker()` - Look up a spot marker by code, returns `Option<SpotMarkerRow>`
 
+### `src/db/equipment.rs`
+Equipment catalog CRUD and fuzzy search queries.
+
+**Exports:**
+- `async fn get_catalog_version()` - Returns (count, latest updated_at) for catalog
+- `async fn get_catalog_entries()` - List all entries, optionally filtered by `since` timestamp
+- `async fn search_equipment()` - Fuzzy search via pg_trgm similarity
+- `async fn get_entry()` - Get single entry by ID
+- `async fn create_entry()` - Insert new equipment entry
+- `async fn update_entry()` - Partial update of equipment entry
+- `async fn delete_entry()` - Delete equipment entry by ID
+- `async fn get_catalog_fingerprint()` - Compute ETag fingerprint from count + max updated_at
+
 ### `src/db/events.rs`
 Event CRUD and proximity queries.
 

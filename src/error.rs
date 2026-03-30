@@ -49,6 +49,9 @@ pub enum AppError {
     #[error("Trail not found")]
     TrailNotFound { reference: String },
 
+    #[error("Equipment not found")]
+    EquipmentNotFound { equipment_id: String },
+
     #[error("Event not found")]
     EventNotFound { event_id: Uuid },
 
@@ -198,6 +201,11 @@ impl IntoResponse for AppError {
                 StatusCode::NOT_FOUND,
                 "TRAIL_NOT_FOUND",
                 Some(serde_json::json!({ "reference": reference })),
+            ),
+            Self::EquipmentNotFound { ref equipment_id } => (
+                StatusCode::NOT_FOUND,
+                "EQUIPMENT_NOT_FOUND",
+                Some(serde_json::json!({ "equipmentId": equipment_id })),
             ),
             Self::EventNotFound { event_id } => (
                 StatusCode::NOT_FOUND,
