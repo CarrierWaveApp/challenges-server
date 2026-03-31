@@ -51,5 +51,7 @@ pub use progress::*;
 pub use rbn::*;
 pub use spots::*;
 pub use twilio_webhook::*;
+pub mod equipment_usage;
+pub use equipment_usage::*;
 pub use upload_error_telemetry::*;
 pub use users::*;

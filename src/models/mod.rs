@@ -16,6 +16,7 @@ pub mod progress;
 pub mod spot;
 pub mod spot_marker;
 pub mod metrickit_telemetry;
+pub mod equipment_usage;
 pub mod upload_error_telemetry;
 pub mod user;
 

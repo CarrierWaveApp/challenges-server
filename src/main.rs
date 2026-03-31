@@ -220,6 +220,10 @@ fn create_router(
         .route("/twilio/sms", post(handlers::twilio_sms_webhook))
         .route("/metrics", post(handlers::ingest_metrics))
         .route("/diagnostics", post(handlers::ingest_diagnostics))
+        .route(
+            "/telemetry/equipment-usage",
+            post(handlers::report_equipment_usage),
+        )
         .layer(Extension(rbn_store))
         .layer(middleware::from_fn_with_state(
             pool.clone(),
