@@ -208,6 +208,10 @@ fn create_router(
         .route("/clubs/:id/logo", get(handlers::get_club_logo))
         .route("/equipment/catalog", get(handlers::get_catalog))
         .route("/equipment/search", get(handlers::search_equipment))
+        .route(
+            "/equipment/submissions",
+            post(handlers::submit_equipment),
+        )
         .route("/events", get(handlers::list_events))
         .route("/events/:id", get(handlers::get_event))
         .route("/rbn/spots", get(handlers::rbn_spots))
@@ -346,6 +350,14 @@ fn create_router(
         .route(
             "/admin/equipment/:id",
             put(handlers::update_equipment).delete(handlers::delete_equipment),
+        )
+        .route(
+            "/admin/equipment/submissions",
+            get(handlers::list_equipment_submissions),
+        )
+        .route(
+            "/admin/equipment/submissions/:id/review",
+            put(handlers::review_equipment_submission),
         )
         .route(
             "/admin/events",

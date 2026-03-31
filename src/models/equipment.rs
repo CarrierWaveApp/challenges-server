@@ -197,6 +197,60 @@ fn default_portability() -> String {
     "portable".to_string()
 }
 
+// ==================== Submissions ====================
+
+#[derive(Debug, Clone, FromRow)]
+pub struct EquipmentSubmissionRow {
+    pub id: uuid::Uuid,
+    pub name: String,
+    pub manufacturer: String,
+    pub category: String,
+    pub bands: Vec<String>,
+    pub modes: Vec<String>,
+    pub max_power_watts: Option<i32>,
+    pub portability: String,
+    pub weight_grams: Option<i32>,
+    pub status: String,
+    pub catalog_id: Option<String>,
+    pub app_version: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub reviewed_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SubmissionResponse {
+    pub id: uuid::Uuid,
+    pub status: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateSubmissionRequest {
+    pub name: String,
+    #[serde(default)]
+    pub manufacturer: String,
+    pub category: String,
+    #[serde(default)]
+    pub bands: Vec<String>,
+    #[serde(default)]
+    pub modes: Vec<String>,
+    pub max_power_watts: Option<i32>,
+    #[serde(default = "default_portability")]
+    pub portability: String,
+    pub weight_grams: Option<i32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReviewSubmissionRequest {
+    pub action: String,
+    pub catalog_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SubmissionListQuery {
+    pub status: Option<String>,
+    pub limit: Option<i64>,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct UpdateEquipmentRequest {
     pub name: Option<String>,

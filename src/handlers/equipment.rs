@@ -5,9 +5,13 @@ use sqlx::PgPool;
 use crate::db;
 use crate::error::AppError;
 use crate::extractors::{Json, Path};
+use axum::extract::ConnectInfo;
+use std::net::SocketAddr;
+
 use crate::models::equipment::{
-    CatalogQuery, CatalogResponse, CreateEquipmentRequest, EquipmentEntryResponse, SearchQuery,
-    SearchResponse, SearchResultEntry, UpdateEquipmentRequest,
+    CatalogQuery, CatalogResponse, CreateEquipmentRequest, CreateSubmissionRequest,
+    EquipmentEntryResponse, ReviewSubmissionRequest, SearchQuery, SearchResponse,
+    SearchResultEntry, SubmissionListQuery, SubmissionResponse, UpdateEquipmentRequest,
 };
 
 use super::DataResponse;
@@ -181,6 +185,92 @@ fn validate_portability(portability: &str) -> Result<(), AppError> {
         });
     }
     Ok(())
+}
+
+// ==================== Submissions ====================
+
+/// POST /v1/equipment/submissions
+/// Submit custom equipment for admin review. Anonymous (API key only).
+pub async fn submit_equipment(
+    State(pool): State<PgPool>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    Json(req): Json<CreateSubmissionRequest>,
+) -> Result<(StatusCode, Json<SubmissionResponse>), AppError> {
+    validate_equipment_fields(&req.category, &req.portability)?;
+
+    let ip_str = addr.ip().to_string();
+    let app_version = headers
+        .get("User-Agent")
+        .and_then(|v| v.to_str().ok())
+        .map(String::from);
+
+    let submission = db::equipment::create_submission(
+        &pool,
+        &req,
+        Some(&ip_str),
+        app_version.as_deref(),
+    )
+    .await?;
+
+    Ok((
+        StatusCode::CREATED,
+        Json(SubmissionResponse {
+            id: submission.id,
+            status: submission.status,
+        }),
+    ))
+}
+
+/// GET /v1/admin/equipment/submissions (admin)
+/// List equipment submissions for review.
+pub async fn list_equipment_submissions(
+    State(pool): State<PgPool>,
+    Query(query): Query<SubmissionListQuery>,
+) -> Result<Json<Vec<SubmissionResponse>>, AppError> {
+    let limit = query.limit.unwrap_or(50).min(200);
+    let submissions =
+        db::equipment::list_submissions(&pool, query.status.as_deref(), limit).await?;
+
+    let responses: Vec<SubmissionResponse> = submissions
+        .into_iter()
+        .map(|sub| SubmissionResponse {
+            id: sub.id,
+            status: sub.status,
+        })
+        .collect();
+
+    Ok(Json(responses))
+}
+
+/// PUT /v1/admin/equipment/submissions/:id/review (admin)
+/// Approve or reject a submission.
+pub async fn review_equipment_submission(
+    State(pool): State<PgPool>,
+    Path(submission_id): Path<uuid::Uuid>,
+    Json(req): Json<ReviewSubmissionRequest>,
+) -> Result<Json<SubmissionResponse>, AppError> {
+    let status = match req.action.as_str() {
+        "approve" => "approved",
+        "reject" => "rejected",
+        _ => {
+            return Err(AppError::Validation {
+                message: "Action must be 'approve' or 'reject'".to_string(),
+            })
+        }
+    };
+
+    let submission =
+        db::equipment::review_submission(&pool, submission_id, status, req.catalog_id.as_deref())
+            .await?
+            .ok_or(AppError::EquipmentNotFound {
+                equipment_id: submission_id.to_string(),
+            })?;
+
+    Ok(Json(SubmissionResponse {
+        id: submission.id,
+        status: submission.status,
+    }))
 }
 
 fn validate_equipment_fields(category: &str, portability: &str) -> Result<(), AppError> {

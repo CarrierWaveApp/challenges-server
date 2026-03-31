@@ -3,7 +3,8 @@ use sqlx::PgPool;
 
 use crate::error::AppError;
 use crate::models::equipment::{
-    CreateEquipmentRequest, EquipmentRow, EquipmentSearchRow, UpdateEquipmentRequest,
+    CreateEquipmentRequest, CreateSubmissionRequest, EquipmentRow, EquipmentSearchRow,
+    EquipmentSubmissionRow, UpdateEquipmentRequest,
 };
 
 /// Get the catalog version (count of entries) and latest updated_at timestamp.
@@ -256,4 +257,93 @@ pub async fn get_catalog_fingerprint(pool: &PgPool) -> Result<String, AppError> 
         .unwrap_or_else(|| "0".to_string());
 
     Ok(format!("{}-{}", count, ts))
+}
+
+// ==================== Submissions ====================
+
+/// Create a new equipment submission for admin review.
+pub async fn create_submission(
+    pool: &PgPool,
+    req: &CreateSubmissionRequest,
+    ip_address: Option<&str>,
+    app_version: Option<&str>,
+) -> Result<EquipmentSubmissionRow, AppError> {
+    let submission = sqlx::query_as::<_, EquipmentSubmissionRow>(
+        r#"
+        INSERT INTO equipment_submissions (
+            name, manufacturer, category, bands, modes,
+            max_power_watts, portability, weight_grams,
+            ip_address, app_version
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::inet, $10)
+        RETURNING id, name, manufacturer, category, bands, modes,
+                  max_power_watts, portability, weight_grams, status,
+                  catalog_id, app_version, created_at, reviewed_at
+        "#,
+    )
+    .bind(&req.name)
+    .bind(&req.manufacturer)
+    .bind(&req.category)
+    .bind(&req.bands)
+    .bind(&req.modes)
+    .bind(req.max_power_watts)
+    .bind(&req.portability)
+    .bind(req.weight_grams)
+    .bind(ip_address)
+    .bind(app_version)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(submission)
+}
+
+/// List equipment submissions, optionally filtered by status.
+pub async fn list_submissions(
+    pool: &PgPool,
+    status: Option<&str>,
+    limit: i64,
+) -> Result<Vec<EquipmentSubmissionRow>, AppError> {
+    let submissions = sqlx::query_as::<_, EquipmentSubmissionRow>(
+        r#"
+        SELECT id, name, manufacturer, category, bands, modes,
+               max_power_watts, portability, weight_grams, status,
+               catalog_id, app_version, created_at, reviewed_at
+        FROM equipment_submissions
+        WHERE ($1::text IS NULL OR status = $1)
+        ORDER BY created_at DESC
+        LIMIT $2
+        "#,
+    )
+    .bind(status)
+    .bind(limit)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(submissions)
+}
+
+/// Review (approve/reject) a submission.
+pub async fn review_submission(
+    pool: &PgPool,
+    submission_id: uuid::Uuid,
+    status: &str,
+    catalog_id: Option<&str>,
+) -> Result<Option<EquipmentSubmissionRow>, AppError> {
+    let submission = sqlx::query_as::<_, EquipmentSubmissionRow>(
+        r#"
+        UPDATE equipment_submissions
+        SET status = $2, catalog_id = $3, reviewed_at = NOW()
+        WHERE id = $1
+        RETURNING id, name, manufacturer, category, bands, modes,
+                  max_power_watts, portability, weight_grams, status,
+                  catalog_id, app_version, created_at, reviewed_at
+        "#,
+    )
+    .bind(submission_id)
+    .bind(status)
+    .bind(catalog_id)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(submission)
 }
