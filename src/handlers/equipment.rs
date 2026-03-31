@@ -5,9 +5,6 @@ use sqlx::PgPool;
 use crate::db;
 use crate::error::AppError;
 use crate::extractors::{Json, Path};
-use axum::extract::ConnectInfo;
-use std::net::SocketAddr;
-
 use crate::models::equipment::{
     CatalogQuery, CatalogResponse, CreateEquipmentRequest, CreateSubmissionRequest,
     EquipmentEntryResponse, ReviewSubmissionRequest, SearchQuery, SearchResponse,
@@ -193,13 +190,17 @@ fn validate_portability(portability: &str) -> Result<(), AppError> {
 /// Submit custom equipment for admin review. Anonymous (API key only).
 pub async fn submit_equipment(
     State(pool): State<PgPool>,
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     Json(req): Json<CreateSubmissionRequest>,
 ) -> Result<(StatusCode, Json<SubmissionResponse>), AppError> {
     validate_equipment_fields(&req.category, &req.portability)?;
 
-    let ip_str = addr.ip().to_string();
+    let ip_str = headers
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.split(',').next())
+        .map(|s| s.trim().to_string());
+
     let app_version = headers
         .get("User-Agent")
         .and_then(|v| v.to_str().ok())
@@ -208,7 +209,7 @@ pub async fn submit_equipment(
     let submission = db::equipment::create_submission(
         &pool,
         &req,
-        Some(&ip_str),
+        ip_str.as_deref(),
         app_version.as_deref(),
     )
     .await?;
