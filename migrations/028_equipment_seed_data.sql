@@ -15,6 +15,24 @@ INSERT INTO equipment_catalog (id, name, manufacturer, category, bands, modes, m
  'Full-featured all-band QRP transceiver',
  ARRAY['kx-3','kx 3']),
 
+('elecraft-kh1', 'KH1', 'Elecraft', 'radio',
+ ARRAY['40m','30m','20m','17m','15m'],
+ ARRAY['CW'], 5, 'pocket', 400,
+ 'Ultra-portable CW transceiver with built-in paddle and ATU',
+ ARRAY['kh-1','kh 1']),
+
+('elecraft-k3', 'K3', 'Elecraft', 'radio',
+ ARRAY['160m','80m','60m','40m','30m','20m','17m','15m','12m','10m','6m'],
+ ARRAY['CW','SSB','AM','FM','DIGITAL'], 100, 'base', 4200,
+ 'High-performance HF/6m transceiver',
+ ARRAY['k-3']),
+
+('elecraft-k3s', 'K3S', 'Elecraft', 'radio',
+ ARRAY['160m','80m','60m','40m','30m','20m','17m','15m','12m','10m','6m'],
+ ARRAY['CW','SSB','AM','FM','DIGITAL'], 100, 'base', 4200,
+ 'Updated high-performance HF/6m transceiver',
+ ARRAY['k-3s','k3 s']),
+
 ('elecraft-k4', 'K4', 'Elecraft', 'radio',
  ARRAY['160m','80m','60m','40m','30m','20m','17m','15m','12m','10m','6m'],
  ARRAY['CW','SSB','AM','FM','DIGITAL'], 100, 'base', 6800,
