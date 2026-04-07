@@ -19,6 +19,7 @@ A self-hostable Rust/Axum HTTP API server for ham radio challenge tracking. Enab
 | Architecture | Server structure, database, auth flow | [docs/architecture.md](docs/architecture.md) |
 | API | Public and admin endpoints | [docs/api.md](docs/api.md) |
 | Challenges | Challenge types, scoring, tiers | [docs/features/challenges.md](docs/features/challenges.md) |
+| Contest Definitions | Declarative JSON format for contests | [docs/features/contest-definitions.md](docs/features/contest-definitions.md) |
 | Leaderboards | Ranking, snapshots, queries | [docs/features/leaderboards.md](docs/features/leaderboards.md) |
 | Auth | Device tokens, callsign verification | [docs/features/auth.md](docs/features/auth.md) |
 | File Index | Source file locations and exports | [docs/index/](docs/index/) |
