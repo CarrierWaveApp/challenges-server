@@ -21,9 +21,15 @@
 
 #![allow(dead_code, unused_imports)]
 
+pub mod cabrillo;
+pub mod engine;
 pub mod types;
 pub mod validation;
 
+pub use engine::{
+    CallsignResolver, ContestSession, PhaseKind, PhaseResult, QsoRecord, ResolvedStation,
+    ScoreSummary, ScoredQso, StationConfig,
+};
 pub use types::*;
 pub use validation::{Severity, ValidationError};
 
@@ -248,6 +254,331 @@ mod tests {
         assert!(problems
             .iter()
             .any(|p| p.severity == Severity::Error && p.message.contains("sent side")));
+    }
+
+    // ---------- engine ----------
+
+    use std::collections::HashMap;
+
+    /// Test resolver mapping a few callsigns to known DXCC info.
+    struct StubResolver(HashMap<String, ResolvedStation>);
+
+    impl StubResolver {
+        fn new() -> Self {
+            let mut m = HashMap::new();
+            m.insert(
+                "K1XX".to_string(),
+                ResolvedStation {
+                    country: "K".to_string(),
+                    continent: "NA".to_string(),
+                    cq_zone: 5,
+                    itu_zone: 8,
+                    latitude: None,
+                    longitude: None,
+                    is_wae_entity: false,
+                },
+            );
+            m.insert(
+                "VE3ABC".to_string(),
+                ResolvedStation {
+                    country: "VE".to_string(),
+                    continent: "NA".to_string(),
+                    cq_zone: 4,
+                    itu_zone: 4,
+                    latitude: None,
+                    longitude: None,
+                    is_wae_entity: false,
+                },
+            );
+            m.insert(
+                "G3XYZ".to_string(),
+                ResolvedStation {
+                    country: "G".to_string(),
+                    continent: "EU".to_string(),
+                    cq_zone: 14,
+                    itu_zone: 27,
+                    latitude: None,
+                    longitude: None,
+                    is_wae_entity: false,
+                },
+            );
+            m.insert(
+                "JA1ABC".to_string(),
+                ResolvedStation {
+                    country: "JA".to_string(),
+                    continent: "AS".to_string(),
+                    cq_zone: 25,
+                    itu_zone: 45,
+                    latitude: None,
+                    longitude: None,
+                    is_wae_entity: false,
+                },
+            );
+            Self(m)
+        }
+    }
+
+    impl CallsignResolver for StubResolver {
+        fn resolve(&self, callsign: &str) -> Option<ResolvedStation> {
+            self.0.get(callsign).cloned()
+        }
+    }
+
+    fn cqww_station() -> StationConfig {
+        StationConfig {
+            callsign: "W1AW".to_string(),
+            country: "K".to_string(),
+            continent: "NA".to_string(),
+            cq_zone: 5,
+            itu_zone: 8,
+            ..Default::default()
+        }
+    }
+
+    fn make_qso(call: &str, band: &str, mode: &str, recv: &[(&str, serde_json::Value)]) -> QsoRecord {
+        let mut received = HashMap::new();
+        for (k, v) in recv {
+            received.insert(k.to_string(), v.clone());
+        }
+        QsoRecord {
+            callsign: call.to_string(),
+            band: band.to_string(),
+            mode: mode.to_string(),
+            timestamp_ms: 1_700_000_000_000,
+            frequency_khz: None,
+            received,
+            sent_serial: None,
+        }
+    }
+
+    #[test]
+    fn cwt_simple_scoring() {
+        let def = load("cwt.json");
+        let contest = def.contests[0].clone();
+        let mut session = ContestSession::new(contest, cqww_station(), StubResolver::new());
+
+        // Three QSOs, two unique callsigns.
+        let q1 = session.log_qso(make_qso(
+            "K1XX",
+            "20m",
+            "CW",
+            &[
+                ("name", serde_json::json!("BOB")),
+                ("identifier", serde_json::json!("123")),
+            ],
+        ));
+        assert!(!q1.is_dupe);
+        assert_eq!(q1.points, 1);
+
+        let q2 = session.log_qso(make_qso(
+            "VE3ABC",
+            "20m",
+            "CW",
+            &[
+                ("name", serde_json::json!("ANN")),
+                ("identifier", serde_json::json!("999")),
+            ],
+        ));
+        assert_eq!(q2.points, 1);
+
+        // Same callsign and band → dupe.
+        let q3 = session.log_qso(make_qso(
+            "K1XX",
+            "20m",
+            "CW",
+            &[
+                ("name", serde_json::json!("BOB")),
+                ("identifier", serde_json::json!("123")),
+            ],
+        ));
+        assert!(q3.is_dupe);
+        assert_eq!(q3.points, 0);
+
+        let summary = session.summary();
+        assert_eq!(summary.qso_count, 2);
+        assert_eq!(summary.dupe_count, 1);
+        // 2 QSOs * 2 mults = 4
+        assert_eq!(summary.total, 4);
+    }
+
+    #[test]
+    fn cqww_continent_scoring_and_mults() {
+        let def = load("cqww-cw.json");
+        let contest = def.contests[0].clone();
+        let mut session = ContestSession::new(contest, cqww_station(), StubResolver::new());
+
+        // Same country (K → K): 0 points but counts for mults.
+        let q1 = session.log_qso(make_qso(
+            "K1XX",
+            "20m",
+            "CW",
+            &[("rst", serde_json::json!("599")), ("cq_zone", serde_json::json!(5))],
+        ));
+        assert_eq!(q1.points, 0);
+        assert!(!q1.is_dupe);
+
+        // Same continent NA (W → VE): 2 points.
+        let q2 = session.log_qso(make_qso(
+            "VE3ABC",
+            "20m",
+            "CW",
+            &[("rst", serde_json::json!("599")), ("cq_zone", serde_json::json!(4))],
+        ));
+        assert_eq!(q2.points, 2);
+
+        // Different continent (W → G): 3 points.
+        let q3 = session.log_qso(make_qso(
+            "G3XYZ",
+            "20m",
+            "CW",
+            &[("rst", serde_json::json!("599")), ("cq_zone", serde_json::json!(14))],
+        ));
+        assert_eq!(q3.points, 3);
+
+        // Different continent (W → JA): 3 points.
+        let q4 = session.log_qso(make_qso(
+            "JA1ABC",
+            "20m",
+            "CW",
+            &[("rst", serde_json::json!("599")), ("cq_zone", serde_json::json!(25))],
+        ));
+        assert_eq!(q4.points, 3);
+
+        let summary = session.summary();
+        assert_eq!(summary.qso_count, 4);
+        // qso_points: 0 + 2 + 3 + 3 = 8
+        let qp = summary.phases.iter().find(|p| p.id == "qso_points").unwrap();
+        assert_eq!(qp.value, 8);
+
+        // Country mults on 20m: K, VE, G, JA = 4
+        let mc = summary.phases.iter().find(|p| p.id == "mult_countries").unwrap();
+        assert_eq!(mc.value, 4);
+        // Zone mults on 20m: 5, 4, 14, 25 = 4
+        let mz = summary.phases.iter().find(|p| p.id == "mult_zones").unwrap();
+        assert_eq!(mz.value, 4);
+        // total = qso_points * (countries + zones) = 8 * (4 + 4) = 64
+        assert_eq!(summary.total, 64);
+    }
+
+    #[test]
+    fn cqww_per_band_mults_separate() {
+        let def = load("cqww-cw.json");
+        let contest = def.contests[0].clone();
+        let mut session = ContestSession::new(contest, cqww_station(), StubResolver::new());
+
+        // Work G3XYZ on 20m and 15m → counts as 2 country mults total.
+        session.log_qso(make_qso(
+            "G3XYZ",
+            "20m",
+            "CW",
+            &[("rst", serde_json::json!("599")), ("cq_zone", serde_json::json!(14))],
+        ));
+        session.log_qso(make_qso(
+            "G3XYZ",
+            "15m",
+            "CW",
+            &[("rst", serde_json::json!("599")), ("cq_zone", serde_json::json!(14))],
+        ));
+
+        let summary = session.summary();
+        let mc = summary.phases.iter().find(|p| p.id == "mult_countries").unwrap();
+        assert_eq!(mc.value, 2);
+        assert_eq!(mc.per_band.get("20m").copied(), Some(1));
+        assert_eq!(mc.per_band.get("15m").copied(), Some(1));
+    }
+
+    #[test]
+    fn rescore_matches_incremental() {
+        let def = load("cqww-cw.json");
+        let contest = def.contests[0].clone();
+        let mut s1 = ContestSession::new(contest.clone(), cqww_station(), StubResolver::new());
+        let records = vec![
+            make_qso("VE3ABC", "20m", "CW", &[("rst", serde_json::json!("599")), ("cq_zone", serde_json::json!(4))]),
+            make_qso("G3XYZ", "20m", "CW", &[("rst", serde_json::json!("599")), ("cq_zone", serde_json::json!(14))]),
+            make_qso("JA1ABC", "15m", "CW", &[("rst", serde_json::json!("599")), ("cq_zone", serde_json::json!(25))]),
+        ];
+        for r in &records {
+            s1.log_qso(r.clone());
+        }
+        let inc = s1.summary();
+
+        let mut s2 = ContestSession::new(contest, cqww_station(), StubResolver::new());
+        s2.rescore(records);
+        let resc = s2.summary();
+
+        assert_eq!(inc.total, resc.total);
+        assert_eq!(inc.qso_count, resc.qso_count);
+    }
+
+    #[test]
+    fn mst_assigns_serial_numbers() {
+        let def = load("mst.json");
+        let contest = def.contests[0].clone();
+        let mut session = ContestSession::new(contest, cqww_station(), StubResolver::new());
+
+        let q1 = session.log_qso(make_qso(
+            "K1XX",
+            "20m",
+            "CW",
+            &[("name", serde_json::json!("BOB")), ("serial", serde_json::json!(1))],
+        ));
+        assert_eq!(q1.sent_serial, Some(1));
+
+        let q2 = session.log_qso(make_qso(
+            "VE3ABC",
+            "20m",
+            "CW",
+            &[("name", serde_json::json!("ANN")), ("serial", serde_json::json!(1))],
+        ));
+        assert_eq!(q2.sent_serial, Some(2));
+
+        // Dupe does not consume a serial number.
+        let q3 = session.log_qso(make_qso(
+            "K1XX",
+            "20m",
+            "CW",
+            &[("name", serde_json::json!("BOB")), ("serial", serde_json::json!(1))],
+        ));
+        assert!(q3.is_dupe);
+        assert_eq!(q3.sent_serial, None);
+
+        let q4 = session.log_qso(make_qso(
+            "G3XYZ",
+            "20m",
+            "CW",
+            &[("name", serde_json::json!("JOE")), ("serial", serde_json::json!(1))],
+        ));
+        assert_eq!(q4.sent_serial, Some(3));
+    }
+
+    #[test]
+    fn callsign_normalization() {
+        assert_eq!(engine::normalize_callsign("k1abc"), "K1ABC");
+        assert_eq!(engine::normalize_callsign("K1ABC/QRP"), "K1ABC");
+        assert_eq!(engine::normalize_callsign("K1ABC/M"), "K1ABC");
+        assert_eq!(engine::normalize_callsign("K1ABC/P"), "K1ABC");
+        // /W1 is a different entity, do not strip.
+        assert_eq!(engine::normalize_callsign("VE3XYZ/W1"), "VE3XYZ/W1");
+    }
+
+    #[test]
+    fn cabrillo_export_smoke() {
+        let def = load("cwt.json");
+        let contest = def.contests[0].clone();
+        let mut session = ContestSession::new(contest, cqww_station(), StubResolver::new());
+        session.log_qso(make_qso(
+            "K1XX",
+            "20m",
+            "CW",
+            &[("name", serde_json::json!("BOB")), ("identifier", serde_json::json!("123"))],
+        ));
+        let log = cabrillo::export(&session);
+        assert!(log.starts_with("START-OF-LOG: 3.0\n"));
+        assert!(log.contains("CONTEST: CWT"));
+        assert!(log.contains("CALLSIGN: W1AW"));
+        assert!(log.contains("QSO:"));
+        assert!(log.contains("K1XX"));
+        assert!(log.trim_end().ends_with("END-OF-LOG:"));
     }
 
     #[test]

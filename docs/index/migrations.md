@@ -219,3 +219,14 @@ Equipment catalog schema with pg_trgm fuzzy search support.
 Seed data for equipment catalog with POTA/portable-popular gear.
 
 Includes radios (Elecraft, Icom, Yaesu, LNR, QRP Labs, Xiegu, Lab599), antennas (EFHW, Spooltenna, Chameleon, Buddipole, SOTAbeams, PackTenna, Wolf River, Super Antenna), keys (CW Morse, Begali, Vibroplex, N0SA, Palm, AME), microphones (Heil Sound), and accessories (Bioenno batteries, masts).
+
+### `migrations/032_contest_definitions.sql`
+Storage for v0.3 contest definitions. Each contest within a definition file
+becomes its own row keyed by `contest.id`.
+
+**Tables:**
+- `contest_definitions`
+  - Columns: id (TEXT PK), name, short_name, sponsor_name, sponsor_url, format_version, definition (JSONB), is_active, created_at, updated_at
+
+**Indexes:**
+- `idx_contest_definitions_active` - Active filter + name ordering for list endpoint

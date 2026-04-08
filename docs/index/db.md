@@ -20,6 +20,15 @@ Challenge CRUD queries.
 - `async fn update_challenge()` - Update challenge, increments version, returns `Option<Challenge>`
 - `async fn delete_challenge()` - Delete challenge by ID, returns `bool`
 
+### `src/db/contest_definitions.rs`
+Contest definition CRUD against the `contest_definitions` table.
+
+**Exports:**
+- `async fn list()` - List contest definitions, optionally including inactive
+- `async fn get()` - Get a single contest definition by id
+- `async fn upsert_all()` - Transactionally upsert every contest in a `ContestDefinition` file
+- `async fn delete()` - Hard-delete a contest definition by id
+
 ### `src/db/participants.rs`
 Participant and challenge participation management.
 

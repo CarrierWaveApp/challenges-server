@@ -1,7 +1,7 @@
 # Contest Definitions Index
 
-Self-contained module that loads, validates, and (eventually) scores
-amateur radio contest definitions in the v0.3 JSON format.
+Self-contained module that loads, validates, and scores amateur radio
+contest definitions in the v0.3 JSON format.
 
 See [docs/features/contest-definitions.md](../features/contest-definitions.md)
 for the format reference.
@@ -55,6 +55,33 @@ Serde data types for the format.
 - `struct Category` - Entry category with id, label, band, power_classes, op_count
 - `enum OpCount` - single, multi, multi_two, multi_multi
 - `struct OverlayCategory` - Stacking overlay category with optional max_on_hours / max_license_years
+
+### `src/contest/engine.rs`
+Scoring engine: state, dupe checking, multiplier accumulation, per-QSO
+rule evaluation, aggregate computation.
+
+**Exports:**
+- `trait CallsignResolver` - Consumer-supplied callsign-to-DXCC lookup. Single method `resolve(callsign) -> Option<ResolvedStation>`.
+- `struct ResolvedStation` - DXCC info: country, continent, cq_zone, itu_zone, lat/lon, is_wae_entity
+- `struct StationConfig` - Operator station: callsign, country, continent, zones, grid, state/province, section, name, power, class
+- `struct QsoRecord` - Submitted QSO: callsign, band, mode, timestamp_ms, frequency_khz, received exchange map, optional pre-assigned sent_serial
+- `struct ScoredQso` - Enriched QSO: normalized_callsign, resolved, points, matched_rule_index, is_dupe, new_multipliers, sent_serial
+- `struct ScoreSummary` - Snapshot: qso_count, dupe_count, per-phase results, total
+- `struct PhaseResult` - `{ id, kind, value, per_band }`
+- `enum PhaseKind` - PerQso, MultiplierCount, Aggregate
+- `struct ContestSession<R: CallsignResolver>` - Mutable scoring state
+- `impl ContestSession::new()` - Build a session from a Contest + StationConfig + resolver
+- `impl ContestSession::log_qso()` - Hot path: dupe check, callsign resolve, per-QSO scoring, multiplier accumulation, sent serial assignment
+- `impl ContestSession::rescore()` - Full rebuild from a Vec<QsoRecord>
+- `impl ContestSession::summary()` - Snapshot the current ScoreSummary
+- `impl ContestSession::qsos()` / `contest()` / `station()` - Accessors
+- `fn normalize_callsign()` - Strip portable suffixes (/QRP, /M, /P, etc.) and uppercase
+
+### `src/contest/cabrillo.rs`
+Cabrillo 3.0 export from a scored session.
+
+**Exports:**
+- `fn export(&ContestSession) -> String` - Generate a Cabrillo log with START-OF-LOG, CONTEST, CALLSIGN, LOCATION, GRID-LOCATOR headers and one QSO line per non-dupe scored QSO. Field layout derived from the contest's exchange definition.
 
 ### `src/contest/validation.rs`
 Semantic validation pass that runs after structural deserialization.

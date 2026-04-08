@@ -2,6 +2,7 @@ pub mod activities;
 pub mod badges;
 pub mod challenges;
 pub mod clubs;
+pub mod contest_definitions;
 pub mod equipment;
 pub mod events;
 pub mod friend_invites;

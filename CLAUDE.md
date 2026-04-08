@@ -138,6 +138,11 @@ SNAPSHOT_MAX_AGE_HOURS=24                                      # Optional, defau
 - `GET /v1/rbn/stats` - RBN aggregate statistics (band/mode breakdown, rate)
 - `GET /v1/rbn/skimmers` - Active RBN skimmers with spot counts
 - `GET /v1/health` - Health check (includes RBN status when enabled)
+- `GET /v1/contests` - List active contest definitions
+- `GET /v1/contests/{id}` - Get a single contest definition
+- `POST /v1/admin/contests` - Upsert all contests in a definition file (admin)
+- `DELETE /v1/admin/contests/{id}` - Delete a contest definition (admin)
+- `POST /v1/admin/contests/validate` - Validate a contest definition without saving (admin)
 - `GET /v1/events` - List approved events near a location
 - `GET /v1/events/{id}` - Get single approved event
 - `POST /v1/events` - Submit a new event (auth required)

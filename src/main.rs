@@ -181,6 +181,8 @@ fn create_router(
             "/challenges/:id/leaderboard",
             get(handlers::get_leaderboard),
         )
+        .route("/contests", get(handlers::list_contests))
+        .route("/contests/:id", get(handlers::get_contest))
         .route("/badges/:id/image", get(handlers::get_badge_image))
         .route("/programs", get(handlers::list_programs))
         .route("/programs/:slug", get(handlers::get_program))
@@ -304,6 +306,12 @@ fn create_router(
         .route("/admin/challenges", post(handlers::create_challenge))
         .route("/admin/challenges/:id", put(handlers::update_challenge))
         .route("/admin/challenges/:id", delete(handlers::delete_challenge))
+        .route("/admin/contests", post(handlers::upsert_contests))
+        .route("/admin/contests/:id", delete(handlers::delete_contest))
+        .route(
+            "/admin/contests/validate",
+            post(handlers::validate_contests),
+        )
         .route(
             "/admin/challenges/:id/badges",
             post(handlers::upload_badge).get(handlers::list_badges),

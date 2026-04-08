@@ -1,6 +1,7 @@
 pub mod activity;
 pub mod badge;
 pub mod challenge;
+pub mod contest_definition;
 pub mod equipment;
 pub mod event;
 pub mod club;

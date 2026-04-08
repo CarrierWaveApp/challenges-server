@@ -21,6 +21,20 @@ Challenge-related data structures.
 - `struct ListChallengesQuery` - Query params for listing challenges (Deserialize)
 - `impl From<Challenge> for ChallengeResponse` - Conversion for API response
 
+### `src/models/contest_definition.rs`
+Contest definition row + response types for the `contest_definitions` table.
+The full format types live in `src/contest/types.rs`.
+
+**Exports:**
+- `struct ContestDefinitionRow` - Database row (FromRow)
+- `struct ContestDefinitionResponse` - API response for a single contest definition (camelCase)
+- `struct ContestDefinitionListItem` - Compact list item (camelCase)
+- `struct ListContestsQuery` - Query params (`includeInactive`)
+- `struct ValidateContestsRequest` - Body for the validate-only admin endpoint
+- `struct ValidationProblem` - Single validation problem in API responses (camelCase)
+- `struct ValidateContestsResponse` - `{ valid, problems, contestCount }`
+- `impl From<ContestDefinitionRow> for ContestDefinitionResponse` / `ContestDefinitionListItem`
+
 ### `src/models/participant.rs`
 Participant and participation data structures.
 

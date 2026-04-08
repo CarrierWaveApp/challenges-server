@@ -52,6 +52,15 @@ pub enum AppError {
     #[error("Equipment not found")]
     EquipmentNotFound { equipment_id: String },
 
+    #[error("Contest definition not found")]
+    ContestDefinitionNotFound { contest_id: String },
+
+    #[error("Invalid contest definition")]
+    InvalidContestDefinition {
+        message: String,
+        problems: Vec<crate::models::contest_definition::ValidationProblem>,
+    },
+
     #[error("Event not found")]
     EventNotFound { event_id: Uuid },
 
@@ -206,6 +215,16 @@ impl IntoResponse for AppError {
                 StatusCode::NOT_FOUND,
                 "EQUIPMENT_NOT_FOUND",
                 Some(serde_json::json!({ "equipmentId": equipment_id })),
+            ),
+            Self::ContestDefinitionNotFound { ref contest_id } => (
+                StatusCode::NOT_FOUND,
+                "CONTEST_DEFINITION_NOT_FOUND",
+                Some(serde_json::json!({ "contestId": contest_id })),
+            ),
+            Self::InvalidContestDefinition { message, problems } => (
+                StatusCode::BAD_REQUEST,
+                "INVALID_CONTEST_DEFINITION",
+                Some(serde_json::json!({ "message": message, "problems": problems })),
             ),
             Self::EventNotFound { event_id } => (
                 StatusCode::NOT_FOUND,

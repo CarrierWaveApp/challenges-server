@@ -22,6 +22,20 @@ Challenge CRUD operations and listing.
 - `async fn update_challenge()` - PUT /v1/admin/challenges/:id - Update challenge (admin)
 - `async fn delete_challenge()` - DELETE /v1/admin/challenges/:id - Delete challenge (admin)
 
+### `src/handlers/contests.rs`
+Contest definition CRUD, listing, and validation. See the loader/validator
+in [docs/index/contest.md](contest.md) and the format reference in
+[docs/features/contest-definitions.md](../features/contest-definitions.md).
+
+**Exports:**
+- `struct ListContestsResponse` - Wrapper around `Vec<ContestDefinitionListItem>`
+- `struct UpsertContestsResponse` - Wrapper for the upsert response with `contests` and `warnings`
+- `async fn list_contests()` - GET /v1/contests - List active contest definitions (?includeInactive=true)
+- `async fn get_contest()` - GET /v1/contests/:id - Get full contest definition
+- `async fn upsert_contests()` - POST /v1/admin/contests - Upsert all contests in a definition file (validates first; rejects on errors)
+- `async fn delete_contest()` - DELETE /v1/admin/contests/:id - Hard-delete a contest definition
+- `async fn validate_contests()` - POST /v1/admin/contests/validate - Validate without persisting
+
 ### `src/handlers/join.rs`
 Challenge participation management.
 
