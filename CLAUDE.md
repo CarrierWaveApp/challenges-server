@@ -19,6 +19,7 @@ A self-hostable Rust/Axum HTTP API server for ham radio challenge tracking. Enab
 | Architecture | Server structure, database, auth flow | [docs/architecture.md](docs/architecture.md) |
 | API | Public and admin endpoints | [docs/api.md](docs/api.md) |
 | Challenges | Challenge types, scoring, tiers | [docs/features/challenges.md](docs/features/challenges.md) |
+| Contest Definitions | Declarative JSON format for contests | [docs/features/contest-definitions.md](docs/features/contest-definitions.md) |
 | Leaderboards | Ranking, snapshots, queries | [docs/features/leaderboards.md](docs/features/leaderboards.md) |
 | Auth | Device tokens, callsign verification | [docs/features/auth.md](docs/features/auth.md) |
 | File Index | Source file locations and exports | [docs/index/](docs/index/) |
@@ -80,6 +81,7 @@ SNAPSHOT_MAX_AGE_HOURS=24                                      # Optional, defau
 | Data structures | [docs/index/models.md](docs/index/models.md) |
 | Authentication | [docs/index/auth.md](docs/index/auth.md) |
 | Core (main, config, error) | [docs/index/core.md](docs/index/core.md) |
+| Contest Definitions (loader/validator) | [docs/index/contest.md](docs/index/contest.md) |
 | Migrations | [docs/index/migrations.md](docs/index/migrations.md) |
 | POTA Stats | [docs/index/pota_stats.md](docs/index/pota_stats.md) |
 | Park Boundaries | [docs/index/park_boundaries.md](docs/index/park_boundaries.md) |
@@ -136,6 +138,11 @@ SNAPSHOT_MAX_AGE_HOURS=24                                      # Optional, defau
 - `GET /v1/rbn/stats` - RBN aggregate statistics (band/mode breakdown, rate)
 - `GET /v1/rbn/skimmers` - Active RBN skimmers with spot counts
 - `GET /v1/health` - Health check (includes RBN status when enabled)
+- `GET /v1/contests` - List active contest definitions
+- `GET /v1/contests/{id}` - Get a single contest definition
+- `POST /v1/admin/contests` - Upsert all contests in a definition file (admin)
+- `DELETE /v1/admin/contests/{id}` - Delete a contest definition (admin)
+- `POST /v1/admin/contests/validate` - Validate a contest definition without saving (admin)
 - `GET /v1/events` - List approved events near a location
 - `GET /v1/events/{id}` - Get single approved event
 - `POST /v1/events` - Submit a new event (auth required)
