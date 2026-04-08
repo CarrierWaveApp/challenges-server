@@ -1,6 +1,7 @@
 mod aggregators;
 mod auth;
 mod config;
+mod contest;
 mod db;
 mod error;
 mod extractors;

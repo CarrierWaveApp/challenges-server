@@ -81,6 +81,7 @@ SNAPSHOT_MAX_AGE_HOURS=24                                      # Optional, defau
 | Data structures | [docs/index/models.md](docs/index/models.md) |
 | Authentication | [docs/index/auth.md](docs/index/auth.md) |
 | Core (main, config, error) | [docs/index/core.md](docs/index/core.md) |
+| Contest Definitions (loader/validator) | [docs/index/contest.md](docs/index/contest.md) |
 | Migrations | [docs/index/migrations.md](docs/index/migrations.md) |
 | POTA Stats | [docs/index/pota_stats.md](docs/index/pota_stats.md) |
 | Park Boundaries | [docs/index/park_boundaries.md](docs/index/park_boundaries.md) |
